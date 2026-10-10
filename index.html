@@ -1,0 +1,822 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Island Sim</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Familjen+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: full-bleed 3D atoll; resource bar on top, tool rail on the left (bottom strip on phones), logbook on the right. Single deliberate look: a navigator's chart table at dusk. */
+:root{
+  --ink:#0c1f2a; --ink-2:#132d3b; --line:#24495a;
+  --sand:#f3e6c4; --sand-dim:#b7ab8c;
+  --coral:#ff8a5c; --reef:#4fd1c5; --warn:#ffcf5a; --bad:#ff6b6b;
+  --f-display:"Young Serif", Georgia, "Times New Roman", serif;
+  --f-ui:"Familjen Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-num:"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;background:var(--ink);color:var(--sand);font-family:var(--f-ui);overflow:hidden}
+#app{position:relative;height:100%;width:100%;overflow:hidden}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:crosshair;background:#8fc9dc}
+.panel{background:color-mix(in srgb,var(--ink) 90%,transparent);border:1px solid var(--line);border-radius:10px;backdrop-filter:blur(6px)}
+button{font:inherit;color:inherit}
+button:focus-visible{outline:2px solid var(--coral);outline-offset:2px}
+#bar{position:absolute;top:10px;left:10px;right:10px;display:flex;align-items:center;gap:14px;padding:8px 12px;flex-wrap:wrap}
+#bar h1{font-family:var(--f-display);font-weight:400;font-size:20px;margin:0;white-space:nowrap}
+#bar h1 small{font-family:var(--f-ui);font-size:11px;color:var(--sand-dim);letter-spacing:.12em;text-transform:uppercase;margin-left:8px}
+.stats{display:flex;gap:16px;flex-wrap:wrap;align-items:baseline;font-variant-numeric:tabular-nums}
+.stat{display:flex;gap:6px;align-items:baseline}
+.stat b{font-family:var(--f-num);font-weight:500;font-size:15px}
+.stat span{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--sand-dim)}
+.pos{color:var(--reef)} .neg{color:var(--bad)}
+.ctrls{margin-left:auto;display:flex;gap:10px;flex-wrap:wrap}
+.seg{display:flex;gap:4px}
+.seg button{background:transparent;border:1px solid var(--line);border-radius:6px;padding:3px 9px;cursor:pointer;font-family:var(--f-num);font-size:12px;min-width:30px}
+.seg button[aria-pressed="true"]{background:var(--coral);color:var(--ink);border-color:var(--coral)}
+.seg button:hover{border-color:var(--sand-dim)}
+#tools{position:absolute;left:10px;top:70px;bottom:10px;width:188px;padding:10px;display:flex;flex-direction:column;gap:10px;overflow-y:auto}
+.grp-title{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--sand-dim);margin:2px 2px 4px}
+.tgrid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.tool{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:6px 7px;background:var(--ink-2);border:1px solid var(--line);border-radius:7px;cursor:pointer;text-align:left;min-width:0}
+.tool:hover{border-color:var(--sand-dim)}
+.tool[aria-pressed="true"]{border-color:var(--coral);box-shadow:inset 0 0 0 1px var(--coral)}
+.tool .nm{font-weight:700;font-size:13px;display:flex;justify-content:space-between;width:100%;gap:4px}
+.tool .nm kbd{font-family:var(--f-num);font-size:10px;color:var(--sand-dim);font-weight:500}
+.tool .cs{font-family:var(--f-num);font-size:10px;color:var(--sand-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.tool.wide{grid-column:span 2}
+.brush{display:flex;gap:5px;margin-top:6px}
+.brush button{flex:1;background:var(--ink-2);border:1px solid var(--line);border-radius:6px;padding:4px;cursor:pointer;font-family:var(--f-num);font-size:12px}
+.brush button[aria-pressed="true"]{border-color:var(--coral);color:var(--coral)}
+.hint{font-size:11.5px;line-height:1.45;color:var(--sand-dim);margin:0}
+#side{position:absolute;right:10px;top:70px;width:292px;max-height:calc(100% - 80px);padding:12px;display:flex;flex-direction:column;gap:12px;overflow-y:auto}
+#side h2{font-family:var(--f-display);font-weight:400;font-size:16px;margin:0 0 6px}
+.goals{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.goals li{display:grid;grid-template-columns:18px 1fr;gap:6px;font-size:12.5px;line-height:1.35}
+.goals li .ck{width:14px;height:14px;border:1.5px solid var(--sand-dim);border-radius:50%;margin-top:1px}
+.goals li.done{color:var(--sand-dim);text-decoration:line-through}
+.goals li.done .ck{background:var(--reef);border-color:var(--reef)}
+.goals li.now .ck{border-color:var(--coral)}
+.goals li .sub{display:block;font-size:11px;color:var(--sand-dim)}
+table.isl{width:100%;border-collapse:collapse;font-family:var(--f-num);font-size:11px;font-variant-numeric:tabular-nums}
+table.isl th{font-family:var(--f-ui);font-weight:500;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--sand-dim);text-align:right;padding:2px 3px;border-bottom:1px solid var(--line)}
+table.isl th:first-child,table.isl td:first-child{text-align:left;font-family:var(--f-ui);font-size:12px}
+table.isl td{text-align:right;padding:4px 3px;border-bottom:1px solid color-mix(in srgb,var(--line) 50%,transparent)}
+.boats{font-size:12px;display:flex;flex-direction:column;gap:4px;margin:0;padding:0;list-style:none}
+.boats li{display:flex;gap:6px;align-items:baseline}
+.dot{width:8px;height:8px;border-radius:50%;flex:none;display:inline-block}
+#insp{font-size:12.5px;line-height:1.45;min-height:56px}
+#insp .k{color:var(--sand-dim)} #insp .ttl{font-weight:700}
+.toggle{display:none}
+#labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.lbl{position:absolute;transform:translate(-50%,-50%);font-family:var(--f-display);font-size:15px;color:#fffaf0;text-shadow:0 1px 3px rgba(0,30,50,.8),0 0 12px rgba(0,30,50,.5);white-space:nowrap;letter-spacing:.03em}
+#toasts{position:absolute;left:210px;bottom:14px;display:flex;flex-direction:column;gap:6px;pointer-events:none;max-width:min(460px,calc(100% - 230px))}
+.toast{padding:7px 11px;font-size:13px;border-left:3px solid var(--coral);animation:tin .25s ease-out}
+.toast.good{border-left-color:var(--reef)} .toast.bad{border-left-color:var(--bad)}
+@keyframes tin{from{transform:translateY(6px);opacity:.3}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.toast{animation:none}}
+#loading{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--f-display);font-size:18px;background:var(--ink)}
+@media (max-width:760px){
+  #bar{top:6px;left:6px;right:6px;gap:8px;padding:6px 10px}
+  #bar h1 small{display:none}
+  .stats{gap:10px}
+  .ctrls{margin-left:0}
+  #tools{top:auto;left:6px;right:6px;bottom:6px;width:auto;max-height:46%;flex-direction:row;overflow-x:auto;overflow-y:hidden;padding:8px;gap:12px}
+  #tools section{flex:none}
+  .tgrid{grid-template-columns:repeat(4,92px)}
+  #tools .hint{display:none}
+  #side{top:120px;right:6px;width:min(292px,calc(100% - 12px));max-height:calc(100% - 330px);padding:8px}
+  #side.closed{width:auto}
+  #side.closed > :not(.toggle){display:none}
+  .toggle{display:block;background:var(--ink-2);border:1px solid var(--line);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px}
+  #toasts{left:10px;bottom:auto;top:160px;max-width:calc(100% - 120px)}
+  .lbl{font-size:12px}
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <canvas id="cv" aria-label="3D view of the atoll"></canvas>
+  <div id="labels"></div>
+  <header id="bar" class="panel">
+    <h1>Island Sim<small>Atoll prototype</small></h1>
+    <div class="stats">
+      <div class="stat"><span>Gold</span><b id="sGold">0</b><b id="sRate" class="pos" style="font-size:12px">+0/s</b></div>
+      <div class="stat"><span>Residents</span><b id="sPop">0</b></div>
+      <div class="stat"><span>Day</span><b id="sDay">1</b></div>
+    </div>
+    <div class="ctrls">
+      <div class="seg" role="group" aria-label="Camera">
+        <button id="rotL" title="Rotate left (Q)" aria-label="Rotate camera left">⟲</button>
+        <button id="rotR" title="Rotate right (E)" aria-label="Rotate camera right">⟳</button>
+        <button id="home" title="Reset view" aria-label="Reset camera">⌂</button>
+      </div>
+      <div class="seg" role="group" aria-label="Game speed">
+        <button data-speed="0" aria-pressed="false">II</button>
+        <button data-speed="1" aria-pressed="true">1×</button>
+        <button data-speed="3" aria-pressed="false">3×</button>
+        <button data-speed="6" aria-pressed="false">6×</button>
+      </div>
+    </div>
+  </header>
+  <nav id="tools" class="panel" aria-label="Tools">
+    <section>
+      <p class="grp-title">Terraform</p>
+      <div class="tgrid" id="tTerra"></div>
+      <div class="brush" role="group" aria-label="Brush size">
+        <button data-brush="0" aria-pressed="true">1×1</button>
+        <button data-brush="1" aria-pressed="false">3×3</button>
+        <button data-brush="2" aria-pressed="false">5×5</button>
+      </div>
+    </section>
+    <section>
+      <p class="grp-title">Build</p>
+      <div class="tgrid" id="tBuild"></div>
+    </section>
+    <p class="hint">Left-drag paints the tool (in Survey it pans). Right-drag or Q/E rotates, wheel or pinch zooms, WASD pans. Raising land costs stone from the nearest harbor; lowering returns some.</p>
+  </nav>
+  <aside id="side" class="panel">
+    <button class="toggle" id="sideToggle" aria-expanded="true">Logbook ▾</button>
+    <section><h2>Charter</h2><ul class="goals" id="goals"></ul></section>
+    <section><h2>Islands</h2><table class="isl" id="islTable"></table></section>
+    <section><h2>Boats</h2><ul class="boats" id="boats"></ul></section>
+    <section><h2>Survey</h2><div id="insp"></div></section>
+  </aside>
+  <div id="toasts" aria-live="polite"></div>
+  <div id="loading">Charting the atoll…</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(()=>{
+'use strict';
+if(!window.THREE){document.getElementById('loading').textContent='The 3D engine could not load. Check your connection and reload.';return}
+const W=128,H=128,MINH=-3,MAXH=7;
+const AC={x:64,y:64,R:46}; // atoll centre and ring radius
+const ISL=[ // islands on the atoll rim: angle (deg), angular half-extent, radial half-width, peak
+  {name:'Palm Isle',  ang:228,ext:30,rw:6.5,peak:4},
+  {name:'Basalt Isle',ang:312,ext:26,rw:8.5,peak:7},
+  {name:'Sugar Cay',  ang:92, ext:32,rw:6,  peak:2.3},
+];
+const PASS_ANG=168;
+const GOODS=['wood','stone','fish','sugar','rum'];
+const GOOD_LABEL={wood:'Wood',stone:'Stone',fish:'Fish',sugar:'Sugar',rum:'Rum'};
+const DEF={
+  harbor:    {name:'Harbor',     key:'H', cost:{gold:300,wood:10}, upkeep:0.4, h:[0,1], jobs:0, info:'Island warehouse and boat berth. Needs a coastal tile; boats need deep water beside it.'},
+  house:     {name:'House',      key:'1', cost:{gold:20,wood:3},   upkeep:0,   h:[0,2], jobs:0, info:'Up to 4 residents on fish, 8 with rum. Pays tax when fed.'},
+  fishery:   {name:'Fishery',    key:'2', cost:{gold:60,wood:5},   upkeep:0.15,h:[0,1], jobs:2, info:'Coast only. Catch grows with shallow reef tiles within 2.'},
+  lumber:    {name:'Lumber camp',key:'3', cost:{gold:50},          upkeep:0.1, h:[1,4], jobs:2, info:'Cuts wood from trees within 2 tiles. Terraforming clears trees.'},
+  quarry:    {name:'Quarry',     key:'4', cost:{gold:80,wood:5},   upkeep:0.25,h:[3,6], jobs:2, info:'Hills only (height 3+). Higher ground yields more stone.'},
+  plantation:{name:'Sugar field',key:'5', cost:{gold:60,wood:4},   upkeep:0.15,h:[1,2], jobs:2, info:'Lowland (height 1–2). +50% within 2 tiles of water.'},
+  distillery:{name:'Distillery', key:'6', cost:{gold:150,wood:8,stone:6}, upkeep:0.4, h:[0,3], jobs:2, info:'Turns sugar into rum.'},
+};
+const TERRA={
+  inspect:{name:'Survey',key:'V',cs:'look & pan'},
+  raise:  {name:'Raise',key:'R',cs:'4g + 1 stone'},
+  lower:  {name:'Lower',key:'F',cs:'4g, +½ stone'},
+  flatten:{name:'Level',key:'T',cs:'match first tile'},
+  demolish:{name:'Demolish',key:'X',cs:'50% refund'},
+};
+
+let S, comp, islands=[], boats=[], terrainVer=0;
+let origin=new Uint8Array(W*H);
+let dirtyTerrain=true, dirtyTrees=true;
+const idx=(x,y)=>y*W+x, inb=(x,y)=>x>=0&&y>=0&&x<W&&y<H;
+const N4=[[1,0],[-1,0],[0,1],[0,-1]];
+const rad=d=>d*Math.PI/180;
+const angDiff=(a,b)=>((a-b)%360+540)%360-180;
+
+function rng(seed){let s=seed>>>0;return()=>{s=(s+0x6D2B79F5)>>>0;let t=s;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296}}
+function hash2(x,y,s){let h=(x*374761393+y*668265263+s*982451653)>>>0;h=Math.imul(h^(h>>>13),1274126177);return((h^(h>>>16))>>>0)/4294967296}
+function vnoise(x,y,s){const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+  const a=hash2(xi,yi,s),b=hash2(xi+1,yi,s),c=hash2(xi,yi+1,s),d=hash2(xi+1,yi+1,s);return a+(b-a)*u+(c-a)*v+(a-b-c+d)*u*v}
+function fbm(x,y,s){return vnoise(x,y,s)*.55+vnoise(x*2.1,y*2.1,s+7)*.3+vnoise(x*4.3,y*4.3,s+13)*.15}
+function islCentre(I){return{x:AC.x+Math.cos(rad(I.ang))*AC.R,y:AC.y+Math.sin(rad(I.ang))*AC.R}}
+
+// ---------- map: one atoll ----------
+function generate(){
+  const h=new Int8Array(W*H),tree=new Uint8Array(W*H),rnd=rng(20261010);
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    const dx=x-AC.x,dy=y-AC.y,d=Math.hypot(dx,dy);
+    let a=Math.atan2(dy,dx)*180/Math.PI;if(a<0)a+=360;
+    const R=AC.R+(fbm(Math.cos(rad(a))*2+5,Math.sin(rad(a))*2+5,4)-.5)*5;
+    const r=d-R;
+    let v;
+    if(r>9) v=-3;
+    else if(r>-3) v=-1;                                  // reef flat on the rim
+    else v=-2-(fbm(x*.08,y*.08,6)>.62?1:0);              // deep lagoon
+    if(v===-2&&r<-8&&fbm(x*.21,y*.21,8)>.74) v=-1;       // scattered coral heads
+    if(r>8.5&&r<=11) v=-2;
+    ISL.forEach((I,k)=>{
+      const u=r/I.rw, w=angDiff(a,I.ang)/I.ext;
+      const e=Math.hypot(u,w)+(fbm(x*.16,y*.16,11+k)-.5)*.5;
+      if(e<1.15){
+        const t=Math.max(0,1-e);
+        const hv=-1+(I.peak+1.6)*Math.pow(t,.7)+(fbm(x*.3,y*.3,21+k)-.5)*(I.peak>3?1.3:.5);
+        if(hv>-0.5&&hv>v)v=hv;                           // islands rise straight out of the lagoon
+      }
+      // Sugar Cay sits behind broad lagoon flats: too shallow for boats
+      if(k===2&&r<0&&r>-20&&Math.abs(angDiff(a,I.ang))<I.ext+10&&v<-1) v=-1;
+    });
+    if(Math.abs(angDiff(a,PASS_ANG))<2.2&&v<0&&r>-6) v=-2; // natural pass to the ocean
+    const hv=Math.max(MINH,Math.min(MAXH,Math.round(v)));
+    h[idx(x,y)]=hv;
+    let org=255;
+    if(hv>=0){let bd=1e9;ISL.forEach((I,k)=>{const c=islCentre(I);const dd=Math.hypot(x-c.x,y-c.y);if(dd<bd){bd=dd;org=k}})}
+    origin[idx(x,y)]=org;
+  }
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    const i=idx(x,y),hv=h[i],f=fbm(x*.22,y*.22,99),o=origin[i];
+    const dens=o===0?.44:o===1?.5:.66;
+    if(hv>=1&&hv<=4&&f>dens) tree[i]=hv<=1&&rnd()<.5?2:1;
+    else if(hv===0&&rnd()<.12) tree[i]=2;
+  }
+  return{h,tree};
+}
+
+function newGame(){
+  const g=generate();
+  S={h:g.h,tree:g.tree,bld:new Int32Array(W*H).fill(-1),buildings:[],gold:1200,t:0,nextId:1,stats:{rum:0,sugarTrip:0},goals:{},capital:0};
+  computeIslands();
+  let best=null,bs=1e9;
+  for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){
+    const i=idx(x,y);if(origin[i]!==0||S.h[i]!==0||!berthOf(x,y))continue;
+    const s=Math.hypot(x-AC.x,y-AC.y)+Math.abs(angDiff(Math.atan2(y-AC.y,x-AC.x)*180/Math.PI,ISL[0].ang+8))*0.4;
+    if(s<bs){bs=s;best=[x,y]}
+  }
+  if(!best){ // guarantee a berth: take Palm's lagoon-side beach and dredge beside it
+    for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){const i=idx(x,y);if(origin[i]!==0||S.h[i]!==0||!adjWater(x,y))continue;const s=Math.hypot(x-AC.x,y-AC.y);if(s<bs){bs=s;best=[x,y]}}
+    for(const[dx,dy]of N4){const i=idx(best[0]+dx,best[1]+dy);if(S.h[i]<0)S.h[i]=-2}
+  }
+  const hb=addBuilding('harbor',best[0],best[1]);
+  hb.stock={wood:30,stone:24,fish:20,sugar:0,rum:0};
+  S.capital=hb.id;computeIslands();
+  for(const type of ['house','house','house','house','fishery','lumber']){
+    let pick=null,pd=1e9;
+    for(let y=best[1]-12;y<=best[1]+12;y++)for(let x=best[0]-12;x<=best[0]+12;x++){
+      if(!canPlace(type,x,y,true).ok)continue;
+      const d=Math.hypot(x-best[0],y-best[1]);
+      const score=d-(type==='lumber'?countAround(x,y,2,i=>S.tree[i]>0)*0.6:0)-(type==='fishery'?countAround(x,y,2,i=>S.h[i]===-1)*0.4:0);
+      if(score<pd){pd=score;pick=[x,y]}
+    }
+    if(pick){const b=addBuilding(type,pick[0],pick[1]);if(type==='house')b.res=3}
+  }
+  computeIslands();dirtyTrees=true;
+}
+function addBuilding(type,x,y){
+  const i=idx(x,y);
+  const b={id:S.nextId++,type,x,y,res:type==='house'?2:0,eff:0,status:'',stock:type==='harbor'?{wood:0,stone:0,fish:0,sugar:0,rum:0}:null};
+  S.buildings.push(b);S.bld[i]=b.id;if(S.tree[i]){S.tree[i]=0;dirtyTrees=true}
+  return b;
+}
+const byId=id=>S.buildings.find(b=>b.id===id);
+function bAt(x,y){const id=S.bld[idx(x,y)];return id>=0?byId(id):null}
+
+// ---------- islands ----------
+function computeIslands(){
+  comp=new Int16Array(W*H).fill(-1);islands=[];
+  const q=new Int32Array(W*H);
+  for(let i=0;i<W*H;i++){if(S.h[i]>=0&&origin[i]===255){const x=i%W,y=(i/W)|0;let bd=1e9,o=0;ISL.forEach((I,k)=>{const c=islCentre(I);const d=Math.hypot(x-c.x,y-c.y);if(d<bd){bd=d;o=k}});origin[i]=o}}
+  for(let s=0;s<W*H;s++){
+    if(S.h[s]<0||comp[s]>=0)continue;
+    const id=islands.length;let qh=0,qt=0;q[qt++]=s;comp[s]=id;const cnt=[0,0,0];let n=0,sx=0,sy=0;
+    while(qh<qt){const c=q[qh++];n++;const o=origin[c];if(o<3)cnt[o]++;const cx=c%W,cy=(c/W)|0;sx+=cx;sy+=cy;
+      for(const[dx,dy]of N4){const nx=cx+dx,ny=cy+dy;if(!inb(nx,ny))continue;const ni=idx(nx,ny);if(S.h[ni]>=0&&comp[ni]<0){comp[ni]=id;q[qt++]=ni}}}
+    const parts=[0,1,2].filter(k=>cnt[k]>Math.max(6,n*0.08));
+    let name=parts.length?parts.map(k=>ISL[k].name.split(' ')[0]).join('–'):'Islet';
+    if(parts.length===1)name=ISL[parts[0]].name;
+    islands.push({id,n,name,parts,harbor:null,res:0,jobs:0,eff:1,cx:sx/n,cy:sy/n});
+  }
+  const hs=S.buildings.filter(b=>b.type==='harbor').sort((a,b)=>a.id-b.id);
+  for(const b of hs){
+    const isl=islands[comp[idx(b.x,b.y)]];if(!isl)continue;
+    if(!isl.harbor){isl.harbor=b;b.merged=false}
+    else{for(const g of GOODS){isl.harbor.stock[g]+=b.stock[g];b.stock[g]=0}b.merged=true}
+  }
+  for(const b of S.buildings)b.isl=comp[idx(b.x,b.y)];
+  syncBoats();
+}
+const capitalHarbor=()=>byId(S.capital);
+const capitalIsland=()=>{const c=capitalHarbor();return c?islands[comp[idx(c.x,c.y)]]:null};
+function islandOf(x,y){const c=comp[idx(x,y)];return c>=0?islands[c]:null}
+function countAround(x,y,r,fn){let n=0;for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){const nx=x+dx,ny=y+dy;if(!inb(nx,ny)||(dx===0&&dy===0))continue;if(fn(idx(nx,ny)))n++}return n}
+const adjWater=(x,y)=>N4.some(([dx,dy])=>inb(x+dx,y+dy)&&S.h[idx(x+dx,y+dy)]<0);
+function berthOf(x,y){for(const[dx,dy]of N4){const nx=x+dx,ny=y+dy;if(inb(nx,ny)&&S.h[idx(nx,ny)]<=-2)return[nx,ny]}return null}
+
+// ---------- boats ----------
+function islandName(b){const isl=islands[comp[idx(b.x,b.y)]];return isl?isl.name:'?'}
+function syncBoats(){
+  const cap=capitalHarbor(),capIsl=capitalIsland(),keep=[];
+  for(const isl of islands){
+    const hb=isl.harbor;if(!hb||!cap||isl===capIsl)continue;
+    let bt=boats.find(b=>b.home===hb.id);
+    if(!bt){const p=berthOf(hb.x,hb.y)||[hb.x,hb.y];bt={home:hb.id,x:p[0],y:p[1],path:null,pi:0,dir:'out',cargo:{},state:'idle',ver:-1,trips:0,ang:0}}
+    keep.push(bt);
+  }
+  for(const b of boats)if(!keep.includes(b)){const hb=byId(b.home);if(hb&&islands[hb.isl]===capIsl)toast(`Land bridge made the ${islandName(hb)} boat unnecessary; goods now move overland.`,'good')}
+  boats=keep;
+}
+function bfsPath(sx,sy,tx,ty){
+  if(!inb(sx,sy)||S.h[idx(sx,sy)]>-2)return null;
+  const prev=new Int32Array(W*H).fill(-1),q=new Int32Array(W*H);let qh=0,qt=0;const s=idx(sx,sy),t=idx(tx,ty);
+  q[qt++]=s;prev[s]=s;
+  while(qh<qt){const c=q[qh++];if(c===t)break;const cx=c%W,cy=(c/W)|0;
+    for(const[dx,dy]of N4){const nx=cx+dx,ny=cy+dy;if(!inb(nx,ny))continue;const ni=idx(nx,ny);if(prev[ni]<0&&S.h[ni]<=-2){prev[ni]=c;q[qt++]=ni}}}
+  if(prev[t]<0)return null;
+  const path=[];for(let c=t;c!==s;c=prev[c])path.push([c%W,(c/W)|0]);path.push([sx,sy]);return path.reverse();
+}
+function planBoat(bt){
+  const hb=byId(bt.home),cap=capitalHarbor();bt.ver=terrainVer;
+  const hbB=berthOf(hb.x,hb.y),capB=berthOf(cap.x,cap.y);
+  if(!hbB){bt.state='blocked';bt.why=`No deep water beside the ${islandName(hb)} harbor`;bt.path=null;return}
+  if(!capB){bt.state='blocked';bt.why='No deep water beside the capital harbor';bt.path=null;return}
+  let sx=Math.round(bt.x),sy=Math.round(bt.y);
+  if(!inb(sx,sy)||S.h[idx(sx,sy)]>-2){
+    if(bt.state==='sail'){toast(`The ${islandName(hb)} boat ran aground and lost its cargo.`,'bad');bt.cargo={}}
+    sx=hbB[0];sy=hbB[1];bt.x=sx;bt.y=sy;bt.dir='out';
+  }
+  const tgt=bt.dir==='out'?capB:hbB;
+  const p=bfsPath(sx,sy,tgt[0],tgt[1]);
+  if(!p){bt.state='blocked';bt.path=null;bt.why=`No deep-water route to ${bt.dir==='out'?'the capital':islandName(hb)}. Shallows block boats.`;return}
+  bt.path=p;bt.pi=0;bt.state='sail';bt.why='';
+}
+function unload(to,bt){for(const g in bt.cargo)to.stock[g]+=bt.cargo[g];bt.cargo={}}
+function load(from,to,bt){for(const g of GOODS){const amt=Math.min(25,Math.floor((from.stock[g]-to.stock[g])/2));if(amt>0){from.stock[g]-=amt;bt.cargo[g]=amt}}}
+function stepBoats(dt){
+  if(!capitalHarbor())return;
+  for(const bt of boats){
+    const hb=byId(bt.home);if(!hb)continue;
+    const home=islands[hb.isl]?.harbor,capH=capitalIsland()?.harbor;if(!home||!capH)continue;
+    if(bt.ver!==terrainVer)planBoat(bt);
+    if(bt.state!=='sail'||!bt.path)continue;
+    let move=5*dt;
+    while(move>0&&bt.pi<bt.path.length-1){
+      const[nx,ny]=bt.path[bt.pi+1];const dx=nx-bt.x,dy=ny-bt.y,d=Math.hypot(dx,dy);
+      if(d>0)bt.ang=Math.atan2(dy,dx);
+      if(d<=move){bt.x=nx;bt.y=ny;bt.pi++;move-=d}else{bt.x+=dx/d*move;bt.y+=dy/d*move;move=0}
+    }
+    if(bt.pi>=bt.path.length-1){
+      if(bt.dir==='out'){unload(capH,bt);load(capH,home,bt);bt.dir='home'}
+      else{unload(home,bt);load(home,capH,bt);bt.dir='out';bt.trips++;if(origin[idx(hb.x,hb.y)]===2)S.stats.sugarTrip++}
+      planBoat(bt);
+    }
+  }
+}
+
+// ---------- placement ----------
+function stockOf(isl){return isl&&isl.harbor?isl.harbor.stock:null}
+function canPlace(type,x,y,free){
+  if(!inb(x,y))return{ok:false,why:''};
+  const i=idx(x,y),hv=S.h[i],d=DEF[type];
+  if(S.bld[i]>=0)return{ok:false,why:'Tile is occupied'};
+  if(hv<0)return{ok:false,why:'Needs land. Raise this tile first.'};
+  if(hv<d.h[0]||hv>d.h[1])return{ok:false,why:`${d.name} needs height ${d.h[0]}–${d.h[1]} (this tile is ${hv})`};
+  const isl=islandOf(x,y);
+  if(type==='harbor'){
+    if(!adjWater(x,y))return{ok:false,why:'Harbor must touch the sea'};
+    if(isl.harbor)return{ok:false,why:`${isl.name} already has a harbor`};
+  }else{
+    if(!isl.harbor)return{ok:false,why:`${isl.name} has no harbor yet. Build one first.`};
+    if(type==='fishery'&&!adjWater(x,y))return{ok:false,why:'Fishery must touch the sea'};
+  }
+  if(free)return{ok:true};
+  const st=type==='harbor'?capitalIsland()?.harbor?.stock:stockOf(isl);
+  for(const k in d.cost){
+    if(k==='gold'){if(S.gold<d.cost.gold)return{ok:false,why:`Need ${d.cost.gold} gold`}}
+    else if(!st||st[k]<d.cost[k])return{ok:false,why:`Need ${d.cost[k]} ${k} in ${type==='harbor'?'the capital':isl.name} stock`};
+  }
+  return{ok:true};
+}
+function place(type,x,y){
+  const r=canPlace(type,x,y);if(!r.ok){if(r.why)toast(r.why,'bad');return false}
+  const isl=islandOf(x,y),d=DEF[type];
+  const st=type==='harbor'?capitalIsland().harbor.stock:stockOf(isl);
+  for(const k in d.cost){if(k==='gold')S.gold-=d.cost.gold;else st[k]-=d.cost[k]}
+  const b=addBuilding(type,x,y);
+  if(type==='harbor'){computeIslands();
+    if(!berthOf(x,y))toast('Harbor built, but no deep water touches it. Lower a neighbouring shallow so boats can dock.','bad');
+    else toast(`Harbor founded on ${isl.name}. Its boat will try to sail for the capital.`,'good');
+  }else b.isl=comp[idx(x,y)];
+  return true;
+}
+function demolish(x,y){
+  const b=bAt(x,y);if(!b)return;
+  if(b.id===S.capital){toast('The capital harbor cannot be demolished','bad');return}
+  S.gold+=Math.floor((DEF[b.type].cost.gold||0)/2);
+  if(b.type==='harbor'&&!b.merged){const other=S.buildings.find(o=>o!==b&&o.type==='harbor'&&o.isl===b.isl);if(other)for(const g of GOODS)other.stock[g]+=b.stock[g]}
+  S.buildings=S.buildings.filter(o=>o!==b);S.bld[idx(x,y)]=-1;
+  if(b.type==='harbor')computeIslands();
+  toast(`${DEF[b.type].name} demolished`);
+}
+
+// ---------- terraforming ----------
+function nearestHarborIsland(x,y){let best=null,bd=1e9;for(const isl of islands){const h=isl.harbor;if(!h)continue;const d=Math.abs(h.x-x)+Math.abs(h.y-y);if(d<bd){bd=d;best=isl}}return best}
+function terraform(x,y,mode,target){
+  if(!inb(x,y))return{ok:false};
+  const i=idx(x,y),cur=S.h[i];
+  let to=cur;
+  if(mode==='raise')to=Math.min(MAXH,cur+1);else if(mode==='lower')to=Math.max(MINH,cur-1);else if(mode==='flatten')to=target;
+  if(to===cur)return{ok:true,noop:true};
+  const b=bAt(x,y);if(b)return{ok:false,why:`Demolish the ${DEF[b.type].name} before reshaping its tile`};
+  const steps=Math.abs(to-cur),up=to>cur;
+  const src=nearestHarborIsland(x,y),st=src?.harbor?.stock,gold=4*steps;
+  if(S.gold<gold)return{ok:false,why:'Not enough gold to move earth'};
+  if(up&&(!st||st.stone<steps))return{ok:false,why:`Need ${steps} stone at ${src?src.name:'a harbor'} to raise land`};
+  S.gold-=gold;if(up)st.stone-=steps;else if(st)st.stone+=steps*0.5;
+  const wasLand=cur>=0,isLand=to>=0;
+  S.h[i]=to;if(S.tree[i]){S.tree[i]=0;dirtyTrees=true}
+  if(wasLand!==isLand)origin[i]=255;
+  terrainVer++;dirtyTerrain=true;
+  return{ok:true,coast:wasLand!==isLand};
+}
+
+// ---------- simulation ----------
+function step(dt){
+  S.t+=dt;
+  for(const isl of islands){isl.res=0;isl.jobs=0}
+  for(const b of S.buildings){const isl=islands[b.isl];if(!isl)continue;if(b.type==='house')isl.res+=b.res;else isl.jobs+=DEF[b.type].jobs}
+  for(const isl of islands)isl.eff=isl.jobs?Math.min(1,isl.res/isl.jobs):1;
+  let income=0,upkeep=0;
+  for(const b of S.buildings){
+    const d=DEF[b.type];upkeep+=d.upkeep;
+    const isl=islands[b.isl],st=stockOf(isl);
+    if(b.type==='harbor'){b.status=b.merged?`Merged into the ${isl?.name} warehouse`:(berthOf(b.x,b.y)?'Berth open':'No deep-water berth');continue}
+    if(!st){b.eff=0;b.status='No harbor on this island';continue}
+    const e=isl.eff;b.eff=e;
+    switch(b.type){
+      case'house':{
+        const need=0.012*b.res*dt;let fed=false,lux=false;
+        if(st.fish>=need){st.fish-=need;fed=true}
+        const rn=0.005*b.res*dt;if(fed&&st.rum>=rn){st.rum-=rn;lux=true}
+        const cap=lux?8:4;
+        if(fed)b.res=b.res<cap?Math.min(cap,b.res+0.06*dt):Math.max(cap,b.res-0.04*dt);else b.res=Math.max(1,b.res-0.04*dt);
+        if(fed)income+=0.1*b.res*(lux?2:1);
+        b.status=!fed?'Hungry: needs fish':lux?'Fed and enjoying rum':'Fed (rum would double tax)';b.eff=fed?1:0.3;break}
+      case'fishery':{const n=countAround(b.x,b.y,2,i=>S.h[i]===-1);const r=(0.06+0.035*Math.min(n,10))*e;st.fish+=r*dt;b.rate=r;b.status=`${n} reef tiles nearby`;break}
+      case'lumber':{const n=countAround(b.x,b.y,2,i=>S.tree[i]>0);const r=0.03*Math.min(n,12)*e;st.wood+=r*dt;b.rate=r;b.status=n?`${n} trees in reach`:'No trees in reach';if(!n)b.eff=0;break}
+      case'quarry':{const hv=S.h[idx(b.x,b.y)];const r=(0.15+0.05*(hv-3))*e;st.stone+=r*dt;b.rate=r;b.status=`Height ${hv} rock`;break}
+      case'plantation':{const near=countAround(b.x,b.y,2,i=>S.h[i]<0)>0;const r=0.12*(near?1.5:1)*e;st.sugar+=r*dt;b.rate=r;b.status=near?'Coastal soil, +50%':'Inland soil';break}
+      case'distillery':{const want=0.2*e*dt;const take=Math.min(want,st.sugar);st.sugar-=take;st.rum+=take/2;S.stats.rum+=take/2;b.rate=take/2/dt;b.status=take<want*0.5?'Waiting for sugar':'Distilling';if(take<want*0.5)b.eff=0;break}
+    }
+    if(d.jobs&&e<1)b.status+=` · ${Math.round(e*100)}% staffed`;
+  }
+  S.gold+=(income-upkeep)*dt;
+  S.rate=(S.rate??0)*0.9+(income-upkeep)*0.1;
+  stepBoats(dt);
+  if(Math.random()<dt*3){const x=(Math.random()*W)|0,y=(Math.random()*H)|0,i=idx(x,y);
+    if(!S.tree[i]&&S.bld[i]<0&&S.h[i]>=1&&S.h[i]<=4&&countAround(x,y,1,j=>S.tree[j]===1)>=2){S.tree[i]=1;dirtyTrees=true}}
+}
+
+// ---------- goals ----------
+const GOALS=[
+  {id:'grow',  t:'Grow Palm Isle to 30 residents',        s:'Houses need fish. Fisheries love reef shallows.', ok:()=>(capitalIsland()?.res||0)>=30},
+  {id:'basalt',t:'Quarry stone on Basalt Isle',            s:'Settle it with a harbor across the lagoon, or raise a land bridge along the reef.', ok:()=>S.buildings.some(b=>b.type==='quarry'&&origin[idx(b.x,b.y)]===1&&b.eff>0&&stockOf(islands[b.isl]))},
+  {id:'sugar', t:'Link Sugar Cay to the capital',          s:'Broad lagoon flats keep boats away. Dredge a channel to its harbor.', ok:()=>S.stats.sugarTrip>0||((capitalIsland()?.parts||[]).includes(2)&&S.buildings.some(b=>b.type==='plantation'&&origin[idx(b.x,b.y)]===2))},
+  {id:'rum',   t:'Distil 25 barrels of rum',                s:'Sugar fields feed distilleries. Rum doubles house tax.', ok:()=>S.stats.rum>=25},
+  {id:'pop',   t:'Reach 200 residents across the atoll',    s:'', ok:()=>totalPop()>=200},
+];
+const totalPop=()=>S.buildings.reduce((a,b)=>a+(b.type==='house'?b.res:0),0);
+function checkGoals(){for(const g of GOALS){if(!S.goals[g.id]&&g.ok()){S.goals[g.id]=true;toast(`Charter goal met: ${g.t}`,'good');if(GOALS.every(x=>S.goals[x.id]))toast('Every charter goal met. The atoll thrives.','good')}}}
+
+// =====================================================================
+// 3D
+// =====================================================================
+const cv=document.getElementById('cv');
+const renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true});
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputEncoding=THREE.sRGBEncoding;
+const scene=new THREE.Scene();
+const SKY=new THREE.Color('#9fd3e6').convertSRGBToLinear();
+scene.background=SKY;scene.fog=new THREE.Fog(SKY,240,520);
+const camera=new THREE.PerspectiveCamera(42,1,0.5,800);
+scene.add(new THREE.HemisphereLight(0xdff3ff,0x3a5a40,0.75));
+const sun=new THREE.DirectionalLight(0xfff1d6,0.95);
+sun.position.set(W/2-60,90,H/2-40);sun.target.position.set(W/2,0,H/2);
+sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);
+Object.assign(sun.shadow.camera,{left:-85,right:85,top:85,bottom:-85,near:10,far:260});
+sun.shadow.bias=-0.0008;sun.shadow.normalBias=0.03;
+scene.add(sun,sun.target);
+
+const LVL=0.62;                                  // world units per height level
+const topY=h=>h>=0?0.28+h*LVL:h*LVL-0.12;        // tile surface height
+const WATER_Y=0.02;
+const COL={'-3':'#0f3558','-2':'#1d6d92','-1':'#7fd8c4','0':'#efdba3','1':'#8cc864','2':'#6faf4f','3':'#8b9a52','4':'#93835f','5':'#857b74','6':'#a39d98','7':'#ecebe8'};
+const colCache={};for(const k in COL)colCache[k]=new THREE.Color(COL[k]).convertSRGBToLinear();
+
+// terrain: shared corner vertices (smoothed) + a centre vertex per tile at its exact height
+const NC=(W+1)*(H+1);
+const tGeo=new THREE.BufferGeometry();
+const tPos=new Float32Array((NC+W*H)*3),tCol=new Float32Array((NC+W*H)*3);
+const tIdx=new Uint32Array(W*H*12);
+{let k=0;for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+  const a=y*(W+1)+x,b=a+1,c=a+W+1,d=c+1,m=NC+idx(x,y);
+  tIdx.set([a,c,m, c,d,m, d,b,m, b,a,m],k);k+=12}}
+for(let y=0;y<=H;y++)for(let x=0;x<=W;x++){const v=y*(W+1)+x;tPos[v*3]=x;tPos[v*3+2]=y}
+for(let y=0;y<H;y++)for(let x=0;x<W;x++){const v=NC+idx(x,y);tPos[v*3]=x+.5;tPos[v*3+2]=y+.5}
+tGeo.setAttribute('position',new THREE.BufferAttribute(tPos,3));
+tGeo.setAttribute('color',new THREE.BufferAttribute(tCol,3));
+tGeo.setIndex(new THREE.BufferAttribute(tIdx,1));
+const terrain=new THREE.Mesh(tGeo,new THREE.MeshLambertMaterial({vertexColors:true}));
+terrain.receiveShadow=true;terrain.castShadow=true;scene.add(terrain);
+const tmpC=new THREE.Color();
+function tileColor(x,y,out){
+  const i=idx(x,y),h=S.h[i];out.copy(colCache[h]);
+  const n=(hash2(x,y,5)-.5)*0.06;out.r+=n;out.g+=n;out.b+=n*.6;
+  if(h>=1&&h<=4&&S.tree[i]===1){out.r*=.82;out.g*=.9;out.b*=.8}
+  return out;
+}
+function rebuildTerrain(){
+  for(let y=0;y<=H;y++)for(let x=0;x<=W;x++){
+    let sh=0,n=0,r=0,g=0,b=0,landSum=0,landN=0;
+    for(const[dx,dy]of[[-1,-1],[0,-1],[-1,0],[0,0]]){const tx=x+dx,ty=y+dy;if(!inb(tx,ty))continue;const h=S.h[idx(tx,ty)];
+      sh+=topY(h);n++;tileColor(tx,ty,tmpC);r+=tmpC.r;g+=tmpC.g;b+=tmpC.b;if(h>=0){landSum+=topY(h);landN++}}
+    const v=y*(W+1)+x;
+    let yy=n?sh/n:topY(-3);if(landN>=2)yy=Math.max(yy,Math.min(landSum/landN,0.12)); // keep coasts crisp
+    tPos[v*3+1]=yy;tCol[v*3]=r/n;tCol[v*3+1]=g/n;tCol[v*3+2]=b/n;
+  }
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const v=NC+idx(x,y);tPos[v*3+1]=topY(S.h[idx(x,y)]);tileColor(x,y,tmpC);tCol[v*3]=tmpC.r;tCol[v*3+1]=tmpC.g;tCol[v*3+2]=tmpC.b}
+  tGeo.attributes.position.needsUpdate=true;tGeo.attributes.color.needsUpdate=true;
+  tGeo.computeVertexNormals();tGeo.computeBoundingSphere();
+  dirtyTerrain=false;
+}
+// outer seabed and water
+const seabed=new THREE.Mesh(new THREE.PlaneGeometry(900,900),new THREE.MeshLambertMaterial({color:new THREE.Color('#0c2c4a').convertSRGBToLinear()}));
+seabed.rotation.x=-Math.PI/2;seabed.position.set(W/2,topY(-3)-0.05,H/2);scene.add(seabed);
+const wGeo=new THREE.PlaneGeometry(W+120,H+120,70,70);wGeo.rotateX(-Math.PI/2);
+const wBase=Float32Array.from(wGeo.attributes.position.array);
+const water=new THREE.Mesh(wGeo,new THREE.MeshPhongMaterial({color:new THREE.Color('#0f8fb0').convertSRGBToLinear(),transparent:true,opacity:.5,shininess:90,specular:new THREE.Color('#bfefff'),depthWrite:false}));
+water.position.set(W/2,WATER_Y,H/2);water.receiveShadow=true;scene.add(water);
+function animateWater(t){const p=wGeo.attributes.position.array;for(let i=0;i<p.length;i+=3){const x=wBase[i],z=wBase[i+2];p[i+1]=Math.sin(x*.35+t*1.1)*.04+Math.cos(z*.3+t*.8)*.04}wGeo.attributes.position.needsUpdate=true;wGeo.computeVertexNormals()}
+
+// trees (instanced)
+const MAXT=7000;
+const M=(c)=>new THREE.MeshLambertMaterial({color:new THREE.Color(c).convertSRGBToLinear()});
+const mat={trunk:M('#6b4a2c'),leaf:M('#2f7a36'),palm:M('#3f9a3e'),wall:M('#f3ead8'),roof:M('#c4573a'),wood:M('#8a5d36'),plank:M('#b07c4c'),stone:M('#9c958d'),stoneD:M('#6e6862'),field:M('#b9a659'),crop:M('#5c9a33'),copper:M('#d39a4a'),dark:M('#3a2a1e'),capFlag:M('#ff8a5c'),flag:M('#4fd1c5'),pip:new THREE.MeshBasicMaterial({color:new THREE.Color('#ff5a4f').convertSRGBToLinear()})};
+const trunkI=new THREE.InstancedMesh(new THREE.CylinderGeometry(.06,.09,.5,5).translate(0,.25,0),mat.trunk,MAXT);
+const crownI=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(.36,0).translate(0,.72,0),mat.leaf,MAXT);
+const pTrunkI=new THREE.InstancedMesh(new THREE.CylinderGeometry(.04,.07,.95,5).translate(0,.47,0),mat.trunk,MAXT);
+const pCrownI=new THREE.InstancedMesh(new THREE.ConeGeometry(.42,.22,7).translate(0,.98,0),mat.palm,MAXT);
+for(const m of[trunkI,crownI,pTrunkI,pCrownI]){m.castShadow=true;m.count=0;scene.add(m)}
+const dummy=new THREE.Object3D();
+function rebuildTrees(){
+  let a=0,p=0;
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=idx(x,y),t=S.tree[i];if(!t||S.h[i]<0)continue;
+    const s=.8+hash2(x,y,3)*.5;dummy.position.set(x+.5+(hash2(x,y,8)-.5)*.4,topY(S.h[i]),y+.5+(hash2(x,y,9)-.5)*.4);dummy.rotation.set(0,hash2(x,y,4)*6,0);dummy.scale.set(s,s,s);dummy.updateMatrix();
+    if(t===1&&a<MAXT){trunkI.setMatrixAt(a,dummy.matrix);crownI.setMatrixAt(a,dummy.matrix);a++}
+    else if(t===2&&p<MAXT){dummy.rotation.z=(hash2(x,y,6)-.5)*.25;dummy.updateMatrix();pTrunkI.setMatrixAt(p,dummy.matrix);pCrownI.setMatrixAt(p,dummy.matrix);p++}}
+  trunkI.count=crownI.count=a;pTrunkI.count=pCrownI.count=p;
+  for(const m of[trunkI,crownI,pTrunkI,pCrownI])m.instanceMatrix.needsUpdate=true;
+  dirtyTrees=false;
+}
+
+// building models
+function box(w,h,d,m,x=0,y=0,z=0){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y+h/2,z);o.castShadow=true;o.receiveShadow=true;return o}
+function cyl(r1,r2,h,m,x=0,y=0,z=0,seg=8){const o=new THREE.Mesh(new THREE.CylinderGeometry(r1,r2,h,seg),m);o.position.set(x,y+h/2,z);o.castShadow=true;return o}
+function makeModel(type,capital){
+  const g=new THREE.Group();g.scale.setScalar(1.25);
+  switch(type){
+    case'harbor':g.add(box(.96,.1,.96,mat.plank),box(.5,.42,.46,mat.wood,-.12,.1,-.1),box(.56,.06,.52,mat.roof,-.12,.52,-.1),cyl(.02,.02,.9,mat.dark,.3,.1,.3,5),box(.26,.14,.02,capital?mat.capFlag:mat.flag,.43,.82,.3));
+      for(const[x,z]of[[-.45,.45],[.45,-.45],[.45,.45]])g.add(cyl(.04,.04,.35,mat.wood,x,-.25,z,5));break;
+    case'house':{g.add(box(.52,.36,.46,mat.wall));const r=new THREE.Mesh(new THREE.ConeGeometry(.45,.32,4),mat.roof);r.rotation.y=Math.PI/4;r.position.y=.52;r.castShadow=true;g.add(r,box(.1,.18,.02,mat.dark,0,0,.24));break}
+    case'fishery':g.add(box(.5,.32,.42,mat.wood,-.1,0,0),box(.58,.05,.5,mat.plank,-.1,.32,0),box(.36,.04,.16,mat.wood,.25,0,.25));
+      for(let k=0;k<3;k++)g.add(cyl(.015,.015,.4,mat.dark,.2+k*.1,0,-.3,4));break;
+    case'lumber':g.add(box(.46,.3,.4,mat.wood,-.15,0,-.1),box(.52,.05,.46,mat.plank,-.15,.3,-.1));
+      for(let k=0;k<3;k++){const l=new THREE.Mesh(new THREE.CylinderGeometry(.07,.07,.5,6),mat.plank);l.rotation.z=Math.PI/2;l.position.set(.1,.07+(k===2?.12:0),.2+(k===1?.14:k===2?.07:0));l.castShadow=true;g.add(l)}break;
+    case'quarry':g.add(box(.8,.12,.8,mat.stoneD),box(.3,.26,.3,mat.stone,-.2,.12,-.15),box(.24,.18,.28,mat.stone,.2,.12,.15),box(.18,.14,.18,mat.stone,.22,.12,-.22));break;
+    case'plantation':g.add(box(.94,.04,.94,mat.field));for(let k=0;k<4;k++)g.add(box(.12,.16,.84,mat.crop,-.33+k*.22,.04,0));break;
+    case'distillery':g.add(box(.6,.4,.5,mat.wood,-.05,0,0),box(.66,.05,.56,mat.roof,-.05,.4,0),cyl(.07,.08,.75,mat.stoneD,.18,0,-.15,6),cyl(.12,.12,.22,mat.copper,-.25,0,.3,10));break;
+  }
+  return g;
+}
+const bMeshes=new Map();
+function syncBuildings(){
+  const live=new Set();
+  for(const b of S.buildings){live.add(b.id);let m=bMeshes.get(b.id);
+    if(!m){m=makeModel(b.type,b.id===S.capital);m.position.set(b.x+.5,topY(S.h[idx(b.x,b.y)]),b.y+.5);m.rotation.y=(hash2(b.x,b.y,1)*4|0)*Math.PI/2;
+      const pip=new THREE.Mesh(new THREE.SphereGeometry(.09,8,6),mat.pip);pip.position.y=1.15;pip.visible=false;m.add(pip);m.userData.pip=pip;scene.add(m);bMeshes.set(b.id,m)}
+    if(b.type==='harbor'){const h=berthOf(b.x,b.y);const fx=h?h[0]-b.x:0,fz=h?h[1]-b.y:1;m.rotation.y=Math.atan2(fx,fz)-Math.PI/4}
+    const bad=b.type==='harbor'?(!b.merged&&!berthOf(b.x,b.y)):(b.eff<0.5||/Hungry|No /.test(b.status));
+    m.userData.pip.visible=bad;
+    if(b.type==='house'){const s=b.res>4.2?1.3:1;m.scale.set(1,s,1)}
+  }
+  for(const[id,m]of bMeshes)if(!live.has(id)){scene.remove(m);bMeshes.delete(id)}
+}
+// boats
+const boatMeshes=new Map();
+function makeBoat(){const g=new THREE.Group();g.add(box(.75,.16,.3,mat.wood,0,-.06,0),box(.5,.04,.24,mat.plank,-.04,.1,0),cyl(.02,.02,.75,mat.dark,0,.1,0,5));
+  const sg=new THREE.BufferGeometry();sg.setAttribute('position',new THREE.BufferAttribute(new Float32Array([0,.25,0, 0,.85,0, .34,.25,0]),3));sg.computeVertexNormals();
+  const sail=new THREE.Mesh(sg,new THREE.MeshLambertMaterial({color:'#f6efe0',side:THREE.DoubleSide}));sail.castShadow=true;g.add(sail);g.userData.sail=sail;g.scale.setScalar(1.3);return g}
+function syncBoats3D(t){
+  const live=new Set();
+  for(const bt of boats){live.add(bt.home);let m=boatMeshes.get(bt.home);if(!m){m=makeBoat();scene.add(m);boatMeshes.set(bt.home,m)}
+    m.position.set(bt.x+.5,WATER_Y+.05+Math.sin(t*2+bt.home)*.03,bt.y+.5);m.rotation.y=-bt.ang;m.rotation.x=Math.sin(t*1.7+bt.home)*.05;
+    m.userData.sail.material.color.set(bt.state==='blocked'?'#ff7a6b':'#f6efe0')}
+  for(const[id,m]of boatMeshes)if(!live.has(id)){scene.remove(m);boatMeshes.delete(id)}
+}
+// cursor, range and placement ghost
+const cursor=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1,.6,1)),new THREE.LineBasicMaterial({color:'#f3e6c4',transparent:true,opacity:.9,depthTest:false}));
+cursor.renderOrder=10;scene.add(cursor);cursor.visible=false;
+const rangeQuad=new THREE.Mesh(new THREE.PlaneGeometry(5,5).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({color:'#fff6d8',transparent:true,opacity:.16,depthWrite:false,depthTest:false}));
+rangeQuad.renderOrder=9;scene.add(rangeQuad);rangeQuad.visible=false;
+const ghostCache={};const ghostOk=new THREE.MeshBasicMaterial({color:'#7ef0d8',transparent:true,opacity:.6,depthWrite:false}),ghostBad=new THREE.MeshBasicMaterial({color:'#ff6b6b',transparent:true,opacity:.6,depthWrite:false});
+function ghost(type){if(!ghostCache[type]){const g=makeModel(type,false);g.traverse(o=>{if(o.isMesh)o.castShadow=false});g.visible=false;scene.add(g);ghostCache[type]=g}return ghostCache[type]}
+function hideGhosts(){for(const k in ghostCache)ghostCache[k].visible=false}
+
+// camera rig
+const cam={tx:W/2,tz:H/2,dist:120,yaw:rad(-28),pitch:rad(54)};
+function homeCam(){cam.tx=W/2-4;cam.tz=H/2+2;cam.dist=Math.min(300,118*Math.max(1,1.25/(vw/vh)));cam.yaw=rad(-28);cam.pitch=rad(vw<760?62:54)}
+function applyCam(){
+  cam.pitch=Math.max(rad(22),Math.min(rad(84),cam.pitch));cam.dist=Math.max(10,Math.min(300,cam.dist));
+  cam.tx=Math.max(-10,Math.min(W+10,cam.tx));cam.tz=Math.max(-10,Math.min(H+10,cam.tz));
+  const cp=Math.cos(cam.pitch);
+  camera.position.set(cam.tx+Math.sin(cam.yaw)*cp*cam.dist,Math.sin(cam.pitch)*cam.dist,cam.tz+Math.cos(cam.yaw)*cp*cam.dist);
+  camera.lookAt(cam.tx,0,cam.tz);
+}
+function panBy(dx,dy){const s=cam.dist*0.0016;const c=Math.cos(cam.yaw),sn=Math.sin(cam.yaw);cam.tx-=(dx*c+dy*sn)*s;cam.tz-=(-dx*sn+dy*c)*s}
+let vw=1,vh=1;
+function resize(){vw=cv.clientWidth||innerWidth;vh=cv.clientHeight||innerHeight;renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));renderer.setSize(vw,vh,false);camera.aspect=vw/vh;camera.updateProjectionMatrix()}
+
+// picking: march the camera ray over the height field (water counts as a surface)
+const ray=new THREE.Raycaster();const ndc=new THREE.Vector2();
+function pick(clientX,clientY){
+  const r=cv.getBoundingClientRect();ndc.set(((clientX-r.left)/r.width)*2-1,-((clientY-r.top)/r.height)*2+1);
+  ray.setFromCamera(ndc,camera);const o=ray.ray.origin,d=ray.ray.direction;
+  for(let t=1;t<700;t+=.25){const x=o.x+d.x*t,y=o.y+d.y*t,z=o.z+d.z*t;const tx=Math.floor(x),tz=Math.floor(z);
+    let gy=WATER_Y;if(inb(tx,tz))gy=Math.max(gy,topY(S.h[idx(tx,tz)]));
+    if(y<=gy)return inb(tx,tz)?{x:tx,y:tz}:null;
+    if(y<-3)break}
+  return null;
+}
+
+// ---------- input ----------
+let tool='inspect',brush=0,stroke=null,drag=null;const pointers=new Map();let pinch=null,hover=null;
+function applyAt(t,first){
+  if(!t)return;
+  if(tool in DEF){if(first)place(tool,t.x,t.y);return}
+  if(tool==='demolish'){if(first)demolish(t.x,t.y);return}
+  if(tool==='inspect')return;
+  if(first&&tool==='flatten')stroke.target=S.h[idx(t.x,t.y)];
+  let coast=false,err=null;
+  for(let dy=-brush;dy<=brush;dy++)for(let dx=-brush;dx<=brush;dx++){
+    const x=t.x+dx,y=t.y+dy,k=x+','+y;if(!inb(x,y)||stroke.done.has(k))continue;
+    const r=terraform(x,y,tool,stroke.target);
+    if(r.ok){stroke.done.add(k);if(r.coast)coast=true}else if(r.why)err=r.why;
+  }
+  if(err)toast(err,'bad');
+  if(coast){const before=islands.length;computeIslands();if(islands.length!==before)toast(islands.length<before?'Islands joined by land. Their warehouses now share stock.':'Land split apart. Each piece needs its own harbor.',islands.length<before?'good':'')}
+}
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+cv.addEventListener('pointerdown',e=>{
+  cv.setPointerCapture(e.pointerId);pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(pointers.size===2){stroke=null;drag=null;const[a,b]=[...pointers.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y),a:Math.atan2(b.y-a.y,b.x-a.x),cx:(a.x+b.x)/2,cy:(a.y+b.y)/2,dist:cam.dist,yaw:cam.yaw};return}
+  if(e.button===2){drag={mode:'rot',x:e.clientX,y:e.clientY};return}
+  if(e.button===1||(tool==='inspect'&&e.button===0)){drag={mode:'pan',x:e.clientX,y:e.clientY,moved:0};return}
+  stroke={done:new Set(),target:0,last:null};const t=pick(e.clientX,e.clientY);if(t){stroke.last=t.x+','+t.y;applyAt(t,true)}
+});
+cv.addEventListener('pointermove',e=>{
+  if(pointers.has(e.pointerId))pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(pinch&&pointers.size===2){const[a,b]=[...pointers.values()];const d=Math.hypot(a.x-b.x,a.y-b.y),an=Math.atan2(b.y-a.y,b.x-a.x);
+    cam.dist=pinch.dist*pinch.d/Math.max(20,d);cam.yaw=pinch.yaw+(an-pinch.a);const cx=(a.x+b.x)/2,cy=(a.y+b.y)/2;panBy(cx-pinch.cx,cy-pinch.cy);pinch.cx=cx;pinch.cy=cy;return}
+  if(drag){const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.x=e.clientX;drag.y=e.clientY;
+    if(drag.mode==='rot'){cam.yaw-=dx*0.006;cam.pitch+=dy*0.005}else{panBy(dx,dy);drag.moved+=Math.abs(dx)+Math.abs(dy)}return}
+  const t=pick(e.clientX,e.clientY);hover=t;
+  if(stroke&&t){const k=t.x+','+t.y;if(k!==stroke.last){stroke.last=k;applyAt(t,false)}}
+  else if(t)inspect(t);
+});
+function endPtr(e){
+  if(drag&&drag.mode==='pan'&&drag.moved<6&&tool==='inspect'){const t=pick(e.clientX,e.clientY);if(t){selected=t;inspect(t)}}
+  pointers.delete(e.pointerId);if(pointers.size<2)pinch=null;if(pointers.size===0){stroke=null;drag=null}}
+cv.addEventListener('pointerup',endPtr);cv.addEventListener('pointercancel',endPtr);
+cv.addEventListener('pointerleave',()=>{hover=null});
+cv.addEventListener('wheel',e=>{e.preventDefault();cam.dist*=Math.exp(e.deltaY*0.0012)},{passive:false});
+const keys=new Set();
+window.addEventListener('keydown',e=>{
+  const k=e.key.toLowerCase();keys.add(k);
+  for(const[id,d]of Object.entries(TERRA))if(d.key.toLowerCase()===k)setTool(id);
+  for(const[id,d]of Object.entries(DEF))if(d.key.toLowerCase()===k)setTool(id);
+  if(k==='b')setBrush((brush+1)%3);
+  if(k===' '){e.preventDefault();setSpeed(speed?0:1)}
+});
+window.addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));
+window.addEventListener('blur',()=>keys.clear());
+
+// ---------- UI ----------
+const $=id=>document.getElementById(id);
+let selected=null;
+function costText(c){return Object.entries(c).map(([k,v])=>k==='gold'?`${v}g`:`${v} ${k}`).join(' · ')}
+function buildToolbar(){
+  $('tTerra').innerHTML=Object.entries(TERRA).map(([id,d])=>`<button class="tool${id==='demolish'?' wide':''}" data-tool="${id}" aria-pressed="false"><span class="nm">${d.name}<kbd>${d.key}</kbd></span><span class="cs">${d.cs}</span></button>`).join('');
+  $('tBuild').innerHTML=Object.entries(DEF).map(([id,d])=>`<button class="tool" data-tool="${id}" aria-pressed="false" title="${d.info}"><span class="nm">${d.name}<kbd>${d.key}</kbd></span><span class="cs">${costText(d.cost)}</span></button>`).join('');
+  document.querySelectorAll('[data-tool]').forEach(b=>b.addEventListener('click',()=>setTool(b.dataset.tool)));
+  document.querySelectorAll('[data-brush]').forEach(b=>b.addEventListener('click',()=>setBrush(+b.dataset.brush)));
+  document.querySelectorAll('[data-speed]').forEach(b=>b.addEventListener('click',()=>setSpeed(+b.dataset.speed)));
+  $('rotL').addEventListener('click',()=>{cam.yaw+=Math.PI/4});$('rotR').addEventListener('click',()=>{cam.yaw-=Math.PI/4});$('home').addEventListener('click',homeCam);
+  $('sideToggle').addEventListener('click',()=>{const s=$('side');s.classList.toggle('closed');$('sideToggle').setAttribute('aria-expanded',!s.classList.contains('closed'))});
+}
+function setTool(id){tool=id;document.querySelectorAll('[data-tool]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.tool===id));cv.style.cursor=id==='inspect'?'grab':'crosshair';
+  if(id in DEF)setInsp(`<div class="ttl">${DEF[id].name}</div><div>${DEF[id].info}</div><div class="k">Cost ${costText(DEF[id].cost)} · upkeep ${DEF[id].upkeep}g/s</div>`)}
+function setBrush(n){brush=n;document.querySelectorAll('[data-brush]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.brush===n))}
+let speed=1;function setSpeed(n){speed=n;document.querySelectorAll('[data-speed]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.speed===n))}
+const TERR_NAME=h=>h<=-3?'Open ocean':h===-2?'Deep water (boats sail)':h===-1?'Shallow reef (blocks boats, feeds fish)':h===0?'Beach':h<=2?'Lowland':h<=4?'Hills':'Mountain';
+function setInsp(html){$('insp').innerHTML=html}
+function inspect(t){
+  if(!t||!inb(t.x,t.y))return;
+  if(tool in DEF){const r=canPlace(tool,t.x,t.y);setInsp(`<div class="ttl">${DEF[tool].name}</div><div>${r.ok?'<span class="pos">Can build here</span>':`<span class="neg">${r.why}</span>`}</div><div class="k">${DEF[tool].info}</div>`);return}
+  const i=idx(t.x,t.y),hv=S.h[i],isl=islandOf(t.x,t.y),b=bAt(t.x,t.y);
+  let s=`<div class="ttl">${TERR_NAME(hv)}</div><div class="k">Height ${hv}${isl?` · ${isl.name}`:''}${S.tree[i]?' · trees':''}</div>`;
+  if(b)s+=`<div style="margin-top:4px"><b>${DEF[b.type].name}</b>${b.type==='house'?` · ${b.res.toFixed(1)} residents`:''}${b.rate!=null&&b.type!=='house'&&b.type!=='harbor'?` · ${(b.rate*60).toFixed(0)}/min`:''}</div><div class="k">${b.status||''}</div>`;
+  setInsp(s);
+}
+function fmt(n){return Math.abs(n)>=1000?(n/1000).toFixed(1)+'k':Math.floor(n).toString()}
+function updateUI(){
+  $('sGold').textContent=fmt(S.gold);$('sGold').className=S.gold<0?'neg':'';
+  const r=S.rate||0;$('sRate').textContent=(r>=0?'+':'')+r.toFixed(1)+'/s';$('sRate').className=r>=0?'pos':'neg';
+  $('sPop').textContent=Math.floor(totalPop());$('sDay').textContent=1+Math.floor(S.t/30);
+  const rows=islands.filter(i=>i.n>=12||i.harbor).sort((a,b)=>(b.harbor?1:0)-(a.harbor?1:0)||b.n-a.n);
+  $('islTable').innerHTML=`<tr><th>Island</th><th>Pop</th>${GOODS.map(g=>`<th title="${GOOD_LABEL[g]}">${GOOD_LABEL[g].slice(0,4)}</th>`).join('')}</tr>`+
+    rows.map(i=>`<tr><td>${i.name}${i.harbor&&i.harbor.id===S.capital?' ★':''}</td><td>${Math.floor(i.res)}</td>${GOODS.map(g=>`<td>${i.harbor?Math.floor(i.harbor.stock[g]):'–'}</td>`).join('')}</tr>`).join('');
+  $('boats').innerHTML=boats.length?boats.map(bt=>{const hb=byId(bt.home);const c=bt.state==='blocked'?'var(--bad)':'var(--reef)';const cargo=Object.entries(bt.cargo).map(([g,v])=>`${v} ${g}`).join(', ');
+    return`<li><span class="dot" style="background:${c}"></span><span>${islandName(hb)} ⇄ capital: ${bt.state==='blocked'?`<span class="neg">${bt.why}</span>`:`sailing ${bt.dir==='out'?'to capital':'home'}${cargo?` with ${cargo}`:''} · ${bt.trips} trips`}</span></li>`}).join(''):'<li class="hint">No boats yet. Build a harbor on another island and one will sail for the capital.</li>';
+  let firstOpen=true;
+  $('goals').innerHTML=GOALS.map(g=>{const d=S.goals[g.id];const now=!d&&firstOpen;if(now)firstOpen=false;return`<li class="${d?'done':now?'now':''}"><span class="ck"></span><span>${g.t}${g.s&&!d?`<span class="sub">${g.s}</span>`:''}</span></li>`}).join('');
+  if(selected&&tool==='inspect'&&!hover)inspect(selected);
+}
+const toastMem=new Map();
+function toast(msg,kind=''){
+  const now=performance.now();if(toastMem.has(msg)&&now-toastMem.get(msg)<2500)return;toastMem.set(msg,now);
+  const el=document.createElement('div');el.className=`toast panel ${kind}`;el.textContent=msg;$('toasts').appendChild(el);
+  while($('toasts').children.length>4)$('toasts').firstChild.remove();
+  setTimeout(()=>el.remove(),5200);
+}
+// floating island labels
+const labelEls=ISL.map(()=>{const d=document.createElement('div');d.className='lbl';$('labels').appendChild(d);return d});
+const v3=new THREE.Vector3();
+function updateLabels(){
+  ISL.forEach((I,k)=>{const c=islCentre(I);const isl=islandOf(Math.round(c.x),Math.round(c.y));const el=labelEls[k];
+    const mid=isl&&isl.parts.length===1?{x:isl.cx,y:isl.cy}:c;v3.set(mid.x+.5,I.peak*LVL+2.4,mid.y+.5).project(camera);
+    if(v3.z>1||Math.abs(v3.x)>1.1||Math.abs(v3.y)>1.1){el.hidden=true;return}
+    el.hidden=false;el.textContent=I.name;el.style.left=((v3.x+1)/2*vw)+'px';el.style.top=((1-v3.y)/2*vh)+'px'})
+}
+
+// ---------- persistence for live updates ----------
+function snapshot(){return{v:2,h:Array.from(S.h),tree:Array.from(S.tree),buildings:S.buildings.map(b=>({id:b.id,type:b.type,x:b.x,y:b.y,res:b.res,stock:b.stock})),gold:S.gold,t:S.t,nextId:S.nextId,stats:S.stats,goals:S.goals,capital:S.capital,origin:Array.from(origin),cam:{...cam}}}
+function restore(d){
+  if(d.v!==2||!d.h||d.h.length!==W*H)throw new Error('old save');
+  generate();
+  S={h:Int8Array.from(d.h),tree:Uint8Array.from(d.tree),bld:new Int32Array(W*H).fill(-1),buildings:[],gold:d.gold,t:d.t,nextId:d.nextId,stats:d.stats,goals:d.goals,capital:d.capital};
+  origin=Uint8Array.from(d.origin);
+  for(const b of d.buildings){S.buildings.push({...b,eff:0,status:''});S.bld[idx(b.x,b.y)]=b.id}
+  if(d.cam)Object.assign(cam,d.cam);
+  computeIslands();
+}
+
+// ---------- loop ----------
+let last=0,acc=0,uiT=0,goalT=0;
+function frame(ts){
+  const t=ts/1000,dt=Math.min(.1,t-(last||t));last=t;
+  const kp=600*dt;
+  if(keys.has('w')||keys.has('arrowup'))panBy(0,kp);
+  if(keys.has('s')||keys.has('arrowdown'))panBy(0,-kp);
+  if(keys.has('a')||keys.has('arrowleft'))panBy(kp,0);
+  if(keys.has('d')||keys.has('arrowright'))panBy(-kp,0);
+  if(keys.has('q'))cam.yaw+=1.6*dt;if(keys.has('e'))cam.yaw-=1.6*dt;
+  acc+=dt*speed;let n=0;while(acc>=.1&&n<20){step(.1);acc-=.1;n++}if(n>=20)acc=0;
+  uiT+=dt;if(uiT>.25){uiT=0;updateUI()}
+  goalT+=dt;if(goalT>.5){goalT=0;checkGoals()}
+  if(dirtyTerrain)rebuildTerrain();
+  if(dirtyTrees)rebuildTrees();
+  syncBuildings();syncBoats3D(t);animateWater(t);
+  hideGhosts();cursor.visible=false;rangeQuad.visible=false;
+  if(hover){
+    const gy=Math.max(WATER_Y,topY(S.h[idx(hover.x,hover.y)]));
+    if(tool in DEF){const ok=canPlace(tool,hover.x,hover.y).ok;const g=ghost(tool);g.visible=true;g.position.set(hover.x+.5,gy,hover.y+.5);
+      g.traverse(o=>{if(o.isMesh)o.material=ok?ghostOk:ghostBad});
+      if(['fishery','lumber','plantation'].includes(tool)){rangeQuad.visible=true;rangeQuad.position.set(hover.x+.5,gy+.05,hover.y+.5)}}
+    else{const r=(tool==='inspect'||tool==='demolish')?0:brush;cursor.visible=true;cursor.scale.set(2*r+1,1,2*r+1);cursor.position.set(hover.x+.5,gy+.3,hover.y+.5);
+      cursor.material.color.set(tool==='raise'?'#ffcf5a':tool==='lower'?'#4fd1c5':tool==='demolish'?'#ff6b6b':'#f3e6c4')}
+  }
+  applyCam();renderer.render(scene,camera);updateLabels();
+  requestAnimationFrame(frame);
+}
+function start(data){
+  buildToolbar();resize();
+  if(vw<=760){$('side').classList.add('closed');$('sideToggle').setAttribute('aria-expanded','false')}
+  let restored=false;
+  if(data&&data.h){try{restore(data);restored=true}catch(e){}}
+  if(!restored){newGame();homeCam()}
+  setTool('inspect');updateUI();
+  window.addEventListener('resize',resize);
+  window.claude?.hot?.snapshot?.(snapshot);
+  $('loading').hidden=true;
+  toast('Welcome, governor. Palm Isle is yours. Reshape the reef and lagoon to bind the atoll together.','good');
+  window.__island={S:()=>S,islands:()=>islands,boats:()=>boats,setTool,place,terraform,step,computeIslands,setSpeed,cam};
+  requestAnimationFrame(frame);
+}
+window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.hot?.data??{});
+})();
+</script>
+</body>
+</html>
