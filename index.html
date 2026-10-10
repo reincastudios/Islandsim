@@ -154,14 +154,14 @@ table.isl td{text-align:right;padding:4px 3px;border-bottom:1px solid color-mix(
 (()=>{
 'use strict';
 if(!window.THREE){document.getElementById('loading').textContent='The 3D engine could not load. Check your connection and reload.';return}
-const W=128,H=128,MINH=-3,MAXH=7;
-const AC={x:64,y:64,R:46}; // atoll centre and ring radius
-const ISL=[ // islands on the atoll rim: angle (deg), angular half-extent, radial half-width, peak
-  {name:'Palm Isle',  ang:228,ext:30,rw:6.5,peak:4},
-  {name:'Basalt Isle',ang:312,ext:26,rw:8.5,peak:7},
-  {name:'Sugar Cay',  ang:92, ext:32,rw:6,  peak:2.3},
+const W=144,H=144,MINH=-3,MAXH=7;
+const AC={x:73,y:83,R:44}; // atoll centre and mean ring radius
+const ISL=[ // islands on the atoll rim: angle (deg), angular half-extent, radial half-width, inward offset, peak
+  {name:'Palm Isle',  ang:214,ext:44,rw:10, off:2.5,peak:4.5},
+  {name:'Basalt Isle',ang:313,ext:23,rw:8.5,off:1.5,peak:7},
+  {name:'Sugar Cay',  ang:92, ext:30,rw:6.5,off:0,  peak:2.3},
 ];
-const PASS_ANG=168;
+const PASS_ANG=150;
 const GOODS=['wood','stone','fish','sugar','rum'];
 const GOOD_LABEL={wood:'Wood',stone:'Stone',fish:'Fish',sugar:'Sugar',rum:'Rum'};
 const DEF={
@@ -194,24 +194,30 @@ function hash2(x,y,s){let h=(x*374761393+y*668265263+s*982451653)>>>0;h=Math.imu
 function vnoise(x,y,s){const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
   const a=hash2(xi,yi,s),b=hash2(xi+1,yi,s),c=hash2(xi,yi+1,s),d=hash2(xi+1,yi+1,s);return a+(b-a)*u+(c-a)*v+(a-b-c+d)*u*v}
 function fbm(x,y,s){return vnoise(x,y,s)*.55+vnoise(x*2.1,y*2.1,s+7)*.3+vnoise(x*4.3,y*4.3,s+13)*.15}
-function islCentre(I){return{x:AC.x+Math.cos(rad(I.ang))*AC.R,y:AC.y+Math.sin(rad(I.ang))*AC.R}}
+// rim radius by bearing: a lopsided, wobbly ring rather than a circle
+function rimR(a){const t=rad(a);return AC.R+5.5*Math.sin(2*t+0.7)+3.2*Math.sin(3*t+2.1)+1.6*Math.sin(5*t+4)+(fbm(Math.cos(t)*1.6+5,Math.sin(t)*1.6+5,4)-.5)*6}
+function islCentre(I){const R=rimR(I.ang)-I.off;return{x:AC.x+Math.cos(rad(I.ang))*R,y:AC.y+Math.sin(rad(I.ang))*R}}
 
 // ---------- map: one atoll ----------
 function generate(){
   const h=new Int8Array(W*H),tree=new Uint8Array(W*H),rnd=rng(20261010);
   for(let y=0;y<H;y++)for(let x=0;x<W;x++){
-    const dx=x-AC.x,dy=y-AC.y,d=Math.hypot(dx,dy);
+    // domain-warp the coordinates so edges meander instead of tracing arcs
+    const wx=x+(fbm(x*.035,y*.035,40)-.5)*12, wy=y+(fbm(x*.035,y*.035,41)-.5)*12;
+    const dx=wx-AC.x,dy=wy-AC.y,d=Math.hypot(dx,dy);
     let a=Math.atan2(dy,dx)*180/Math.PI;if(a<0)a+=360;
-    const R=AC.R+(fbm(Math.cos(rad(a))*2+5,Math.sin(rad(a))*2+5,4)-.5)*5;
-    const r=d-R;
+    const r=d-rimR(a);
+    const inner=-2.5-fbm(a*.05,1,42)*4, outer=6+fbm(a*.05,2,43)*6; // reef flat width varies around the ring
     let v;
-    if(r>9) v=-3;
-    else if(r>-3) v=-1;                                  // reef flat on the rim
+    if(r>outer+2.5) v=-3;
+    else if(r>outer) v=-2;
+    else if(r>inner) v=-1;                               // reef flat on the rim
     else v=-2-(fbm(x*.08,y*.08,6)>.62?1:0);              // deep lagoon
-    if(v===-2&&r<-8&&fbm(x*.21,y*.21,8)>.74) v=-1;       // scattered coral heads
-    if(r>8.5&&r<=11) v=-2;
+    if(v===-2&&r<inner-5&&fbm(x*.21,y*.21,8)>.74) v=-1;  // scattered coral heads
+    if(v===-1&&Math.abs(r)<2.4&&vnoise(a*.11,3,50)>.74) v=0; // sandy motus along the rim
     ISL.forEach((I,k)=>{
-      const u=r/I.rw, w=angDiff(a,I.ang)/I.ext;
+      const rw=I.rw*(.8+.45*fbm(a*.06,k*3,44));
+      const u=(r+I.off)/rw, w=angDiff(a,I.ang)/I.ext;
       const e=Math.hypot(u,w)+(fbm(x*.16,y*.16,11+k)-.5)*.5;
       if(e<1.15){
         const t=Math.max(0,1-e);
@@ -219,9 +225,9 @@ function generate(){
         if(hv>-0.5&&hv>v)v=hv;                           // islands rise straight out of the lagoon
       }
       // Sugar Cay sits behind broad lagoon flats: too shallow for boats
-      if(k===2&&r<0&&r>-20&&Math.abs(angDiff(a,I.ang))<I.ext+10&&v<-1) v=-1;
+      if(k===2&&r<1&&r>-20&&Math.abs(angDiff(a,I.ang))<I.ext+10&&v<-1) v=-1;
     });
-    if(Math.abs(angDiff(a,PASS_ANG))<2.2&&v<0&&r>-6) v=-2; // natural pass to the ocean
+    if(Math.abs(angDiff(a,PASS_ANG))<2.4&&v<=0&&r>inner-3&&r<outer+3) v=-2; // natural pass to the ocean
     const hv=Math.max(MINH,Math.min(MAXH,Math.round(v)));
     h[idx(x,y)]=hv;
     let org=255;
@@ -288,6 +294,7 @@ function computeIslands(){
     const parts=[0,1,2].filter(k=>cnt[k]>Math.max(6,n*0.08));
     let name=parts.length?parts.map(k=>ISL[k].name.split(' ')[0]).join('–'):'Islet';
     if(parts.length===1)name=ISL[parts[0]].name;
+    if(n<60)name='Islet';
     islands.push({id,n,name,parts,harbor:null,res:0,jobs:0,eff:1,cx:sx/n,cy:sy/n});
   }
   const hs=S.buildings.filter(b=>b.type==='harbor').sort((a,b)=>a.id-b.id);
@@ -496,7 +503,7 @@ scene.add(new THREE.HemisphereLight(0xdff3ff,0x3a5a40,0.75));
 const sun=new THREE.DirectionalLight(0xfff1d6,0.95);
 sun.position.set(W/2-60,90,H/2-40);sun.target.position.set(W/2,0,H/2);
 sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);
-Object.assign(sun.shadow.camera,{left:-85,right:85,top:85,bottom:-85,near:10,far:260});
+Object.assign(sun.shadow.camera,{left:-95,right:95,top:95,bottom:-95,near:10,far:260});
 sun.shadow.bias=-0.0008;sun.shadow.normalBias=0.03;
 scene.add(sun,sun.target);
 
@@ -627,9 +634,9 @@ function hideGhosts(){for(const k in ghostCache)ghostCache[k].visible=false}
 
 // camera rig
 const cam={tx:W/2,tz:H/2,dist:120,yaw:rad(-28),pitch:rad(54)};
-function homeCam(){cam.tx=W/2-4;cam.tz=H/2+2;cam.dist=Math.min(300,118*Math.max(1,1.25/(vw/vh)));cam.yaw=rad(-28);cam.pitch=rad(vw<760?62:54)}
+function homeCam(){cam.tx=AC.x-2;cam.tz=AC.y-6;cam.dist=Math.min(320,132*Math.max(1,1.25/(vw/vh)));cam.yaw=rad(-28);cam.pitch=rad(vw<760?62:54)}
 function applyCam(){
-  cam.pitch=Math.max(rad(22),Math.min(rad(84),cam.pitch));cam.dist=Math.max(10,Math.min(300,cam.dist));
+  cam.pitch=Math.max(rad(22),Math.min(rad(84),cam.pitch));cam.dist=Math.max(10,Math.min(320,cam.dist));
   cam.tx=Math.max(-10,Math.min(W+10,cam.tx));cam.tz=Math.max(-10,Math.min(H+10,cam.tz));
   const cp=Math.cos(cam.pitch);
   camera.position.set(cam.tx+Math.sin(cam.yaw)*cp*cam.dist,Math.sin(cam.pitch)*cam.dist,cam.tz+Math.cos(cam.yaw)*cp*cam.dist);
@@ -735,7 +742,7 @@ function updateUI(){
   $('sGold').textContent=fmt(S.gold);$('sGold').className=S.gold<0?'neg':'';
   const r=S.rate||0;$('sRate').textContent=(r>=0?'+':'')+r.toFixed(1)+'/s';$('sRate').className=r>=0?'pos':'neg';
   $('sPop').textContent=Math.floor(totalPop());$('sDay').textContent=1+Math.floor(S.t/30);
-  const rows=islands.filter(i=>i.n>=12||i.harbor).sort((a,b)=>(b.harbor?1:0)-(a.harbor?1:0)||b.n-a.n);
+  const rows=islands.filter(i=>i.n>=60||i.harbor).sort((a,b)=>(b.harbor?1:0)-(a.harbor?1:0)||b.n-a.n);
   $('islTable').innerHTML=`<tr><th>Island</th><th>Pop</th>${GOODS.map(g=>`<th title="${GOOD_LABEL[g]}">${GOOD_LABEL[g].slice(0,4)}</th>`).join('')}</tr>`+
     rows.map(i=>`<tr><td>${i.name}${i.harbor&&i.harbor.id===S.capital?' ★':''}</td><td>${Math.floor(i.res)}</td>${GOODS.map(g=>`<td>${i.harbor?Math.floor(i.harbor.stock[g]):'–'}</td>`).join('')}</tr>`).join('');
   $('boats').innerHTML=boats.length?boats.map(bt=>{const hb=byId(bt.home);const c=bt.state==='blocked'?'var(--bad)':'var(--reef)';const cargo=Object.entries(bt.cargo).map(([g,v])=>`${v} ${g}`).join(', ');
