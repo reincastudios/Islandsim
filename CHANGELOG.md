@@ -5,7 +5,7 @@ Newest first. Each entry says what changed for the player and where the code liv
 ## 2026-10-11
 
 ### Maldives islands, sand roads and lapping waves (PR #5)
-- Islands are now flat like real Maldivian islands: a ring of white beach around ground about a metre above the sea. Only Coral Isle has a few low coral ridges (height 2); terraforming tops out at height 3.
+- Islands are now flat like real Maldivian islands: a ring of white beach around ground about a metre above the sea. Coral Isle has a few low coral ridges (height 2) and Palm Isle a couple of tiles; terraforming tops out at height 3.
 - Basalt Isle is renamed Coral Isle. Quarries now cut coral stone from those low ridges (height 2+), and the charter goal follows.
 - New **Sand road** tool (G, 2 gold per tile, works with the 1×1/3×3/5×5 brush). Roads clear trees, run up to buildings, and Demolish removes them for a 1 gold refund. They are saved with the game.
 - Waves now lap the shore: small swells roll in and steepen in the shallows, a thin sheet of water slides up the beach behind a lacy foam edge and drains back, and the sand stays damp where the sea last reached. On High and Ultra the foam line follows the exact waterline.
