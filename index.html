@@ -1543,8 +1543,26 @@ function syncBoats3D(t){
   for(const[id,m]of boatMeshes)if(!live.has(id)){scene.remove(m);boatMeshes.delete(id)}
 }
 // cursor, range and placement ghost
-const cursor=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1,.6,1)),new THREE.LineBasicMaterial({color:'#f3e6c4',transparent:true,opacity:.9,depthTest:false,toneMapped:false}));
-cursor.renderOrder=10;scene.add(cursor);cursor.visible=false;
+// the brush: a soft ring draped over the ground, with the tiles it will touch lightly tinted (no hard box)
+const CUR_N=40,cursorMat=new THREE.ShaderMaterial({transparent:true,depthTest:false,depthWrite:false,toneMapped:false,
+  uniforms:{uC:{value:new THREE.Vector2()},uR:{value:1},uCol:{value:new THREE.Color('#f3e6c4')},uT:G.uTime},
+  vertexShader:`varying vec2 vP;void main(){vP=position.xz;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+  fragmentShader:`uniform vec2 uC;uniform float uR;uniform vec3 uCol;uniform float uT;varying vec2 vP;
+    void main(){float d=length(vP-uC),w=fwidth(d);
+      float ring=1.-smoothstep(.06,.06+w*1.5,abs(d-uR));                       // crisp ring at the brush edge
+      float glow=(1.-smoothstep(0.,.55,abs(d-uR)))*.35*(.75+.25*sin(uT*3.));   // soft breathing halo around it
+      vec2 cell=floor(vP)+.5;float inside=step(length(cell-uC),uR-.01);       // tiles the brush will change
+      vec2 f=abs(fract(vP)-.5);float grid=smoothstep(.47,.5,max(f.x,f.y))*inside;
+      float a=max(ring*.95,max(glow,inside*.10+grid*.22));if(a<.01)discard;
+      gl_FragColor=vec4(uCol*(1.+ring*.4),a);}`});
+const cursor=new THREE.Mesh(new THREE.PlaneGeometry(1,1,CUR_N,CUR_N).rotateX(-Math.PI/2),cursorMat);
+cursor.renderOrder=10;cursor.frustumCulled=false;scene.add(cursor);cursor.visible=false;
+// height of the ground (or the sea surface) at any point, from the terrain's corner heights
+function groundY(fx,fy){const x0=Math.floor(fx),y0=Math.floor(fy),tx=fx-x0,ty=fy-y0;
+  const a=cAt(x0,y0),b=cAt(x0+1,y0),c=cAt(x0,y0+1),d=cAt(x0+1,y0+1);return Math.max(WATER_Y,a+(b-a)*tx+(c-a)*ty+(a-b-c+d)*tx*ty)}
+function placeCursor(x,y,r,col){const R=r+.5,cx=x+.5,cy=y+.5,S0=2*R+1.4,p=cursor.geometry.attributes.position;
+  for(let j=0;j<=CUR_N;j++)for(let i=0;i<=CUR_N;i++){const v=j*(CUR_N+1)+i,px=cx+(i/CUR_N-.5)*S0,pz=cy+(j/CUR_N-.5)*S0;p.setXYZ(v,px,groundY(px,pz)+.06,pz)}
+  p.needsUpdate=true;cursorMat.uniforms.uC.value.set(cx,cy);cursorMat.uniforms.uR.value=R;cursorMat.uniforms.uCol.value.set(col);cursor.visible=true}
 const rangeQuad=new THREE.Mesh(new THREE.PlaneGeometry(5,5).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({color:'#fff6d8',transparent:true,opacity:.16,depthWrite:false,depthTest:false,toneMapped:false}));
 rangeQuad.renderOrder=9;scene.add(rangeQuad);rangeQuad.visible=false;
 const ghostCache={};const ghostOk=new THREE.MeshBasicMaterial({color:'#7ef0d8',transparent:true,opacity:.55,depthWrite:false,toneMapped:false}),ghostBad=new THREE.MeshBasicMaterial({color:'#ff6b6b',transparent:true,opacity:.55,depthWrite:false,toneMapped:false});
@@ -1617,17 +1635,19 @@ function renderFrame(){
 
 // ---------- input ----------
 let tool='inspect',brush=0,stroke=null,drag=null;const pointers=new Map();let pinch=null,hover=null;
+const inBrush=(dx,dy)=>dx*dx+dy*dy<(brush+.5)**2-.01;   // round brush: tile centres inside the ring
 function applyAt(t,first){
   if(!t)return;
   if(tool in DEF){if(first)place(tool,t.x,t.y);return}
   if(tool==='demolish'){if(bAt(t.x,t.y)){if(first)demolish(t.x,t.y)}else removeRoad(t.x,t.y);return}
   if(tool==='inspect')return;
   if(tool==='road'){let err=null;
-    for(let dy=-brush;dy<=brush;dy++)for(let dx=-brush;dx<=brush;dx++){const r=buildRoad(t.x+dx,t.y+dy);if(!r.ok&&r.why)err=r.why}
+    for(let dy=-brush;dy<=brush;dy++)for(let dx=-brush;dx<=brush;dx++){if(!inBrush(dx,dy))continue;const r=buildRoad(t.x+dx,t.y+dy);if(!r.ok&&r.why)err=r.why}
     if(err)refuse(err);return}
   if(first&&tool==='flatten')stroke.target=S.h[idx(t.x,t.y)];
   let coast=false,err=null;
   for(let dy=-brush;dy<=brush;dy++)for(let dx=-brush;dx<=brush;dx++){
+    if(!inBrush(dx,dy))continue;
     const x=t.x+dx,y=t.y+dy,k=x+','+y;if(!inb(x,y)||stroke.done.has(k))continue;
     const r=terraform(x,y,tool,stroke.target);
     if(r.ok){stroke.done.add(k);if(r.coast)coast=true}else if(r.why)err=r.why;
@@ -1772,7 +1792,7 @@ function setCat(id){if(openCat===id)return;openCat=id;renderCards()}
 function renderCards(){
   const c=CATS.find(c=>c.id===openCat);$('cards').hidden=!c;
   if(c){$('cards').innerHTML=c.tools.map(id=>`<button class="card" data-tool="${id}" aria-pressed="${tool===id}" data-tip="tool:${id}">${ico(TOOL_ICO[id])}<span class="nm">${toolName(id)}</span><span class="chips" data-chips="${id}"></span>${toolKey(id)?`<kbd>${toolKey(id)}</kbd>`:''}</button>`).join('')+
-      (c.brush?`<div class="brushes"><span class="lbl2">Brush <kbd>B</kbd></span><div class="segc" role="group" aria-label="Brush size">${[0,1,2].map(n=>`<button data-brush="${n}" aria-pressed="${brush===n}">${2*n+1}×${2*n+1}</button>`).join('')}</div></div>`:'');
+      (c.brush?`<div class="brushes"><span class="lbl2">Brush <kbd>B</kbd></span><div class="segc" role="group" aria-label="Brush size">${[0,1,2].map(n=>`<button data-brush="${n}" aria-pressed="${brush===n}" title="${2*n+1} tiles across">${['S','M','L'][n]}</button>`).join('')}</div></div>`:'');
     $('cards').classList.remove('slide');void $('cards').offsetWidth;$('cards').classList.add('slide');updateChips()}
   syncPressed();
 }
@@ -1987,7 +2007,7 @@ function updateTag(){
   else if(tool==='demolish'){const b=bAt(hover.x,hover.y);
     if(b){h=`<div class="t">Demolish ${DEF[b.type].name}</div>`;if(b.id===S.capital){bad=true;h+='<div class="why">The capital harbor cannot be demolished</div>'}else h+=`<div>Refund ${Math.floor((DEF[b.type].cost.gold||0)/2)} gold</div>`}
     else if(S.road[i])h='<div class="t">Remove sand road</div><div>Refund 1 gold</div>';else h='<div class="t">Demolish</div><div class="sub">Nothing to remove here</div>'}
-  else{const hv=S.h[i];h=`<div class="t">${TERRA[tool].name}${brush?` · ${2*brush+1}×${2*brush+1}`:''}</div><div class="sub">${S.gt[i]?GT_NAME[S.gt[i]]:TERR_NAME(hv)} · height ${hv}</div>`;
+  else{const hv=S.h[i];h=`<div class="t">${TERRA[tool].name}${brush?` · ${['small','medium','large'][brush]} brush`:''}</div><div class="sub">${S.gt[i]?GT_NAME[S.gt[i]]:TERR_NAME(hv)} · height ${hv}</div>`;
     if(stroke&&(spend.g||spend.s))h+=`<div class="chips"><span class="chip">${ico('gold')}${Math.round(spend.g)}</span>${spend.s?`<span class="chip">${ico('stone')}${spend.s>0?'':'+'}${fmt(Math.abs(spend.s))}</span>`:''}</div>`;
     else h+=`<div class="chips">${chipsHTML(TOOL_COST[tool],stockOf(uiIsl))}<span class="sub">${tool==='road'?'per tile':'per step'}</span></div>`}
   if(tagErr&&tagErr.until>performance.now()){bad=true;h+=`<div class="why">${esc(tagErr.msg)}</div>`}
@@ -2189,8 +2209,7 @@ function frame(ts){
       const fp=r.fp||footprint(tool,hover.x,hover.y);g.position.set(fp.x+fp.w/2,gy,fp.y+fp.d/2);if(DEF[tool].size)g.rotation.y=fp.w>=fp.d?0:Math.PI/2;
       g.traverse(o=>{if(o.isMesh)o.material=ok?ghostOk:ghostBad});
       if(['fishery','lumber','plantation'].includes(tool)){rangeQuad.visible=true;rangeQuad.position.set(hover.x+.5,gy+.05,hover.y+.5)}}
-    else{const r=(tool==='inspect'||tool==='demolish')?0:brush;cursor.visible=true;cursor.scale.set(2*r+1,1,2*r+1);cursor.position.set(hover.x+.5,gy+.3,hover.y+.5);
-      cursor.material.color.set(tool==='raise'?'#ffcf5a':tool==='lower'?'#4fd1c5':tool==='demolish'?'#ff6b6b':'#f3e6c4')}
+    else placeCursor(hover.x,hover.y,(tool==='inspect'||tool==='demolish')?0:brush,tool==='raise'?'#ffcf5a':tool==='lower'?'#4fd1c5':tool==='demolish'?'#ff6b6b':'#f3e6c4');
   }
   const sb=sel?.kind==='b'?byId(sel.id):null;selBox.visible=!!sb;
   if(sb){selBox.scale.set(sb.w||1,1,sb.d||1);const c=plotCentre(sb);selBox.position.set(c.x,topY(S.h[idx(sb.x,sb.y)])+.25,c.y)}

@@ -4,6 +4,11 @@ Newest first. Each entry says what changed for the player and where the code liv
 
 ## 2026-10-11
 
+### A round brush ring instead of the box cursor (PR #5)
+- The square wireframe box that followed the mouse while terraforming, painting roads or demolishing is gone. In its place a soft round ring lies on the ground, following the terrain, with a gentle glow and a faint grid over the tiles the brush will change. It is gold for Raise, turquoise for Lower, red for Demolish and sand for the rest.
+- The brush itself is now round to match: the large brush changes a round patch of 21 tiles instead of a 5×5 square, so coasts come out less boxy. Small is still one tile and medium is 3×3.
+- The brush buttons read S, M and L (hover for the width in tiles), and the cursor tag says "large brush" instead of "5×5".
+
 ### Bigger islands, Huvamaru further out, no building in open ocean (PR #5)
 - **Everything is 1.25× bigger:** the world is now 720×500 tiles. Every atoll, island, reef and lagoon keeps its shape but covers more ground, so Palm Isle has about 1,680 tiles instead of 1,080. The camera zooms out further to fit it.
 - **Huvamaru moved** further from Thoravi and Maarandu, so there is open sea on every side of it.
