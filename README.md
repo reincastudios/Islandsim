@@ -10,7 +10,8 @@ Pick a graphics preset in the header: **Lo** (phones), **Hi** (refraction, bloom
 
 ## What's in it
 
-- Three islands on one atoll ring: Palm Isle (start), Basalt Isle (mountain, stone) and Sugar Cay (farmland behind lagoon shallows).
+- Three flat, Maldives-style islands on one atoll ring: Palm Isle (start), Coral Isle (low coral ridges for stone) and Sugar Cay (farmland behind lagoon shallows).
+- Sand roads can be painted between buildings.
 - Raise, lower and level land. Raising costs stone from the nearest harbor; lowering returns some.
 - Deep water carries boats, shallow reef blocks them but feeds fisheries. Dredge channels, build land bridges, or split islands.
 - Each island has its own warehouse; boats shuttle goods to the capital. Land bridges merge warehouses.
@@ -18,7 +19,7 @@ Pick a graphics preset in the header: **Lo** (phones), **Hi** (refraction, bloom
 
 ## Controls
 
-Left-drag paints the current tool (Survey pans). Right-drag, Shift+drag, Q/E or the ⟲ ⟳ buttons rotate (hold a button to keep turning; two-finger twist on touch), wheel or pinch zooms, WASD pans. Hotkeys: V survey, R raise, F lower, T level, X demolish, H harbor, 1–6 buildings, B brush size, Space pause.
+Left-drag paints the current tool (Survey pans). Right-drag, Shift+drag, Q/E or the ⟲ ⟳ buttons rotate (hold a button to keep turning; two-finger twist on touch), wheel or pinch zooms, WASD pans. Hotkeys: V survey, R raise, F lower, T level, G sand road, X demolish, H harbor, 1–6 buildings, B brush size, Space pause.
 
 ## Update log
 
@@ -27,8 +28,8 @@ See [CHANGELOG.md](CHANGELOG.md) for what changed in each update.
 ## Graphics
 
 - Physically based lighting with a Preetham sky, image-based lighting from that sky, ACES tone mapping and soft 4K shadows.
-- Terrain blends six texture layers (sand, grass, forest floor, rock, reef, soil) with normal maps; rock is projected triplanar on cliffs. Wet sand at the waterline, caustics on the sea floor, drifting cloud shadows.
-- Water: layered normal maps, Fresnel sky reflection, depth-based colour absorption, screen-space refraction, sun glints, shoreline and reef-crest foam.
+- Terrain blends seven texture layers (sand, grass, forest floor, rock, reef, soil, road) with normal maps; rock is projected triplanar on cliffs. Wet sand at the waterline, caustics on the sea floor, drifting cloud shadows.
+- Water: layered normal maps, Fresnel sky reflection, depth-based colour absorption, screen-space refraction, sun glints, swells that roll in and break on the beach, swash that runs up the sand, and reef-crest foam.
 - Instanced palms, broadleaf trees, bushes, rocks and grass that sway in the wind; plaster, tile, thatch and wood buildings.
 - Post-processing: bloom, GTAO ambient occlusion and tilt-shift on Ultra.
 

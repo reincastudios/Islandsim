@@ -324,7 +324,23 @@ def thatch():
     save_rgb(col, 'thatch_albedo.jpg'); save_rgb(normal_map(h, 6), 'thatch_normal.jpg')
 
 
+def path():
+    """Packed sand road: firmer, warmer and a shade darker than beach sand so it reads on beach and grass alike."""
+    n = N
+    grain = spectral(n, .3, 61, lo=200)
+    blot = spectral(n, 1.8, 62, lo=1, hi=12)
+    tread = smooth(.45, .8, spectral(n, 1.4, 63, lo=4, hi=40))            # darker, firmer trodden patches
+    h = grain * .2 + spectral(n, 1.6, 64, lo=2, hi=40) * .25 - tread * .15
+    base = lerp(rgb('#c4ae86'), rgb('#d6c4a0'), smooth(.3, .8, blot))
+    col = base * (.92 + .1 * grain[..., None]) * (1 - .14 * tread[..., None])
+    rng = np.random.default_rng(65)
+    sp = rng.random((n, n))
+    col = np.where((sp < .012)[..., None], col * .78, col)                    # dark grit
+    col = np.where((sp > .985)[..., None], np.minimum(1, col * 1.08 + .06), col)  # bleached coral bits
+    save_rgb(col, 'path_albedo.jpg'); save_rgb(normal_map(h, 3), 'path_normal.jpg')
+
+
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
-    for f in (sand, grass, forest, rock, reef, soil, palm_frond, leaf_cluster, grass_tuft, bark, plaster, roof_tiles, planks, thatch):
+    for f in (sand, grass, forest, rock, reef, soil, path, palm_frond, leaf_cluster, grass_tuft, bark, plaster, roof_tiles, planks, thatch):
         f(); print('wrote', f.__name__)

@@ -176,12 +176,13 @@ import {OutputPass} from 'three/addons/postprocessing/OutputPass.js';
 import {HorizontalTiltShiftShader} from 'three/addons/shaders/HorizontalTiltShiftShader.js';
 import {VerticalTiltShiftShader} from 'three/addons/shaders/VerticalTiltShiftShader.js';
 
-const W=144,H=144,MINH=-3,MAXH=7;
+const W=144,H=144,MINH=-3,MAXH=3; // Maldives: islands sit about a metre above the sea
 const AC={x:73,y:83,R:44}; // atoll centre and mean ring radius
-const ISL=[ // islands on the atoll rim: angle (deg), angular half-extent, radial half-width, inward offset, peak
-  {name:'Palm Isle',  ang:214,ext:44,rw:10, off:2.5,peak:4.5},
-  {name:'Basalt Isle',ang:313,ext:23,rw:8.5,off:1.5,peak:7},
-  {name:'Sugar Cay',  ang:92, ext:30,rw:6.5,off:0,  peak:2.3},
+const ISL=[ // islands on the atoll rim: angle (deg), angular half-extent, radial half-width, inward offset,
+            // hills: noise threshold for the rare low coral ridges (height 2); 0 = none
+  {name:'Palm Isle',  ang:214,ext:44,rw:10, off:2.5,hills:.72},
+  {name:'Coral Isle', ang:313,ext:23,rw:8.5,off:1.5,hills:.6},
+  {name:'Sugar Cay',  ang:92, ext:30,rw:6.5,off:0,  hills:0},
 ];
 const PASS_ANG=150;
 const GOODS=['wood','stone','fish','sugar','rum'];
@@ -190,8 +191,8 @@ const DEF={
   harbor:    {name:'Harbor',     key:'H', cost:{gold:300,wood:10}, upkeep:0.4, h:[0,1], jobs:0, info:'Island warehouse and boat berth. Needs a coastal tile; boats need deep water beside it.'},
   house:     {name:'House',      key:'1', cost:{gold:20,wood:3},   upkeep:0,   h:[0,2], jobs:0, info:'Up to 4 residents on fish, 8 with rum. Pays tax when fed.'},
   fishery:   {name:'Fishery',    key:'2', cost:{gold:60,wood:5},   upkeep:0.15,h:[0,1], jobs:2, info:'Coast only. Catch grows with shallow reef tiles within 2.'},
-  lumber:    {name:'Lumber camp',key:'3', cost:{gold:50},          upkeep:0.1, h:[1,4], jobs:2, info:'Cuts wood from trees within 2 tiles. Terraforming clears trees.'},
-  quarry:    {name:'Quarry',     key:'4', cost:{gold:80,wood:5},   upkeep:0.25,h:[3,6], jobs:2, info:'Hills only (height 3+). Higher ground yields more stone.'},
+  lumber:    {name:'Lumber camp',key:'3', cost:{gold:50},          upkeep:0.1, h:[1,3], jobs:2, info:'Cuts wood from trees within 2 tiles. Terraforming clears trees.'},
+  quarry:    {name:'Quarry',     key:'4', cost:{gold:80,wood:5},   upkeep:0.25,h:[2,3], jobs:2, info:'Cuts coral stone from low ridges (height 2+). Coral Isle has the most. Higher ground yields more.'},
   plantation:{name:'Sugar field',key:'5', cost:{gold:60,wood:4},   upkeep:0.15,h:[1,2], jobs:2, info:'Lowland (height 1–2). +50% within 2 tiles of water.'},
   distillery:{name:'Distillery', key:'6', cost:{gold:150,wood:8,stone:6}, upkeep:0.4, h:[0,3], jobs:2, info:'Turns sugar into rum.'},
 };
@@ -200,6 +201,7 @@ const TERRA={
   raise:  {name:'Raise',key:'R',cs:'4g + 1 stone'},
   lower:  {name:'Lower',key:'F',cs:'4g, +½ stone'},
   flatten:{name:'Level',key:'T',cs:'match first tile'},
+  road:   {name:'Sand road',key:'G',cs:'2g per tile'},
   demolish:{name:'Demolish',key:'X',cs:'50% refund'},
 };
 
@@ -243,7 +245,9 @@ function generate(){
       const e=Math.hypot(u,w)+(fbm(x*.16,y*.16,11+k)-.5)*.5;
       if(e<1.15){
         const t=Math.max(0,1-e);
-        const hv=-1+(I.peak+1.6)*Math.pow(t,.7)+(fbm(x*.3,y*.3,21+k)-.5)*(I.peak>3?1.3:.5);
+        // a white beach ring, then flat ground at height 1; only a few ridges reach height 2
+        let hv=Math.min(1.3,-1+3.4*Math.pow(t,.5)+(fbm(x*.3,y*.3,21+k)-.5)*.4);
+        if(I.hills&&t>.35&&fbm(x*.11,y*.11,60+k)>I.hills)hv=2;
         if(hv>-0.5&&hv>v)v=hv;                           // islands rise straight out of the lagoon
       }
       // Sugar Cay sits behind broad lagoon flats: too shallow for boats
@@ -267,7 +271,7 @@ function generate(){
 
 function newGame(){
   const g=generate();
-  S={h:g.h,tree:g.tree,bld:new Int32Array(W*H).fill(-1),buildings:[],gold:1200,t:0,nextId:1,stats:{rum:0,sugarTrip:0},goals:{},capital:0};
+  S={h:g.h,tree:g.tree,road:new Uint8Array(W*H),bld:new Int32Array(W*H).fill(-1),buildings:[],gold:1200,t:0,nextId:1,stats:{rum:0,sugarTrip:0},goals:{},capital:0};
   computeIslands();
   let best=null,bs=1e9;
   for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){
@@ -297,7 +301,7 @@ function newGame(){
 function addBuilding(type,x,y){
   const i=idx(x,y);
   const b={id:S.nextId++,type,x,y,res:type==='house'?2:0,eff:0,status:'',stock:type==='harbor'?{wood:0,stone:0,fish:0,sugar:0,rum:0}:null};
-  S.buildings.push(b);S.bld[i]=b.id;S.tree[i]=0;dirtyTrees=true;
+  S.buildings.push(b);S.bld[i]=b.id;S.tree[i]=0;dirtyTrees=true;if(S.road[i]){S.road[i]=0;dirtyTerrain=true}
   return b;
 }
 const byId=id=>S.buildings.find(b=>b.id===id);
@@ -441,6 +445,17 @@ function demolish(x,y){
   toast(`${DEF[b.type].name} demolished`);
 }
 
+// ---------- sand roads ----------
+function buildRoad(x,y){
+  if(!inb(x,y))return{ok:false};const i=idx(x,y);
+  if(S.road[i])return{ok:true};
+  if(S.h[i]<0)return{ok:false,why:'Roads need land'};
+  if(S.bld[i]>=0)return{ok:true};                    // roads simply run up to a building
+  if(S.gold<2)return{ok:false,why:'Need 2 gold per road tile'};
+  S.gold-=2;S.road[i]=1;if(S.tree[i]){S.tree[i]=0;dirtyTrees=true}dirtyTerrain=true;return{ok:true};
+}
+function removeRoad(x,y){if(!inb(x,y))return;const i=idx(x,y);if(!S.road[i])return;S.road[i]=0;S.gold+=1;dirtyTerrain=true}
+
 // ---------- terraforming ----------
 function nearestHarborIsland(x,y){let best=null,bd=1e9;for(const isl of islands){const h=isl.harbor;if(!h)continue;const d=Math.abs(h.x-x)+Math.abs(h.y-y);if(d<bd){bd=d;best=isl}}return best}
 function terraform(x,y,mode,target){
@@ -456,7 +471,7 @@ function terraform(x,y,mode,target){
   if(up&&(!st||st.stone<steps))return{ok:false,why:`Need ${steps} stone at ${src?src.name:'a harbor'} to raise land`};
   S.gold-=gold;if(up)st.stone-=steps;else if(st)st.stone+=steps*0.5;
   const wasLand=cur>=0,isLand=to>=0;
-  S.h[i]=to;if(S.tree[i]){S.tree[i]=0;dirtyTrees=true}
+  S.h[i]=to;if(S.tree[i]){S.tree[i]=0;dirtyTrees=true}if(to<0)S.road[i]=0;
   if(wasLand!==isLand)origin[i]=255;
   terrainVer++;dirtyTerrain=true;
   return{ok:true,coast:wasLand!==isLand};
@@ -486,7 +501,7 @@ function step(dt){
         b.status=!fed?'Hungry: needs fish':lux?'Fed and enjoying rum':'Fed (rum would double tax)';b.eff=fed?1:0.3;break}
       case'fishery':{const n=countAround(b.x,b.y,2,i=>S.h[i]===-1);const r=(0.06+0.035*Math.min(n,10))*e;st.fish+=r*dt;b.rate=r;b.status=`${n} reef tiles nearby`;break}
       case'lumber':{const n=countAround(b.x,b.y,2,i=>S.tree[i]>0);const r=0.03*Math.min(n,12)*e;st.wood+=r*dt;b.rate=r;b.status=n?`${n} trees in reach`:'No trees in reach';if(!n)b.eff=0;break}
-      case'quarry':{const hv=S.h[idx(b.x,b.y)];const r=(0.15+0.05*(hv-3))*e;st.stone+=r*dt;b.rate=r;b.status=`Height ${hv} rock`;break}
+      case'quarry':{const hv=S.h[idx(b.x,b.y)];const r=(0.15+0.05*(hv-2))*e;st.stone+=r*dt;b.rate=r;b.status=`Height ${hv} coral ridge`;break}
       case'plantation':{const near=countAround(b.x,b.y,2,i=>S.h[i]<0)>0;const r=0.12*(near?1.5:1)*e;st.sugar+=r*dt;b.rate=r;b.status=near?'Coastal soil, +50%':'Inland soil';break}
       case'distillery':{const want=0.2*e*dt;const take=Math.min(want,st.sugar);st.sugar-=take;st.rum+=take/2;S.stats.rum+=take/2;b.rate=take/2/dt;b.status=take<want*0.5?'Waiting for sugar':'Distilling';if(take<want*0.5)b.eff=0;break}
     }
@@ -496,13 +511,13 @@ function step(dt){
   S.rate=(S.rate??0)*0.9+(income-upkeep)*0.1;
   stepBoats(dt);
   if(Math.random()<dt*3){const x=(Math.random()*W)|0,y=(Math.random()*H)|0,i=idx(x,y);
-    if(!S.tree[i]&&S.bld[i]<0&&S.h[i]>=1&&S.h[i]<=4&&countAround(x,y,1,j=>S.tree[j]===1)>=2){S.tree[i]=1;dirtyTrees=true}}
+    if(!S.tree[i]&&!S.road[i]&&S.bld[i]<0&&S.h[i]>=1&&S.h[i]<=4&&countAround(x,y,1,j=>S.tree[j]===1)>=2){S.tree[i]=1;dirtyTrees=true}}
 }
 
 // ---------- goals ----------
 const GOALS=[
   {id:'grow',  t:'Grow Palm Isle to 30 residents',        s:'Houses need fish. Fisheries love reef shallows.', ok:()=>(capitalIsland()?.res||0)>=30},
-  {id:'basalt',t:'Quarry stone on Basalt Isle',            s:'Settle it with a harbor across the lagoon, or raise a land bridge along the reef.', ok:()=>S.buildings.some(b=>b.type==='quarry'&&origin[idx(b.x,b.y)]===1&&b.eff>0&&stockOf(islands[b.isl]))},
+  {id:'basalt',t:'Quarry coral stone on Coral Isle',            s:'Settle it with a harbor across the lagoon, or raise a land bridge along the reef.', ok:()=>S.buildings.some(b=>b.type==='quarry'&&origin[idx(b.x,b.y)]===1&&b.eff>0&&stockOf(islands[b.isl]))},
   {id:'sugar', t:'Link Sugar Cay to the capital',          s:'Broad lagoon flats keep boats away. Dredge a channel to its harbor.', ok:()=>S.stats.sugarTrip>0||((capitalIsland()?.parts||[]).includes(2)&&S.buildings.some(b=>b.type==='plantation'&&origin[idx(b.x,b.y)]===2))},
   {id:'rum',   t:'Distil 25 barrels of rum',                s:'Sugar fields feed distilleries. Rum doubles house tax.', ok:()=>S.stats.rum>=25},
   {id:'pop',   t:'Reach 200 residents across the atoll',    s:'', ok:()=>totalPop()>=200},
@@ -524,6 +539,31 @@ scene.fog=new THREE.Fog(FOG,240,760);
 const camera=new THREE.PerspectiveCamera(38,1,0.4,2000);
 const SUN_DIR=new THREE.Vector3(-0.55,0.58,-0.42).normalize();
 const G={uTime:{value:0}};                      // uniforms shared by every patched material
+// signed distance to the coastline in tiles (negative on land), at 4x tile resolution, so surf follows a smooth shore
+const SR=4,SW=W*SR,SH=H*SR,shoreData=new Uint8Array(SW*SH);
+const shoreTex=new THREE.DataTexture(shoreData,SW,SH,THREE.RedFormat);shoreTex.magFilter=shoreTex.minFilter=THREE.LinearFilter;shoreTex.needsUpdate=true;
+G.uShore={value:shoreTex};
+const SHORE_GLSL=`
+float shoreD(vec2 p){vec2 uv=p/vec2(${W}.,${H}.);if(uv.x<0.||uv.y<0.||uv.x>1.||uv.y>1.)return 6.;return texture2D(uShore,uv).r*9.-3.;}
+// waves reach the beach every ~5 s, offset along the shore; x = time since arrival (0..1), y = run-up 0..1
+vec2 swash(vec2 p,float t){float nz=vn(p*.35)*.6+vn(p*.9+3.1)*.4;float a=fract(t*.19+nz*.9);
+  return vec2(a,a<.3?sin(a/.3*1.5708):1.-smoothstep(.3,1.,a));}
+float waveNz(vec2 p){return vn(p*.35)*.6+vn(p*.9+3.1)*.4;}`;
+function computeShore(){
+  const land=new Uint8Array(SW*SH),din=new Float32Array(SW*SH),dout=new Float32Array(SW*SH);
+  const m=(x,y)=>S.h[idx(Math.max(0,Math.min(W-1,x)),Math.max(0,Math.min(H-1,y)))]>=0?1:0;
+  for(let sy=0;sy<SH;sy++)for(let sx=0;sx<SW;sx++){const wx=(sx+.5)/SR-.5,wy=(sy+.5)/SR-.5,x0=Math.floor(wx),y0=Math.floor(wy),fx=wx-x0,fy=wy-y0;
+    const v=(m(x0,y0)*(1-fx)+m(x0+1,y0)*fx)*(1-fy)+(m(x0,y0+1)*(1-fx)+m(x0+1,y0+1)*fx)*fy;land[sy*SW+sx]=v>=.5?1:0}
+  const INF=1e6,D=Math.SQRT2;
+  for(let i=0;i<SW*SH;i++){din[i]=land[i]?INF:0;dout[i]=land[i]?0:INF}
+  for(const d of[din,dout]){ // two-pass chamfer distance transform
+    for(let y=0;y<SH;y++)for(let x=0;x<SW;x++){const i=y*SW+x;let v=d[i];if(!v)continue;
+      if(x>0)v=Math.min(v,d[i-1]+1);if(y>0){v=Math.min(v,d[i-SW]+1);if(x>0)v=Math.min(v,d[i-SW-1]+D);if(x<SW-1)v=Math.min(v,d[i-SW+1]+D)}d[i]=v}
+    for(let y=SH-1;y>=0;y--)for(let x=SW-1;x>=0;x--){const i=y*SW+x;let v=d[i];if(!v)continue;
+      if(x<SW-1)v=Math.min(v,d[i+1]+1);if(y<SH-1){v=Math.min(v,d[i+SW]+1);if(x<SW-1)v=Math.min(v,d[i+SW+1]+D);if(x>0)v=Math.min(v,d[i+SW-1]+D)}d[i]=v}}
+  for(let i=0;i<SW*SH;i++){const sd=(land[i]?-(din[i]-.5):dout[i]-.5)/SR;shoreData[i]=Math.round(Math.max(0,Math.min(1,(sd+3)/9))*255)}
+  shoreTex.needsUpdate=true;
+}
 
 // quality presets: Low for phones and weak GPUs, High by default, Ultra adds ambient occlusion and tilt-shift
 const QUALITY={
@@ -567,7 +607,7 @@ async function loadArray(names,srgb){ // stack same-size images into one sampler
   t.wrapS=t.wrapT=THREE.RepeatWrapping;t.generateMipmaps=true;t.minFilter=THREE.LinearMipmapLinearFilter;t.magFilter=THREE.LinearFilter;t.anisotropy=MAXANISO;
   if(srgb)t.colorSpace=THREE.SRGBColorSpace;t.needsUpdate=true;return t;
 }
-const LAYERS=['sand','grass','forest','rock','reef','soil'];  // splat order
+const LAYERS=['sand','grass','forest','rock','reef','soil','path'];  // splat order
 const groundAlb={value:null},groundNor={value:null};
 const T={bark:tex('bark_albedo.jpg',true),barkN:tex('bark_normal.jpg'),plaster:tex('plaster_albedo.jpg',true),plasterN:tex('plaster_normal.jpg'),
   roof:tex('roof_albedo.jpg',true),roofN:tex('roof_normal.jpg'),wood:tex('wood_albedo.jpg',true),woodN:tex('wood_normal.jpg'),
@@ -610,8 +650,8 @@ uniform float uTime;varying vec3 vCWP;${GLSL_NOISE}`).replace('#include <lights_
 const STD=(o)=>patch(new THREE.MeshStandardMaterial(o));
 
 // ---------- terrain ----------
-const LVL=0.62;                                  // world units per height level
-const topY=h=>h>=0?0.28+h*LVL:h*LVL-0.12;        // tile surface height
+const LVL=0.4,DEPTH=0.62;                        // world units per height level on land / under water
+const topY=h=>h>=0?0.26+h*LVL:h*DEPTH-0.12;      // tile surface height
 const WATER_Y=0.02;
 // per-tile tint (multiplied over the ground textures) keeps the islands' height bands readable
 const TINT={'-3':'#8a9a9a','-2':'#b8b8a8','-1':'#f2ead6','0':'#ffffff','1':'#ffffff','2':'#f2f4e8','3':'#f0eadc','4':'#ece2d2','5':'#e6e0da','6':'#f2f0ec','7':'#ffffff'};
@@ -632,28 +672,39 @@ tGeo.setAttribute('splat1',new THREE.BufferAttribute(tS1,4));
 tGeo.setIndex(new THREE.BufferAttribute(tIdx,1));
 const terrainMat=STD({vertexColors:true,roughness:1,metalness:0});
 terrainMat.userData.extra=sh=>{
-  sh.uniforms.tAlb=groundAlb;sh.uniforms.tNor=groundNor;
+  sh.uniforms.tAlb=groundAlb;sh.uniforms.tNor=groundNor;sh.uniforms.uShore=G.uShore;
   sh.vertexShader=sh.vertexShader.replace('#include <common>',`#include <common>
 attribute vec4 splat0;attribute vec4 splat1;varying vec4 vS0;varying vec4 vS1;varying vec3 vWN;`).replace('#include <begin_vertex>',`#include <begin_vertex>
 vS0=splat0;vS1=splat1;vWN=normalize(mat3(modelMatrix)*objectNormal);`);
   sh.fragmentShader=sh.fragmentShader.replace('#include <common>',`#include <common>
-precision highp sampler2DArray;uniform sampler2DArray tAlb;uniform sampler2DArray tNor;varying vec4 vS0;varying vec4 vS1;varying vec3 vWN;
+precision highp sampler2DArray;uniform sampler2DArray tAlb;uniform sampler2DArray tNor;uniform sampler2D uShore;varying vec4 vS0;varying vec4 vS1;varying vec3 vWN;
 float caustic(vec2 p,float t){vec2 i=p;float c=1.;for(int n=0;n<4;n++){float tt=t*(1.-3.5/float(n+1));i=p+vec2(cos(tt-i.x)+sin(tt+i.y),sin(tt-i.y)+cos(tt+i.x));c+=1./max(length(vec2(p.x/(sin(i.x+tt)/.005),p.y/(cos(i.y+tt)/.005))),.05);}c/=4.;c=1.17-pow(c,1.4);return pow(clamp(c,0.,1.),8.);}
 vec4 layS(sampler2DArray s,int l,vec2 uv,vec3 wp,vec3 wn){
   if(l==3){vec3 b=pow(abs(wn),vec3(4.));b/=b.x+b.y+b.z;  // rock: triplanar so cliffs are not smeared
     return texture(s,vec3(wp.zy*.22,3.))*b.x+texture(s,vec3(wp.xz*.22,3.))*b.y+texture(s,vec3(wp.xy*.22,3.))*b.z;}
   // two scales blended to hide repetition
   return mix(texture(s,vec3(uv,float(l))),texture(s,vec3(uv*.29+vec2(.31,.17),float(l))),.35);
-}`).replace('#include <map_fragment>',`
-float wts[6];wts[0]=vS0.x;wts[1]=vS0.y;wts[2]=vS0.z;wts[3]=vS0.w;wts[4]=vS1.x;wts[5]=vS1.y;
-float wsum=0.;for(int l=0;l<6;l++)wsum+=wts[l];
+}`).replace('#include <lights_pars_begin>',`${SHORE_GLSL}
+#include <lights_pars_begin>`).replace('#include <map_fragment>',`
+float wts[7];wts[0]=vS0.x;wts[1]=vS0.y;wts[2]=vS0.z;wts[3]=vS0.w;wts[4]=vS1.x;wts[5]=vS1.y;
+wts[6]=smoothstep(.28,.6,vS1.z+(texture(tAlb,vec3(vCWP.xz*.9,0.)).r-.75)*.5); // roads: crisp, slightly ragged edges
+float wsum=0.;for(int l=0;l<7;l++)wsum+=wts[l];
+for(int l=0;l<6;l++)wts[l]*=1.-wts[6];
 vec3 gWN=normalize(vWN);vec2 gUV=vCWP.xz*.25;vec3 gAlb=vec3(0.);vec3 gTN=vec3(0.);float gRough=0.;
-float RGH[6];RGH[0]=.92;RGH[1]=.96;RGH[2]=.97;RGH[3]=.82;RGH[4]=.78;RGH[5]=.95;
-for(int l=0;l<6;l++){float w=wts[l]/max(wsum,1e-4);if(w<.02)continue;
+float RGH[7];RGH[0]=.92;RGH[1]=.96;RGH[2]=.97;RGH[3]=.82;RGH[4]=.78;RGH[5]=.95;RGH[6]=.94;
+wsum=0.;for(int l=0;l<7;l++)wsum+=wts[l];
+for(int l=0;l<7;l++){float w=wts[l]/max(wsum,1e-4);if(w<.02)continue;
   gAlb+=layS(tAlb,l,gUV,vCWP,gWN).rgb*w;vec3 tn=layS(tNor,l,gUV,vCWP,gWN).xyz*2.-1.;tn.y=-tn.y;gTN+=tn*w;gRough+=RGH[l]*w;}
-float wet=1.-smoothstep(.0,.38,abs(vCWP.y-.06));            // damp band at the waterline
-gAlb*=1.-.38*wet*step(-.05,vCWP.y);if(vCWP.y<-.05)gAlb*=.92;
-diffuseColor.rgb*=gAlb;`).replace('#include <roughnessmap_fragment>',`float roughnessFactor=mix(gRough,.35,wet*step(-.05,vCWP.y));`)
+// swash: after each wave a thin sheet of water slides up the beach, led by a lacy foam edge, then drains back
+float sd=shoreD(vCWP.xz),inl=-sd;vec2 sw=swash(vCWP.xz,uTime);float onBeach=step(0.,inl)*(1.-smoothstep(.35,.6,vCWP.y));
+float runup=.75*sw.y*(.75+.5*vn(vCWP.xz*.6+7.));
+float film=onBeach*(1.-smoothstep(runup-.08,runup,inl));
+float lace=smoothstep(.35,.75,vn(vCWP.xz*7.+vec2(uTime*.3,0.))*.6+vn(vCWP.xz*16.)*.4);
+float edge=onBeach*smoothstep(runup-.16,runup-.03,inl)*(1.-smoothstep(runup-.03,runup+.02,inl))*lace*(1.-sw.x*.6)*step(.05,runup);
+float wet=max(film,onBeach*(1.-smoothstep(.0,.95,inl))*.55);   // sand stays damp where the sea last reached
+gAlb*=mix(vec3(1.),vec3(.74,.80,.80),wet);gAlb=mix(gAlb,gAlb*vec3(.86,.96,.98),film);
+gAlb=mix(gAlb,vec3(.95,.97,.98),edge*.7);if(vCWP.y<-.05)gAlb*=.92;
+diffuseColor.rgb*=gAlb;`).replace('#include <roughnessmap_fragment>',`float roughnessFactor=mix(mix(gRough,.5,wet),.18,film*(1.-edge));`)
   .replace('#include <normal_fragment_maps>',`{vec3 Tg=normalize(vec3(1.,0.,0.)-gWN*gWN.x);vec3 Bg=cross(Tg,gWN);
   vec3 tn=normalize(vec3(gTN.xy*1.15,max(gTN.z,.2)));vec3 nW=normalize(Tg*tn.x+Bg*tn.y+gWN*tn.z);normal=normalize((viewMatrix*vec4(nW,0.)).xyz);}`)
   .replace('#include <lights_fragment_end>',`#include <lights_fragment_end>
@@ -668,9 +719,10 @@ function tileTint(x,y,out){
   const n=(hash2(x,y,5)-.5)*0.06;out.r+=n;out.g+=n;out.b+=n*.6;
   return out;
 }
-// ground layer weights for one tile: sand, grass, forest, rock, reef, soil
+// ground layer weights for one tile: sand, grass, forest, rock, reef, soil, path
 function tileSplat(x,y,o){
   const i=idx(x,y),h=S.h[i];o.fill(0);
+  if(S.road[i]&&h>=0){o[6]=1;return o}
   if(h<=-2)o[0]=1;                                   // lagoon floor: clean sand
   else if(h===-1)o[4]=1;                             // reef flat: rubble, seagrass
   else if(h===0)o[0]=1;
@@ -680,29 +732,31 @@ function tileSplat(x,y,o){
   if(S.bld[i]>=0&&h>=1){o[1]*=.4;o[5]+=.8}           // trampled ground around buildings
   return o;
 }
-const spl=new Float32Array(6),acc6=new Float32Array(6);
+const spl=new Float32Array(7),acc6=new Float32Array(7);
+let shoreVer=-1;
 function rebuildTerrain(){
   for(let y=0;y<=H;y++)for(let x=0;x<=W;x++){
     let sh=0,n=0,r=0,g=0,b=0,landSum=0,landN=0;acc6.fill(0);
     for(const[dx,dy]of[[-1,-1],[0,-1],[-1,0],[0,0]]){const tx=x+dx,ty=y+dy;if(!inb(tx,ty))continue;const h=S.h[idx(tx,ty)];
       sh+=topY(h);n++;tileTint(tx,ty,tmpC);r+=tmpC.r;g+=tmpC.g;b+=tmpC.b;if(h>=0){landSum+=topY(h);landN++}
-      tileSplat(tx,ty,spl);for(let k=0;k<6;k++)acc6[k]+=spl[k]}
+      tileSplat(tx,ty,spl);for(let k=0;k<7;k++)acc6[k]+=spl[k]}
     const v=y*(W+1)+x;
     let yy=n?sh/n:topY(-3);if(landN>=2)yy=Math.max(yy,Math.min(landSum/landN,0.12)); // keep coasts crisp
     tPos[v*3+1]=yy;tCol[v*3]=r/n;tCol[v*3+1]=g/n;tCol[v*3+2]=b/n;
-    tS0.set([acc6[0]/n,acc6[1]/n,acc6[2]/n,acc6[3]/n],v*4);tS1.set([acc6[4]/n,acc6[5]/n,0,0],v*4);
+    tS0.set([acc6[0]/n,acc6[1]/n,acc6[2]/n,acc6[3]/n],v*4);tS1.set([acc6[4]/n,acc6[5]/n,acc6[6]/n,0],v*4);
   }
   for(let y=0;y<H;y++)for(let x=0;x<W;x++){const v=NC+idx(x,y);tPos[v*3+1]=topY(S.h[idx(x,y)]);tileTint(x,y,tmpC);tCol[v*3]=tmpC.r;tCol[v*3+1]=tmpC.g;tCol[v*3+2]=tmpC.b;
-    tileSplat(x,y,spl);tS0.set([spl[0],spl[1],spl[2],spl[3]],v*4);tS1.set([spl[4],spl[5],0,0],v*4)}
+    tileSplat(x,y,spl);tS0.set([spl[0],spl[1],spl[2],spl[3]],v*4);tS1.set([spl[4],spl[5],spl[6],0],v*4)}
   tGeo.attributes.position.needsUpdate=true;tGeo.computeVertexNormals();
   // steep faces become rock whatever their height band
   const nrm=tGeo.attributes.normal.array;
   for(let v=0;v<NV;v++){const y=tPos[v*3+1],ny=nrm[v*3+1];
-    if(y>0.05){const k=Math.min(1,Math.max(0,(0.84-ny)/0.25));if(k>0){for(let j=0;j<4;j++)tS0[v*4+j]*=1-k;tS1[v*4]*=1-k;tS1[v*4+1]*=1-k;tS0[v*4+3]+=k}}}
+    if(y>0.05){const k=Math.min(1,Math.max(0,(0.6-ny)/0.2)); /* only real cliffs: beach slopes stay sand */if(k>0){for(let j=0;j<4;j++)tS0[v*4+j]*=1-k;tS1[v*4]*=1-k;tS1[v*4+1]*=1-k;tS0[v*4+3]+=k}}}
   for(const a of ['color','splat0','splat1'])tGeo.attributes[a].needsUpdate=true;
   tGeo.computeBoundingSphere();
   for(let i=0;i<W*H;i++){const h=S.h[i];depthData[i*4]=h>=0?0:Math.round(Math.min(1,(WATER_Y-topY(h))/2.2)*255);depthData[i*4+1]=h>=0?255:0}
   depthTex.needsUpdate=true;
+  if(shoreVer!==terrainVer){shoreVer=terrainVer;computeShore()}
   dirtyTerrain=false;
 }
 // outer seabed beyond the map: same sand, seen through deep water
@@ -714,17 +768,20 @@ seabed.rotation.x=-Math.PI/2;seabed.position.set(W/2,topY(-3)-0.05,H/2);seabed.r
 const depthData=new Uint8Array(W*H*4);const depthTex=new THREE.DataTexture(depthData,W,H,THREE.RGBAFormat);
 depthTex.magFilter=depthTex.minFilter=THREE.LinearFilter;depthTex.needsUpdate=true;
 // refraction: the scene without water, rendered at half resolution, sampled with a normal-based offset
-const refractRT=new THREE.WebGLRenderTarget(2,2,{type:THREE.HalfFloatType});
+const refractRT=new THREE.WebGLRenderTarget(2,2,{type:THREE.HalfFloatType,depthTexture:new THREE.DepthTexture(2,2)});
 const waterMat=new THREE.ShaderMaterial({
   uniforms:{uTime:G.uTime,uDepth:{value:depthTex},uSize:{value:new THREE.Vector2(W,H)},uSun:{value:SUN_DIR},uSunCol:{value:new THREE.Color(1,.93,.8).multiplyScalar(5)},
     uNormal:{value:T.water},uEnv:{value:envCubeRT.texture},uRefr:{value:refractRT.texture},uUseRefr:{value:1},uRes:{value:new THREE.Vector2(1,1)},
-    uFog:{value:FOG},uFogR:{value:new THREE.Vector2(240,760)}},
+    uFog:{value:FOG},uFogR:{value:new THREE.Vector2(240,760)},uShore:G.uShore,uRefrDepth:{value:refractRT.depthTexture},uCam:{value:new THREE.Vector2(camera.near,camera.far)}},
   transparent:true,depthWrite:false,
   vertexShader:`uniform float uTime;varying vec3 vW;void main(){vec4 w=modelMatrix*vec4(position,1.);
     w.y+=sin(w.x*.31+uTime*1.1)*.03+cos(w.z*.27+uTime*.9)*.03+sin((w.x+w.z)*.8+uTime*1.9)*.012;vW=w.xyz;gl_Position=projectionMatrix*viewMatrix*w;}`,
   fragmentShader:`uniform float uTime;uniform sampler2D uDepth;uniform vec2 uSize;uniform vec3 uSun;uniform vec3 uSunCol;uniform sampler2D uNormal;uniform samplerCube uEnv;
     uniform sampler2D uRefr;uniform float uUseRefr;uniform vec2 uRes;uniform vec3 uFog;uniform vec2 uFogR;varying vec3 vW;
+    uniform sampler2D uShore;uniform sampler2D uRefrDepth;uniform vec2 uCam;
+    #include <packing>
     ${GLSL_NOISE}
+    ${SHORE_GLSL}
     float dAt(vec2 xz){vec2 uv=xz/uSize;return (uv.x<0.||uv.y<0.||uv.x>1.||uv.y>1.)?1.:texture2D(uDepth,uv).r;}
     void main(){
       vec2 p=vW.xz;vec2 uv=p/uSize;bool outside=uv.x<0.||uv.y<0.||uv.x>1.||uv.y>1.;vec4 dt=texture2D(uDepth,clamp(uv,0.,1.));
@@ -734,7 +791,13 @@ const waterMat=new THREE.ShaderMaterial({
       vec3 n2=texture2D(uNormal,p*.097-vec2(uTime*.017,-uTime*.012)).rgb*2.-1.;
       vec3 n3=texture2D(uNormal,p*.29+vec2(-uTime*.031,uTime*.022)).rgb*2.-1.;
       float chop=mix(.22,.55,smoothstep(.2,1.,depth));
-      vec2 sl=(n1.xy*.3+n2.xy*.4+n3.xy*.3)*chop;vec3 n=normalize(vec3(sl.x,1.,sl.y));
+      vec2 sl=(n1.xy*.3+n2.xy*.4+n3.xy*.3)*chop;
+      // small swells roll in toward the beach and steepen as the water shoals
+      float sd=shoreD(p);vec2 sw=swash(p,uTime);float ph=sd/1.15+uTime*.19+waveNz(p)*.9;
+      float near=1.-smoothstep(.6,3.6,sd);
+      vec2 ge=vec2(.25,0.);vec2 gd=vec2(shoreD(p+ge.xy)-shoreD(p-ge.xy),shoreD(p+ge.yx)-shoreD(p-ge.yx));gd/=max(length(gd),1e-3);
+      sl+=gd*sin(6.2832*ph)*near*.32;
+      float crest=pow(.5+.5*cos(6.2832*ph),14.)*near;vec3 n=normalize(vec3(sl.x,1.,sl.y));
       vec3 V=normalize(cameraPosition-vW);float NV=max(dot(n,V),0.);
       float F=.02+.98*pow(1.-NV,5.);
       vec3 R=reflect(-V,n);R.y=abs(R.y);vec3 refl=textureCube(uEnv,R).rgb;
@@ -750,10 +813,17 @@ const waterMat=new THREE.ShaderMaterial({
       // shoreline and reef-crest surf
       float g=length(vec2(dAt(p+vec2(.7,0.))-dAt(p-vec2(.7,0.)),dAt(p+vec2(0.,.7))-dAt(p-vec2(0.,.7))));
       float fn=vn(p*2.6+uTime*.5)*.6+vn(p*6.3-uTime*.35)*.4;
-      float shore=max(1.-smoothstep(0.,.07,depth),land*.85);
-      float crest=smoothstep(.12,.35,g)*(1.-smoothstep(.35,.7,depth));
-      float bands=.5+.5*sin(depth*85.-uTime*2.2+fn*3.);
-      float foam=clamp(shore*smoothstep(.42,.78,fn*.7+bands*.5)+crest*smoothstep(.5,.85,fn*.6+(.5+.5*sin(depth*40.-uTime*1.6))*.5),0.,1.);
+      // where the water meets the sand: true water depth from the refraction pass when we have it
+      float edgeW=.035+.09*sw.y,edge;
+      if(uUseRefr>.5){vec2 suv=gl_FragCoord.xy/uRes;float sz=-perspectiveDepthToViewZ(texture2D(uRefrDepth,suv).r,uCam.x,uCam.y);
+        float wz=-(viewMatrix*vec4(vW,1.)).z;vec3 fw=-vec3(viewMatrix[0][2],viewMatrix[1][2],viewMatrix[2][2]);
+        float vert=max(sz-wz,0.)/max(dot(-V,fw),.05)*abs(V.y);edge=1.-smoothstep(0.,edgeW,vert);}
+      else edge=1.-smoothstep(0.,.1+.2*sw.y,sd);
+      float lace=smoothstep(.38,.78,fn);
+      float breakF=pow(crest,2.)*(1.-smoothstep(.05,.5,sd))*smoothstep(.5,.85,fn);   // swell tips over into foam right at the beach
+      float reefC=smoothstep(.12,.35,g)*(1.-smoothstep(.35,.7,depth))*smoothstep(.5,.85,fn*.6+(.5+.5*sin(depth*40.-uTime*1.6))*.5);
+      float foam=clamp(edge*lace*(1.-sw.x*.5)+breakF*.4+reefC*.8,0.,1.);
+      col+=vec3(.05,.07,.07)*crest*(1.-breakF)*(.5+.5*cs);   // glassy sheen on the swell faces
       col=mix(col,vec3(.92,.95,.97)*(.75+.35*cs),foam*.9);
       if(uUseRefr<.5)alpha=max(alpha,foam*.9);
       float fog=smoothstep(uFogR.x,uFogR.y,length(cameraPosition-vW));col=mix(col,uFog,fog);
@@ -1030,8 +1100,11 @@ let tool='inspect',brush=0,stroke=null,drag=null;const pointers=new Map();let pi
 function applyAt(t,first){
   if(!t)return;
   if(tool in DEF){if(first)place(tool,t.x,t.y);return}
-  if(tool==='demolish'){if(first)demolish(t.x,t.y);return}
+  if(tool==='demolish'){if(bAt(t.x,t.y)){if(first)demolish(t.x,t.y)}else removeRoad(t.x,t.y);return}
   if(tool==='inspect')return;
+  if(tool==='road'){let err=null;
+    for(let dy=-brush;dy<=brush;dy++)for(let dx=-brush;dx<=brush;dx++){const r=buildRoad(t.x+dx,t.y+dy);if(!r.ok&&r.why)err=r.why}
+    if(err)toast(err,'bad');return}
   if(first&&tool==='flatten')stroke.target=S.h[idx(t.x,t.y)];
   let coast=false,err=null;
   for(let dy=-brush;dy<=brush;dy++)for(let dx=-brush;dx<=brush;dx++){
@@ -1101,13 +1174,13 @@ function setTool(id){tool=id;document.querySelectorAll('[data-tool]').forEach(b=
   if(id in DEF)setInsp(`<div class="ttl">${DEF[id].name}</div><div>${DEF[id].info}</div><div class="k">Cost ${costText(DEF[id].cost)} · upkeep ${DEF[id].upkeep}g/s</div>`)}
 function setBrush(n){brush=n;document.querySelectorAll('[data-brush]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.brush===n))}
 let speed=1;function setSpeed(n){speed=n;document.querySelectorAll('[data-speed]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.speed===n))}
-const TERR_NAME=h=>h<=-3?'Open ocean':h===-2?'Deep water (boats sail)':h===-1?'Shallow reef (blocks boats, feeds fish)':h===0?'Beach':h<=2?'Lowland':h<=4?'Hills':'Mountain';
+const TERR_NAME=h=>h<=-3?'Open ocean':h===-2?'Deep water (boats sail)':h===-1?'Shallow reef (blocks boats, feeds fish)':h===0?'Beach':h===1?'Island ground':h===2?'Low coral ridge':'Raised mound';
 function setInsp(html){$('insp').innerHTML=html}
 function inspect(t){
   if(!t||!inb(t.x,t.y))return;
   if(tool in DEF){const r=canPlace(tool,t.x,t.y);setInsp(`<div class="ttl">${DEF[tool].name}</div><div>${r.ok?'<span class="pos">Can build here</span>':`<span class="neg">${r.why}</span>`}</div><div class="k">${DEF[tool].info}</div>`);return}
   const i=idx(t.x,t.y),hv=S.h[i],isl=islandOf(t.x,t.y),b=bAt(t.x,t.y);
-  let s=`<div class="ttl">${TERR_NAME(hv)}</div><div class="k">Height ${hv}${isl?` · ${isl.name}`:''}${S.tree[i]?' · trees':''}</div>`;
+  let s=`<div class="ttl">${TERR_NAME(hv)}</div><div class="k">Height ${hv}${isl?` · ${isl.name}`:''}${S.tree[i]?' · trees':''}${S.road[i]?' · sand road':''}</div>`;
   if(b)s+=`<div style="margin-top:4px"><b>${DEF[b.type].name}</b>${b.type==='house'?` · ${b.res.toFixed(1)} residents`:''}${b.rate!=null&&b.type!=='house'&&b.type!=='harbor'?` · ${(b.rate*60).toFixed(0)}/min`:''}</div><div class="k">${b.status||''}</div>`;
   setInsp(s);
 }
@@ -1137,7 +1210,7 @@ const labelEls=ISL.map(()=>{const d=document.createElement('div');d.className='l
 const v3=new THREE.Vector3();
 function updateLabels(){
   ISL.forEach((I,k)=>{const c=islCentre(I);const isl=islandOf(Math.round(c.x),Math.round(c.y));const el=labelEls[k];
-    const mid=isl&&isl.parts.length===1?{x:isl.cx,y:isl.cy}:c;v3.set(mid.x+.5,I.peak*LVL+2.4,mid.y+.5).project(camera);
+    const mid=isl&&isl.parts.length===1?{x:isl.cx,y:isl.cy}:c;v3.set(mid.x+.5,topY(2)+2.2,mid.y+.5).project(camera);
     if(v3.z>1||Math.abs(v3.x)>1.1||Math.abs(v3.y)>1.1){el.hidden=true;return}
     el.hidden=false;el.textContent=I.name;el.style.left=((v3.x+1)/2*vw)+'px';el.style.top=((1-v3.y)/2*vh)+'px'})
 }
@@ -1145,11 +1218,11 @@ function updateLabels(){
 function setQuality(n){Q=QUALITY[n];qName=n;try{localStorage.setItem('islandsim.quality',n)}catch(e){}
   document.querySelectorAll('[data-q]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.q===n));applyQuality()}
 // ---------- persistence for live updates ----------
-function snapshot(){return{v:2,h:Array.from(S.h),tree:Array.from(S.tree),buildings:S.buildings.map(b=>({id:b.id,type:b.type,x:b.x,y:b.y,res:b.res,stock:b.stock})),gold:S.gold,t:S.t,nextId:S.nextId,stats:S.stats,goals:S.goals,capital:S.capital,origin:Array.from(origin),cam:{...cam}}}
+function snapshot(){return{v:3,h:Array.from(S.h),tree:Array.from(S.tree),road:Array.from(S.road),buildings:S.buildings.map(b=>({id:b.id,type:b.type,x:b.x,y:b.y,res:b.res,stock:b.stock})),gold:S.gold,t:S.t,nextId:S.nextId,stats:S.stats,goals:S.goals,capital:S.capital,origin:Array.from(origin),cam:{...cam}}}
 function restore(d){
-  if(d.v!==2||!d.h||d.h.length!==W*H)throw new Error('old save');
+  if(d.v!==3||!d.h||d.h.length!==W*H)throw new Error('old save');
   generate();
-  S={h:Int8Array.from(d.h),tree:Uint8Array.from(d.tree),bld:new Int32Array(W*H).fill(-1),buildings:[],gold:d.gold,t:d.t,nextId:d.nextId,stats:d.stats,goals:d.goals,capital:d.capital};
+  S={h:Int8Array.from(d.h),tree:Uint8Array.from(d.tree),road:d.road?Uint8Array.from(d.road):new Uint8Array(W*H),bld:new Int32Array(W*H).fill(-1),buildings:[],gold:d.gold,t:d.t,nextId:d.nextId,stats:d.stats,goals:d.goals,capital:d.capital};
   origin=Uint8Array.from(d.origin);
   for(const b of d.buildings){S.buildings.push({...b,eff:0,status:''});S.bld[idx(b.x,b.y)]=b.id}
   if(d.cam)Object.assign(cam,d.cam);
@@ -1201,7 +1274,7 @@ async function start(data){
   window.claude?.hot?.snapshot?.(snapshot);
   $('loading').hidden=true;
   toast('Welcome, governor. Palm Isle is yours. Reshape the reef and lagoon to bind the atoll together.','good');
-  window.__island={S:()=>S,islands:()=>islands,boats:()=>boats,setTool,place,terraform,step,computeIslands,setSpeed,cam,setQuality,renderer,ready:true};
+  window.__island={S:()=>S,buildRoad,islands:()=>islands,boats:()=>boats,setTool,place,terraform,step,computeIslands,setSpeed,cam,setQuality,renderer,ready:true};
   requestAnimationFrame(frame);
 }
 window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.hot?.data??{});
