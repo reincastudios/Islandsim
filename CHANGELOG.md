@@ -4,6 +4,13 @@ Newest first. Each entry says what changed for the player and where the code liv
 
 ## 2026-10-11
 
+### Compounds, one continuous wave, clear roads (PR #5)
+- Houses are now **compounds** (goathi): a 3×2-tile family plot (six old house tiles) inside a low coral wall with a gate. Inside is an old-style coral-stone house with lime-washed walls and a hipped thatch roof, a kitchen hut, a well, two joali seats, a coconut palm and a swept white-sand yard. The plot needs level ground and turns 90° by itself to fit. Compounds cost 60 gold and 6 wood and hold up to 6 residents on fish, 12 with rum. Larger plot sizes can come later.
+- The game starts with three compounds instead of four houses, so it still opens with 12 residents.
+- Waves are now one continuous motion shared by the sea and the beach. Each swell rolls in, steepens, tips over into foam at the waterline, runs up the sand as a thin sheet behind the same foam front, then drains back. Spent foam drifts in the shallows, and the waterline foam surges as each wave lands.
+- Nothing grows on sand roads any more (no grass, bushes, trees or rocks), and nothing grows inside compound plots except the yard palm.
+- Saves from before compounds start a new game.
+
 ### Maldives islands, sand roads and lapping waves (PR #5)
 - Islands are now flat like real Maldivian islands: a ring of white beach around ground about a metre above the sea. Coral Isle has a few low coral ridges (height 2) and Palm Isle a couple of tiles; terraforming tops out at height 3.
 - Basalt Isle is renamed Coral Isle. Quarries now cut coral stone from those low ridges (height 2+), and the charter goal follows.

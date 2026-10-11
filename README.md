@@ -15,7 +15,7 @@ Pick a graphics preset in the header: **Lo** (phones), **Hi** (refraction, bloom
 - Raise, lower and level land. Raising costs stone from the nearest harbor; lowering returns some.
 - Deep water carries boats, shallow reef blocks them but feeds fisheries. Dredge channels, build land bridges, or split islands.
 - Each island has its own warehouse; boats shuttle goods to the capital. Land bridges merge warehouses.
-- Houses eat fish and pay more tax with rum. Fishery, lumber camp, quarry, sugar field and distillery.
+- Compounds (walled 3×2 family plots with an old coral house) eat fish and pay more tax with rum. Fishery, lumber camp, quarry, sugar field and distillery.
 
 ## Controls
 
