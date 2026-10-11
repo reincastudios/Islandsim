@@ -486,7 +486,7 @@ const TERRA={
 
 let S, comp, islands=[], boats=[], terrainVer=0, islAnchor=[];
 let origin=new Uint8Array(W*H);
-let dirtyTerrain=true, dirtyTrees=true;
+let dirtyTerrain=true, dirtyTrees=true, miniDirty=true; // miniDirty: the minimap's ground layer needs redrawing
 const idx=(x,y)=>y*W+x, inb=(x,y)=>x>=0&&y>=0&&x<W&&y<H;
 const N4=[[1,0],[-1,0],[0,1],[0,-1]];
 const rad=d=>d*Math.PI/180;
@@ -521,6 +521,9 @@ const ISL_C=ISL.map(islCentre);
 // which atoll a point belongs to (the one whose rim it is furthest inside)
 function atollAt(x,y){let best=0,br=1e9;ATOLLS.forEach((A,k)=>{const l=atollLocal(A,x,y);const r=(l.d-(A.lone?A.R:rimR(A,l.a)))*l.sc;if(r<br){br=r;best=k}});return best}
 const LONE_ISL=ISL.findIndex(I=>I.kind==='lone');
+// a generous reach per atoll: past it a tile is open ocean for sure, so generate() and seaAt() skip that atoll
+const ATOLL_REACH=ATOLLS.map(A=>A.R*(A.lone?1:1.3+(A.bend||0))*Math.max(A.sx,A.sy)+40*SC);
+const nearAtoll=(k,x,y)=>{const A=ATOLLS[k],dx=x-A.x,dy=y-A.y,r=ATOLL_REACH[k];return dx*dx+dy*dy<r*r};
 const ISL_BY_ATOLL=ATOLLS.map((A,ai)=>ISL.map((I,k)=>I.at===ai?k:-1).filter(k=>k>=0));
 const KIND_DENS={rim:.5,long:.55,wooded:.3,kulhi:.5,vilu:.5,finolhu:2,bird:.28,lone:.42};
 
@@ -538,8 +541,9 @@ function generate(){
     // domain-warp the coordinates so edges meander instead of tracing arcs
     const wx=x+(fbm(x/SC*.035,y/SC*.035,40)-.5)*12*SC, wy=y+(fbm(x/SC*.035,y/SC*.035,41)-.5)*12*SC;
     let ai=-1,L=null,r=1e9;
-    for(let k=0;k<ATOLLS.length;k++){const A=ATOLLS[k],l=atollLocal(A,wx,wy);const rr=(l.d-(A.lone?A.R:rimR(A,l.a)))*l.sc;if(rr<r){r=rr;ai=k;L=l}}
-    const A=ATOLLS[ai],a=L.a,i=idx(x,y);
+    for(let k=0;k<ATOLLS.length;k++){if(!nearAtoll(k,wx,wy))continue;const A=ATOLLS[k],l=atollLocal(A,wx,wy);const rr=(l.d-(A.lone?A.R:rimR(A,l.a)))*l.sc;if(rr<r){r=rr;ai=k;L=l}}
+    const i=idx(x,y);if(ai<0){h[i]=MINH;continue}   // open ocean, far from every atoll
+    const A=ATOLLS[ai],a=L.a;
     let v=-3,owner=255,g=0,best=1e9;
     if(A.lone){
       // one island, its own narrow reef, then straight down into the ocean
@@ -601,7 +605,8 @@ function generate(){
 function seaAt(x,y){
   const wx=x+(fbm(x/SC*.035,y/SC*.035,40)-.5)*12*SC, wy=y+(fbm(x/SC*.035,y/SC*.035,41)-.5)*12*SC;
   let ai=0,r=1e9,a=0;
-  for(let k=0;k<ATOLLS.length;k++){const A=ATOLLS[k],l=atollLocal(A,wx,wy);const rr=(l.d-(A.lone?A.R:rimR(A,l.a)))*l.sc;if(rr<r){r=rr;ai=k;a=l.a}}
+  for(let k=0;k<ATOLLS.length;k++){if(!nearAtoll(k,wx,wy))continue;const A=ATOLLS[k],l=atollLocal(A,wx,wy);const rr=(l.d-(A.lone?A.R:rimR(A,l.a)))*l.sc;if(rr<r){r=rr;ai=k;a=l.a}}
+  if(r===1e9)return true;
   return ATOLLS[ai].lone?r>3.5*SC:r>(6+fbm(a*.05,ai+2,43)*6)*SC;
 }
 function countAround2(arr,x,y,r,val){for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){const nx=x+dx,ny=y+dy;if(inb(nx,ny)&&arr[idx(nx,ny)]===val)return true}return false}
@@ -634,9 +639,9 @@ function newGame(){
     }
     if(pick){const b=addBuilding(type,pick.x,pick.y,pick.w,pick.d);if(type==='house')b.res=4}
   }
-  computeIslands();dirtyTrees=true;
+  computeIslands();dirtyTrees=miniDirty=true;
 }
-function addBuilding(type,x,y,w=1,d=1){
+function addBuilding(type,x,y,w=1,d=1){miniDirty=true;
   const b={id:S.nextId++,type,x,y,w,d,res:type==='house'?2:0,eff:0,status:'',stock:type==='harbor'?{wood:0,stone:0,fish:0,sugar:0,rum:0}:null};
   S.buildings.push(b);
   for(let ty=y;ty<y+d;ty++)for(let tx=x;tx<x+w;tx++){const i=idx(tx,ty);S.bld[i]=b.id;S.tree[i]=0;S.road[i]=0}
@@ -1159,7 +1164,7 @@ const spl=new Float32Array(7),acc6=new Float32Array(7);
 let shoreVer=-1,yardIds=new Set(),tDirty=null,sDirty=null;
 const grow=(r,x0,y0,x1,y1)=>r?{x0:Math.min(r.x0,x0),y0:Math.min(r.y0,y0),x1:Math.max(r.x1,x1),y1:Math.max(r.y1,y1)}:{x0,y0,x1,y1};
 // tiles whose look changed (roads, plots, trees): rebuild just the chunks around them
-function markTerrain(x0,y0,x1=x0,y1=y0){tDirty=grow(tDirty,x0,y0,x1,y1)}
+function markTerrain(x0,y0,x1=x0,y1=y0){tDirty=grow(tDirty,x0,y0,x1,y1);miniDirty=true}
 // tiles whose height changed: also redo the coastline field near them
 function markShore(x0,y0,x1=x0,y1=y0){sDirty=grow(sDirty,x0,y0,x1,y1);markTerrain(x0,y0,x1,y1)}
 function cornerHeight(x,y){let sh=0,n=0,landSum=0,landN=0;
@@ -1387,7 +1392,7 @@ const dummy=new THREE.Object3D();
 // plants live in the same 64×64 chunks as the ground: each chunk has one instanced mesh per kind
 const vChunks=tChunks.map(c=>({x0:c.x0,y0:c.y0,w:c.w,h:c.h,cx:c.x0+c.w/2,cz:c.y0+c.h/2,m:{},dirty:true}));
 let vDirty=null;
-function markTrees(x0,y0,x1=x0,y1=y0){vDirty=grow(vDirty,x0,y0,x1,y1)}
+function markTrees(x0,y0,x1=x0,y1=y0){vDirty=grow(vDirty,x0,y0,x1,y1);miniDirty=true}
 const vBuf={};for(const k in VK)vBuf[k]={mat:[],col:[]};
 function pushV(k,col){const b=vBuf[k];b.mat.push(dummy.matrix.clone());b.col.push(col||WHITE)}
 function fillKind(vc,k){
@@ -1625,11 +1630,16 @@ function pick(clientX,clientY){
     if(y<-3)break}
   return null;
 }
+const vegOn=[];
 function renderFrame(){
-  renderer.shadowMap.needsUpdate=true;
+  // refraction only ever shows what lies under the water, so plants (all on dry land) are left out of that pass;
+  // it reuses last frame's shadow map, and the main pass below refreshes it with the plants in place
   if(Q.refract){water.visible=false;const cv0=cursor.visible,rq=rangeQuad.visible;cursor.visible=rangeQuad.visible=false;
+    vegOn.length=0;for(const vc of vChunks)for(const k in vc.m){const m=vc.m[k];if(m.visible){m.visible=false;vegOn.push(m)}}
     renderer.setRenderTarget(refractRT);renderer.render(scene,camera);renderer.setRenderTarget(null);
+    for(const m of vegOn)m.visible=true;
     water.visible=true;cursor.visible=cv0;rangeQuad.visible=rq}
+  renderer.shadowMap.needsUpdate=true;
   composer.render();
 }
 
@@ -1977,14 +1987,21 @@ const mctx=$('mini').getContext('2d'),mimg=mctx.createImageData(W,H);
 const MCOL={'-3':[19,74,94],'-2':[31,125,140],'-1':[79,196,192],'0':[241,227,191],'1':[156,196,106],'2':[201,180,138],'3':[179,154,112]};
 const gp=new THREE.Vector3();
 function groundAt(nx,ny){ndc.set(nx,ny);ray.setFromCamera(ndc,camera);const o=ray.ray.origin,d=ray.ray.direction;let t=d.y<-1e-3?-o.y/d.y:400;t=Math.min(t,400);return gp.set(o.x+d.x*t,0,o.z+d.z*t).clone()}
-function drawMini(){
-  const p=mimg.data;
+// the ground layer is painted into an offscreen canvas only when the map changes; each tick just copies it
+const miniBase=document.createElement('canvas');miniBase.width=W;miniBase.height=H;const mbctx=miniBase.getContext('2d');
+const MC_POND=[92,120,96],MC_KULHI=[84,118,72],MC_TARO=[176,206,110],MC_GRASS=[70,160,150],MC_ROAD=[216,195,154],MC_TREE=[95,148,69],MC_HOUSE=[250,246,236],MC_HARBOR=[163,54,42],MC_WORK=[217,164,65];
+function paintMiniBase(){
+  const p=mimg.data,types=new Map();for(const b of S.buildings)types.set(b.id,b.type);
   for(let i=0;i<W*H;i++){const h=S.h[i];let c=MCOL[h]||MCOL[0];
-    const g=S.gt[i];if(g===GT.kulhi||g===GT.pond)c=g===GT.pond?[92,120,96]:[84,118,72];else if(g===GT.taro)c=[176,206,110];else if(g===GT.seagrass)c=[70,160,150];
-    if(S.road[i])c=[216,195,154];else if(h>=1&&S.tree[i]===1)c=[95,148,69];
-    const id=S.bld[i];if(id>=0){const b=byId(id);c=b.type==='house'?[250,246,236]:b.type==='harbor'?[163,54,42]:[217,164,65]}
-    p[i*4]=c[0];p[i*4+1]=c[1];p[i*4+2]=c[2];p[i*4+3]=255}
-  mctx.putImageData(mimg,0,0);
+    const g=S.gt[i];if(g===GT.pond)c=MC_POND;else if(g===GT.kulhi)c=MC_KULHI;else if(g===GT.taro)c=MC_TARO;else if(g===GT.seagrass)c=MC_GRASS;
+    if(S.road[i])c=MC_ROAD;else if(h>=1&&S.tree[i]===1)c=MC_TREE;
+    const id=S.bld[i];if(id>=0){const t=types.get(id);c=t==='house'?MC_HOUSE:t==='harbor'?MC_HARBOR:MC_WORK}
+    const o=i*4;p[o]=c[0];p[o+1]=c[1];p[o+2]=c[2];p[o+3]=255}
+  mbctx.putImageData(mimg,0,0);miniDirty=false}
+function drawMini(){
+  if(!$('mini').offsetParent)return;            // collapsed on phones: nothing to draw
+  if(miniDirty)paintMiniBase();
+  mctx.drawImage(miniBase,0,0);
   for(const bt of boats){mctx.fillStyle=bt.state==='blocked'?'#ff6b5a':'#ffffff';mctx.fillRect(bt.x-2,bt.y-2,5,5)}
   const q=[groundAt(-1,-1),groundAt(1,-1),groundAt(1,1),groundAt(-1,1)];
   mctx.beginPath();q.forEach((v,i)=>i?mctx.lineTo(v.x,v.z):mctx.moveTo(v.x,v.z));mctx.closePath();
@@ -2068,7 +2085,7 @@ function renderSaves(){const row=(lbl,key,i)=>{const m=slotMeta(key);
   $('saves').innerHTML=SLOTS.map((k,i)=>row(`Slot ${i+1}`,k,i)).join('')+row('Autosave',AUTO,'auto')}
 function resetWorld(){for(const[,m]of bMeshes)scene.remove(m);bMeshes.clear();for(const[,m]of boatMeshes)scene.remove(m);boatMeshes.clear();boats=[];
   sel=null;renderSel();$('over').hidden=true;alerted.clear()}
-function afterLoad(){dirtyTerrain=dirtyTrees=true;terrainVer++;setSpeed(1);updateUI()}
+function afterLoad(){dirtyTerrain=dirtyTrees=miniDirty=true;terrainVer++;setSpeed(1);updateUI()}
 function loadFrom(key){let d=null;try{d=JSON.parse(localStorage.getItem(key)||'null')}catch(e){}
   if(!d){toast('That save slot is empty.','bad');return false}
   const keep=S;try{resetWorld();restore(d)}catch(e){S=keep;computeIslands();afterLoad();toast('That save is from an older version and cannot be loaded.','bad');return false}
@@ -2233,7 +2250,7 @@ async function start(data){
   window.claude?.hot?.snapshot?.(snapshot);
   $('loading').hidden=true;
   toast(auto?`Welcome back, governor. Your autosave from day ${1+Math.floor(S.t/30)} is loaded; the menu starts a new game.`:'Welcome, governor. Palm Isle is yours. Reshape the reef and lagoon to bind the atoll together; two more atolls and a lone island lie beyond the reef.','good');
-  window.__island={S:()=>S,saveTo,loadFrom,restartGame,gameOver,roadBeside,selectBuilding,openIsland,setCat,toggleHelp,byId,buildRoad,islands:()=>islands,boats:()=>boats,setTool,place,terraform,step,computeIslands,setSpeed,cam,setQuality,renderer,W,H,ATOLLS,ISL,ISL_C,GT,rebuildTerrain,markTerrain,markShore,computeShore,rebuildTrees,snapshot,restore,ready:true};
+  window.__island={S:()=>S,drawMini,paintMiniBase,vChunks,saveTo,loadFrom,restartGame,gameOver,roadBeside,selectBuilding,openIsland,setCat,toggleHelp,byId,buildRoad,islands:()=>islands,boats:()=>boats,setTool,place,terraform,step,computeIslands,setSpeed,cam,setQuality,renderer,W,H,ATOLLS,ISL,ISL_C,GT,rebuildTerrain,markTerrain,markShore,computeShore,rebuildTrees,snapshot,restore,ready:true};
   requestAnimationFrame(frame);
 }
 window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.hot?.data??{});

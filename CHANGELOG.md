@@ -4,6 +4,12 @@ Newest first. Each entry says what changed for the player and where the code liv
 
 ## 2026-10-11
 
+### Faster without looking any different (PR #5)
+- **No more minimap stutter:** the minimap's ground used to be repainted in full five times a second (about 25 ms each on the test machine). Now it is painted once and only repainted after the land, roads, trees or buildings change; the regular refresh takes about 0.05 ms. It isn't drawn at all while collapsed on phones.
+- **Lighter water on High and Ultra:** the refraction pass under the water no longer draws plants, which all stand on dry land and never show through it. That saves about 210 draw calls a frame in a close view. A side-by-side check showed no visible change.
+- **Faster start:** building the world skips atolls far from each tile; the map comes out byte-identical in 1.5 s instead of 2.2 s, and the page is ready in about 4.3 s instead of 5.4 s.
+- The "Island Sim: Master Plan" doc collects every decision, what's built, the optimization log, the roadmap and the open questions.
+
 ### A round brush ring instead of the box cursor (PR #5)
 - The square wireframe box that followed the mouse while terraforming, painting roads or demolishing is gone. In its place a soft round ring lies on the ground, following the terrain, with a gentle glow and a faint grid over the tiles the brush will change. It is gold for Raise, turquoise for Lower, red for Demolish and sand for the rest.
 - The brush itself is now round to match: the large brush changes a round patch of 21 tiles instead of a 5×5 square, so coasts come out less boxy. Small is still one tile and medium is 3×3.
