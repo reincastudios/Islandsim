@@ -76,7 +76,17 @@ svg.i{width:20px;height:20px;flex:none;fill:currentColor;fill-rule:evenodd}
 .segc button{border:0;background:none;border-radius:999px;padding:3px 9px;font-size:13px}
 .segc button[aria-pressed="true"]{background:var(--teak);color:var(--coral)}
 kbd{font-family:var(--f-ui);font-size:11px;font-weight:700;color:var(--ink-2);border:1px solid #c9bca6;border-bottom-width:2px;border-radius:4px;padding:0 4px;background:#fbf8f2}
-#menu{left:8px} #settings{right:8px} #log{right:48px;width:320px;max-height:60vh;overflow:auto}
+#menu{left:8px;width:290px}
+.saves{border-top:1px solid var(--coral-2);margin-top:6px;padding:8px 12px 0;display:flex;flex-direction:column;gap:6px;font-size:13px}
+.saves .slot{display:flex;align-items:center;gap:6px}
+.saves .slot span{flex:1;color:var(--deep)}
+.saves .slot b{color:var(--ink);font-weight:700}
+.saves button{border:1.5px solid var(--teak);background:#fbf8f2;border-radius:6px;padding:2px 8px;font-size:12.5px;font-weight:700}
+.saves button:disabled{opacity:.4;cursor:default}
+#over{position:absolute;inset:0;background:rgba(12,8,4,.6);display:grid;place-items:center;z-index:8}
+#over .box{width:min(420px,calc(100% - 32px))}
+#over .body{padding:12px 14px 14px}
+#over p{margin:0 0 10px;font-size:14px;line-height:1.45} #settings{right:8px} #log{right:48px;width:320px;max-height:60vh;overflow:auto}
 
 /* charter card */
 #charter{position:absolute;top:60px;right:12px;width:270px}
@@ -281,6 +291,9 @@ kbd{font-family:var(--f-ui);font-size:11px;font-weight:700;color:var(--ink-2);bo
         <button class="mi" data-act="help"><span data-ico="survey"></span>How to play<kbd>F1</kbd></button>
         <button class="mi" data-act="home"><span data-ico="harbour"></span>Back to the capital</button>
         <button class="mi" data-act="settings"><span data-ico="gear"></span>Settings</button>
+        <button class="mi" data-act="new"><span data-ico="terra"></span><span id="newLbl">New game</span></button>
+      </div>
+      <div class="saves" id="saves">
       </div>
     </div>
     <div id="settings" class="pnl pop" hidden>
@@ -335,6 +348,11 @@ kbd{font-family:var(--f-ui);font-size:11px;font-weight:700;color:var(--ink-2);bo
   <div id="tag" hidden></div>
   <div id="tip" hidden></div>
   <div id="help" hidden></div>
+  <div id="over" hidden><div class="pnl box" role="alertdialog" aria-labelledby="overT">
+    <div class="hd"><h2 id="overT"></h2></div>
+    <div class="body"><p id="overWhy"></p><p class="sub" id="overStats"></p>
+      <div class="acts"><button class="btn go" id="overNew">Start a new atoll</button><button class="btn" id="overLoad">Load a save</button></div></div>
+  </div></div>
   <div id="loading">Charting the atoll…</div>
 </div>
 
@@ -370,14 +388,16 @@ const PASS_ANG=150;
 const GOODS=['wood','stone','fish','sugar','rum'];
 const GOOD_LABEL={wood:'Wood',stone:'Coral stone',fish:'Fish',sugar:'Sugar',rum:'Rum'};
 const DEF={
-  harbor:    {name:'Harbor',     key:'H', cost:{gold:300,wood:10}, upkeep:0.4, h:[0,1], jobs:0, info:'Island warehouse and boat berth. Needs a coastal tile; boats need deep water beside it.'},
+  harbor:    {name:'Harbor',     key:'H', cost:{gold:300,wood:10}, upkeep:0.5, h:[0,1], jobs:0, info:'Island warehouse and boat berth. Needs a coastal tile; boats need deep water beside it.'},
   house:     {name:'Compound',   key:'C', cost:{gold:60,wood:6},   upkeep:0,   h:[0,2], jobs:0, size:[3,2], info:'A goathi: a family plot inside a low coral wall, with an old coral-stone house. Needs 3×2 tiles of level ground. Up to 6 residents on fish, 12 with rum. Pays tax when fed.'},
-  fishery:   {name:'Fishery',    key:'', cost:{gold:60,wood:5},   upkeep:0.15,h:[0,1], jobs:2, info:'Coast only. Catch grows with shallow reef tiles within 2.'},
-  lumber:    {name:'Lumber camp',key:'', cost:{gold:50},          upkeep:0.1, h:[1,3], jobs:2, info:'Cuts wood from trees within 2 tiles. Terraforming clears trees.'},
-  quarry:    {name:'Quarry',     key:'', cost:{gold:80,wood:5},   upkeep:0.25,h:[2,3], jobs:2, info:'Cuts coral stone from low ridges (height 2+). Coral Isle has the most. Higher ground yields more.'},
-  plantation:{name:'Sugar field',key:'', cost:{gold:60,wood:4},   upkeep:0.15,h:[1,2], jobs:2, info:'Lowland (height 1–2). +50% within 2 tiles of water.'},
-  distillery:{name:'Distillery', key:'', cost:{gold:150,wood:8,stone:6}, upkeep:0.4, h:[0,3], jobs:2, info:'Turns sugar into rum.'},
+  fishery:   {name:'Fishery',    key:'', cost:{gold:60,wood:5},   upkeep:0.2, h:[0,1], jobs:2, info:'Coast only. Catch grows with shallow reef tiles within 2.'},
+  lumber:    {name:'Lumber camp',key:'', cost:{gold:50},          upkeep:0.15,h:[1,3], jobs:2, info:'Cuts wood from trees within 2 tiles. Terraforming clears trees.'},
+  quarry:    {name:'Quarry',     key:'', cost:{gold:80,wood:5},   upkeep:0.3, h:[2,3], jobs:2, info:'Cuts coral stone from low ridges (height 2+). Coral Isle has the most. Higher ground yields more.'},
+  plantation:{name:'Sugar field',key:'', cost:{gold:60,wood:4},   upkeep:0.2, h:[1,2], jobs:2, info:'Lowland (height 1–2). +50% within 2 tiles of water.'},
+  distillery:{name:'Distillery', key:'', cost:{gold:150,wood:8,stone:6}, upkeep:0.5, h:[0,3], jobs:2, info:'Turns sugar into rum.'},
 };
+// economy (roadmap milestone 1): tax per fed resident per second, the road bonus, how far residents walk to work, and the debt that loses the game
+const TAX=0.08,ROAD_BONUS=1.25,WALK=10,DEBT_LIMIT=-300;
 const TERRA={
   inspect:{name:'Survey',key:'V',cs:'look & pan'},
   raise:  {name:'Raise',key:'R',cs:'4g + 1 stone'},
@@ -453,7 +473,7 @@ function generate(){
 
 function newGame(){
   const g=generate();
-  S={h:g.h,tree:g.tree,road:new Uint8Array(W*H),bld:new Int32Array(W*H).fill(-1),buildings:[],gold:1200,t:0,nextId:1,stats:{rum:0,sugarTrip:0},goals:{},capital:0};
+  S={h:g.h,tree:g.tree,road:new Uint8Array(W*H),bld:new Int32Array(W*H).fill(-1),buildings:[],gold:800,t:0,nextId:1,stats:{rum:0,sugarTrip:0},goals:{},capital:0,unrest:0,over:null};
   computeIslands();
   let best=null,bs=1e9;
   for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){
@@ -466,14 +486,14 @@ function newGame(){
     for(const[dx,dy]of N4){const i=idx(best[0]+dx,best[1]+dy);if(S.h[i]<0)S.h[i]=-2}
   }
   const hb=addBuilding('harbor',best[0],best[1]);
-  hb.stock={wood:30,stone:24,fish:20,sugar:0,rum:0};
+  hb.stock={wood:30,stone:24,fish:40,sugar:0,rum:0};
   S.capital=hb.id;computeIslands();
   for(const type of ['house','house','house','fishery','lumber']){
     let pick=null,pd=1e9;
     for(let y=best[1]-14;y<=best[1]+14;y++)for(let x=best[0]-14;x<=best[0]+14;x++){
       const r=canPlace(type,x,y,true);if(!r.ok)continue;
       const d=Math.hypot(x-best[0],y-best[1]);
-      const score=d-(type==='lumber'?countAround(x,y,2,i=>S.tree[i]>0)*0.6:0)-(type==='fishery'?countAround(x,y,2,i=>S.h[i]===-1)*0.4:0);
+      const score=d-(type==='lumber'?countAround(x,y,2,i=>S.tree[i]>0)*0.6:0)-(type==='fishery'?countAround(x,y,2,i=>S.h[i]===-1)*2:0);
       if(score<pd){pd=score;pick=r.fp}
     }
     if(pick){const b=addBuilding(type,pick.x,pick.y,pick.w,pick.d);if(type==='house')b.res=4}
@@ -682,7 +702,10 @@ function step(dt){
   S.t+=dt;
   for(const isl of islands){isl.res=0;isl.jobs=0}
   for(const b of S.buildings){const isl=islands[b.isl];if(!isl)continue;if(b.type==='house')isl.res+=b.res;else if(!b.off)isl.jobs+=DEF[b.type].jobs}
-  for(const isl of islands)isl.eff=isl.jobs?Math.min(1,isl.res/isl.jobs):1;
+  assignWorkers();
+  for(const isl of islands){isl.filled=0}
+  for(const b of S.buildings){const d=DEF[b.type],isl=islands[b.isl];if(isl&&d.jobs&&!b.off)isl.filled+=b.staff*d.jobs}
+  for(const isl of islands)isl.eff=isl.jobs?Math.min(1,isl.filled/isl.jobs):1;
   let income=0,upkeep=0;
   for(const b of S.buildings){
     const d=DEF[b.type];upkeep+=d.upkeep;
@@ -690,7 +713,7 @@ function step(dt){
     if(b.type==='harbor'){b.status=b.merged?`Merged into the ${isl?.name} warehouse`:(berthOf(b.x,b.y)?'Berth open':'No deep-water berth');continue}
     if(!st){b.eff=0;b.status='No harbor on this island';continue}
     if(b.off){b.eff=0;b.rate=0;b.status='Paused';continue}
-    const e=isl.eff;b.eff=e;
+    const road=d.jobs?roadBeside(b):false,e=d.jobs?b.staff*(road?ROAD_BONUS:1):1;b.eff=d.jobs?b.staff:1;b.road=road;
     switch(b.type){
       case'house':{
         const need=0.012*b.res*dt;let fed=false,lux=false;
@@ -698,22 +721,42 @@ function step(dt){
         const rn=0.005*b.res*dt;if(fed&&st.rum>=rn){st.rum-=rn;lux=true}
         const cap=lux?12:6;
         if(fed)b.res=b.res<cap?Math.min(cap,b.res+0.06*dt):Math.max(cap,b.res-0.04*dt);else b.res=Math.max(1,b.res-0.04*dt);
-        if(fed)income+=0.1*b.res*(lux?2:1);
+        if(fed)income+=TAX*b.res*(lux?2:1);
         b.status=!fed?'Hungry: needs fish':lux?'Fed and enjoying rum':'Fed (rum would double tax)';b.eff=fed?1:0.3;break}
-      case'fishery':{const n=countAround(b.x,b.y,2,i=>S.h[i]===-1);const r=(0.06+0.035*Math.min(n,10))*e;st.fish+=r*dt;b.rate=r;b.status=`${n} reef tiles nearby`;break}
+      case'fishery':{const n=countAround(b.x,b.y,2,i=>S.h[i]===-1);const r=(0.1+0.035*Math.min(n,10))*e;st.fish+=r*dt;b.rate=r;b.status=n?`${n} reef tiles in reach`:'No reef in reach, so the catch is small';break}
       case'lumber':{const n=countAround(b.x,b.y,2,i=>S.tree[i]>0);const r=0.03*Math.min(n,12)*e;st.wood+=r*dt;b.rate=r;b.status=n?`${n} trees in reach`:'No trees in reach';if(!n)b.eff=0;break}
       case'quarry':{const hv=S.h[idx(b.x,b.y)];const r=(0.15+0.05*(hv-2))*e;st.stone+=r*dt;b.rate=r;b.status=`Height ${hv} coral ridge`;break}
       case'plantation':{const near=countAround(b.x,b.y,2,i=>S.h[i]<0)>0;const r=0.12*(near?1.5:1)*e;st.sugar+=r*dt;b.rate=r;b.status=near?'Coastal soil, +50%':'Inland soil';break}
       case'distillery':{const want=0.2*e*dt;const take=Math.min(want,st.sugar);st.sugar-=take;st.rum+=take/2;S.stats.rum+=take/2;b.rate=take/2/dt;b.status=take<want*0.5?'Waiting for sugar':'Distilling';if(take<want*0.5)b.eff=0;break}
     }
-    if(d.jobs&&e<1)b.status+=` · ${Math.round(e*100)}% staffed`;
+    if(d.jobs&&b.staff<=0)b.status+=' · no residents within walking distance';else if(d.jobs&&b.staff<1)b.status+=` · ${Math.round(b.staff*100)}% staffed`;
   }
   S.gold+=(income-upkeep)*dt;
   S.rate=(S.rate??0)*0.9+(income-upkeep)*0.1;
+  // unrest rises while more than 30% of residents are hungry; at 100% or past the debt limit the atoll is lost
+  let pop=0,hungry=0;for(const b of S.buildings)if(b.type==='house'){pop+=b.res;if(/^Hungry/.test(b.status))hungry+=b.res}
+  const share=pop?hungry/pop:0;S.unrest=Math.max(0,Math.min(100,(S.unrest||0)+(share>0.3?share*0.8:-0.6)*dt));
+  if(!S.over){if(S.gold<DEBT_LIMIT)gameOver('bankrupt');else if(S.unrest>=100)gameOver('unrest')}
   stepBoats(dt);
   if(Math.random()<dt*3){const x=(Math.random()*W)|0,y=(Math.random()*H)|0,i=idx(x,y);
     if(!S.tree[i]&&!S.road[i]&&S.bld[i]<0&&S.h[i]>=1&&S.h[i]<=4&&countAround(x,y,1,j=>S.tree[j]===1)>=2){S.tree[i]=1;dirtyTrees=true}}
 }
+
+// residents walk to the nearest jobs on their own island, up to WALK tiles; older buildings are staffed first
+function assignWorkers(){
+  const homes=S.buildings.filter(b=>b.type==='house').map(b=>({b,c:plotCentre(b),left:b.res}));
+  for(const p of S.buildings){const d=DEF[p.type];if(!d.jobs)continue;p.staff=0;if(p.off)continue;
+    const c=plotCentre(p);let need=d.jobs;
+    const near=homes.map(h=>({h,dd:Math.hypot(h.c.x-c.x,h.c.y-c.y)})).filter(o=>o.h.left>0&&o.h.b.isl===p.isl&&o.dd<=WALK).sort((a,b)=>a.dd-b.dd);
+    for(const{h}of near){const t=Math.min(need,h.left);h.left-=t;need-=t;if(need<=1e-6)break}
+    p.staff=Math.max(0,(d.jobs-need)/d.jobs)}
+}
+function workersNear(x,y,isl){let n=0;for(const b of S.buildings)if(b.type==='house'&&b.isl===isl){const c=plotCentre(b);if(Math.hypot(c.x-x-.5,c.y-y-.5)<=WALK)n+=b.res}return n}
+// a road tile touching any side of the footprint
+function roadBeside(b){const w=b.w||1,d=b.d||1;
+  for(let x=b.x;x<b.x+w;x++)for(const y of[b.y-1,b.y+d])if(inb(x,y)&&S.road[idx(x,y)])return true;
+  for(let y=b.y;y<b.y+d;y++)for(const x of[b.x-1,b.x+w])if(inb(x,y)&&S.road[idx(x,y)])return true;
+  return false}
 
 // ---------- goals ----------
 const GOALS=[
@@ -1391,7 +1434,7 @@ window.addEventListener('keydown',e=>{
   for(const[id,d]of Object.entries(TERRA))if(d.key.toLowerCase()===k)setTool(id);
   for(const[id,d]of Object.entries(DEF))if(d.key&&d.key.toLowerCase()===k)setTool(id);
   if(k==='b')setBrush((brush+1)%3);
-  if(k===' '&&!onCtl){e.preventDefault();setSpeed(speed?0:1)}
+  if(k===' '&&!onCtl&&!S.over){e.preventDefault();setSpeed(speed?0:1)}
 });
 window.addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));
 window.addEventListener('blur',()=>keys.clear());
@@ -1423,6 +1466,7 @@ const ICON={
   survey:'M10 2.5a7.5 7.5 0 1 1 0 15 7.5 7.5 0 0 1 0-15zM10 5a5 5 0 1 0 0 10 5 5 0 0 0 0-10zM15.2 17l1.8-1.8 5 5-1.8 1.8z',
   pause:'M6 4h4v16H6zM14 4h4v16h-4z',
   play:'M7 4l13 8-13 8z',
+  warn:'M12 2L23 21.5H1zM11 9h2v6.5h-2zM11 17h2v2h-2z',
   pin:'M12 2a7 7 0 0 1 7 7c0 5-7 13-7 13S5 14 5 9a7 7 0 0 1 7-7zM12 6.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z',
   map:'M2 5l6-2.5 8 3 6-2.5v16l-6 2.5-8-3L2 21zM8 5v13.5M16 8v13',
 };
@@ -1510,9 +1554,10 @@ function tipHTML(key){const[kind,id]=key.split(':');const isl=uiIsl;
     return`<div class="t">${toolName(id)}</div><div>${TOOL_TIP[id]}</div>${toolKey(id)?`<div class="k">Key ${toolKey(id)}${TERRA[id]&&['raise','lower','flatten','road'].includes(id)?' · B changes the brush':''}</div>`:''}`}
   if(kind==='good'){const st=stockOf(isl),f=flows(isl)[id];
     return`<div class="t">${GOOD_LABEL[id]} on ${esc(isl?.name||'no island')}</div><div class="num">${st?Math.floor(st[id]):0} in the warehouse</div><hr><div class="num"><span class="k">Made</span> ${rate1(f.make*60)} a minute</div><div class="num"><span class="k">Used</span> ${rate1(f.use*60)} a minute</div><div class="k">Boats also carry goods to and from the capital.</div>`}
-  if(kind==='gold'){let inc=0,up=0;for(const b of S.buildings){up+=DEF[b.type].upkeep;if(b.type==='house'&&/^Fed/.test(b.status))inc+=0.1*b.res*(/enjoying/.test(b.status)?2:1)}
-    return`<div class="t">Gold</div><div class="num"><span class="k">Tax</span> +${rate1(inc*60)} a minute</div><div class="num"><span class="k">Upkeep</span> −${rate1(up*60)} a minute</div><div class="k">Fed compounds pay tax; rum doubles it.</div>`}
+  if(kind==='gold'){let inc=0,up=0;for(const b of S.buildings){up+=DEF[b.type].upkeep;if(b.type==='house'&&/^Fed/.test(b.status))inc+=TAX*b.res*(/enjoying/.test(b.status)?2:1)}
+    return`<div class="t">Gold</div><div class="num"><span class="k">Tax</span> +${rate1(inc*60)} a minute</div><div class="num"><span class="k">Upkeep</span> −${rate1(up*60)} a minute</div><div class="k">Fed compounds pay tax; rum doubles it. Below ${DEBT_LIMIT} gold the sultan takes the atoll.</div>`}
   if(kind==='pop')return`<div class="t">Residents</div>`+islands.filter(i=>i.harbor).map(i=>`<div class="num">${esc(i.name)}: ${Math.floor(i.res)} residents, ${i.jobs} jobs</div>`).join('')+'<div class="k">Each worked building needs 2 residents.</div>';
+  if(kind==='unrest')return`<div class="t">Unrest ${Math.round(S.unrest||0)}%</div><div>Unrest rises while more than 30% of residents are hungry and falls when they are fed. At 100% they depose you.</div>`;
   if(kind==='isl')return`<div class="t">${esc(isl?.name||'')}</div><div>The goods shown are in this island's warehouse. Pan to another island to see its stock, or press Tab.</div>`;
   if(kind==='day')return`<div class="t">Day ${1+Math.floor(S.t/30)}</div><div>A day lasts 30 seconds at normal speed.</div>`;
   return''}
@@ -1527,7 +1572,8 @@ function renderRes(){
   $('res').innerHTML=`<button class="isl-chip" id="islChip" data-tip="isl">${ico('harbour')}<span id="islName"></span></button>`+
     `<button class="ctr keep" data-k="gold" data-tip="gold" aria-label="Gold">${ico('gold')}<b></b><i class="tr"></i></button><span class="sep"></span>`+
     GOODS.map(g=>`<button class="ctr" data-k="${g}" data-tip="good:${g}" aria-label="${GOOD_LABEL[g]}">${ico(GOOD_ICO[g])}<b></b><i class="tr"></i></button>`).join('')+
-    `<span class="sep"></span><button class="ctr keep" data-k="pop" data-tip="pop" aria-label="Residents">${ico('people')}<b></b></button>`;
+    `<span class="sep"></span><button class="ctr keep" data-k="pop" data-tip="pop" aria-label="Residents">${ico('people')}<b></b></button>`+
+    `<button class="ctr keep" data-k="unrest" data-tip="unrest" aria-label="Unrest" hidden>${ico('warn')}<b></b></button>`;
 }
 function setCtr(k,val,trend,out,keep){const el=document.querySelector(`.ctr[data-k="${k}"]`);if(!el)return;el.querySelector('b').textContent=val;
   const tr=el.querySelector('.tr');if(tr){const a=Math.abs(trend||0),show=a>=0.5;tr.textContent=show?(trend>0?'▲':'▼')+fmt(Math.round(a)):'';tr.className='tr'+(show?trend>0?' up':' dn':'')}
@@ -1563,7 +1609,11 @@ function checkAlerts(){
   for(const isl of islands){const hb=isl.harbor;if(!hb)continue;const st=hb.stock,f=flows(isl),at={x:hb.x,y:hb.y};
     if(f.fish.use>0&&st.fish<1)warnOnce(isl.name+':fish',`${isl.name} is out of fish. Its compounds go hungry and stop paying tax.`,at);
     if(f.sugar.use>0&&st.sugar<1)warnOnce(isl.name+':sugar',`The distillery on ${isl.name} is waiting for sugar.`,at);
-    if(isl.jobs>isl.res+1)warnOnce(isl.name+':jobs',`${isl.name} has more jobs than residents, so work slows. Build more compounds.`,at)}
+  }
+  const cap=capitalHarbor(),cat=cap?{x:cap.x,y:cap.y}:null;
+  if(S.gold<0)warnOnce('debt',`The treasury is empty. If the debt passes ${-DEBT_LIMIT} gold, the sultan takes the atoll from you.`,cat);
+  if((S.unrest||0)>=40)warnOnce('unrest',`Unrest is at ${Math.round(S.unrest)}%. Hungry families are angry; feed them before it reaches 100%.`,cat);
+  for(const b of S.buildings)if(DEF[b.type].jobs&&!b.off&&b.staff<=0)warnOnce('staff'+b.id,`The ${DEF[b.type].name.toLowerCase()} on ${islandName(b)} has no one within walking distance. Build a compound nearby.`,{x:b.x,y:b.y});
   for(const bt of boats)if(bt.state==='blocked'){const hb=byId(bt.home);if(hb)warnOnce('boat'+bt.home,`The ${islandName(hb)} boat is stuck. ${bt.why}`,{x:Math.round(bt.x),y:Math.round(bt.y)})}
 }
 
@@ -1591,16 +1641,17 @@ function buildingHTML(b){
   const me=node(TOOL_ICO[b.type],null,d.name,true),arr='<span class="arr">→</span>';
   switch(b.type){
     case'house':{const fed=/^Fed/.test(b.status),lux=/enjoying/.test(b.status),cap=lux?12:6;
-      flow=node('fish',per(0.012*b.res),'fish/min')+(lux?node('rum',per(0.005*b.res),'rum/min'):'')+arr+me+arr+node('gold',fed?per(0.1*b.res*(lux?2:1)):'0','tax/min');
+      flow=node('fish',per(0.012*b.res),'fish/min')+(lux?node('rum',per(0.005*b.res),'rum/min'):'')+arr+me+arr+node('gold',fed?per(TAX*b.res*(lux?2:1)):'0','tax/min');
       rows=`<span class="k">Residents</span><div class="bar"><i style="width:${Math.min(100,b.res/cap*100)}%"></i></div><b class="num">${b.res.toFixed(1)} / ${cap}</b>`;
       extra=`<div class="need"><span class="${fed?'ok':'no'}">${ico('fish')}Fish ${fed?'✓':'✗'}</span><span class="${lux?'ok':'no'}">${ico('rum')}Rum ${lux?'✓':'✗'}</span></div>`;break}
     case'harbor':{const hb=isl?.harbor;extra=hb?stockHTML(isl):'';break}
     case'distillery':flow=node('sugar',per((b.rate||0)*2),'sugar/min')+arr+me+arr+node('rum',per(b.rate||0),'rum/min');break;
     default:{const g={fishery:'fish',lumber:'wood',quarry:'stone',plantation:'sugar'}[b.type];flow=me+arr+node(g,per(b.rate||0),GOOD_LABEL[g].toLowerCase()+'/min')}
   }
-  if(d.jobs){const filled=b.off?0:Math.round((isl?.eff??0)*d.jobs);
+  if(d.jobs){const filled=b.off?0:Math.round((b.staff??0)*d.jobs);
     rows+=`<span class="k">Workers</span><div class="bar${filled<d.jobs?' warn':''}"><i style="width:${filled/d.jobs*100}%"></i></div><b class="num">${filled} / ${d.jobs}</b>`+
-      `<span class="k">Output</span><div class="bar${b.eff<.5?' bad':b.eff<1?' warn':''}"><i style="width:${(b.eff*100).toFixed(0)}%"></i></div><b class="num">${Math.round(b.eff*100)}%</b>`}
+      `<span class="k">Output</span><div class="bar${b.eff<.5?' bad':b.eff<1?' warn':''}"><i style="width:${(b.eff*100).toFixed(0)}%"></i></div><b class="num">${Math.round(b.eff*100)}%</b>`;
+    extra+=`<div class="need"><span class="${b.road?'ok':'no'}">${ico('road')}${b.road?'Beside a road: +25% output':'No road beside it: build one for +25%'}</span></div>`}
   const refund=Math.floor((d.cost.gold||0)/2);
   const acts=[];
   if(d.jobs)acts.push(`<button class="btn" data-act="pause">${ico(b.off?'play':'pause')}${b.off?'Resume':'Pause'}</button>`);
@@ -1670,7 +1721,9 @@ function updateTag(){
   let h='',bad=false;const i=idx(hover.x,hover.y);
   if(tool in DEF){const d=DEF[tool],r=canPlace(tool,hover.x,hover.y),isl=islandOf(hover.x,hover.y);
     const st=tool==='harbor'?capitalIsland()?.harbor?.stock:stockOf(isl);
-    h=`<div class="t">${d.name}</div><div class="chips">${chipsHTML(d.cost,st)}</div>`;if(!r.ok&&r.why){bad=true;h+=`<div class="why">${esc(r.why)}</div>`}}
+    h=`<div class="t">${d.name}</div><div class="chips">${chipsHTML(d.cost,st)}</div>`;
+    if(d.jobs&&isl){const n=workersNear(hover.x,hover.y,isl.id);h+=`<div class="sub">${Math.floor(n)} residents within walking distance (needs ${d.jobs})</div>`}
+    if(!r.ok&&r.why){bad=true;h+=`<div class="why">${esc(r.why)}</div>`}}
   else if(tool==='demolish'){const b=bAt(hover.x,hover.y);
     if(b){h=`<div class="t">Demolish ${DEF[b.type].name}</div>`;if(b.id===S.capital){bad=true;h+='<div class="why">The capital harbor cannot be demolished</div>'}else h+=`<div>Refund ${Math.floor((DEF[b.type].cost.gold||0)/2)} gold</div>`}
     else if(S.road[i])h='<div class="t">Remove sand road</div><div>Refund 1 gold</div>';else h='<div class="t">Demolish</div><div class="sub">Nothing to remove here</div>'}
@@ -1712,7 +1765,8 @@ function toggleHelp(force){const el=$('help');const show=force??el.hidden;if(!sh
 const POPS=[['menuBtn','menu'],['setBtn','settings'],['logBtn','log']];
 function closePops(){for(const[b,p]of POPS){$(p).hidden=true;$(b).setAttribute('aria-expanded','false')}}
 function togglePop(p){const was=!$(p).hidden;closePops();if(was)return;const b=POPS.find(x=>x[1]===p)[0];$(p).hidden=false;$(b).setAttribute('aria-expanded','true');
-  if(p==='log'){unread=0;renderBadge();renderLog()}}
+  if(p==='log'){unread=0;renderBadge();renderLog()}
+  if(p==='menu'){newArmed=false;$('newLbl').textContent='New game';renderSaves()}}
 function setUI(v){document.documentElement.style.setProperty('--ui',v);try{localStorage.setItem('islandsim.ui',v)}catch(e){}
   document.querySelectorAll('[data-ui]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.ui===+v))}
 function escape(){
@@ -1723,6 +1777,28 @@ function escape(){
   if(sel)return closeSel();
   togglePop('menu');
 }
+
+// ----- saves: three slots and an autosave each minute, in this browser -----
+const SLOTS=['islandsim.save1','islandsim.save2','islandsim.save3'],AUTO='islandsim.auto';let newArmed=false;
+function slotMeta(key){try{return JSON.parse(localStorage.getItem(key+'.meta')||'null')}catch(e){return null}}
+function saveTo(key){try{const meta={day:1+Math.floor(S.t/30),pop:Math.floor(totalPop()),at:Date.now()};localStorage.setItem(key,JSON.stringify(snapshot()));localStorage.setItem(key+'.meta',JSON.stringify(meta));return true}
+  catch(e){toast('Could not save: this browser refused to store the game.','bad');return false}}
+function renderSaves(){const row=(lbl,key,i)=>{const m=slotMeta(key);
+    return`<div class="slot"><span><b>${lbl}</b> · ${m?`day ${m.day}, ${m.pop} residents`:'empty'}</span>${i!=='auto'?`<button data-save="${i}">Save</button>`:''}<button data-load="${i}"${m?'':' disabled'}>Load</button></div>`};
+  $('saves').innerHTML=SLOTS.map((k,i)=>row(`Slot ${i+1}`,k,i)).join('')+row('Autosave',AUTO,'auto')}
+function resetWorld(){for(const[,m]of bMeshes)scene.remove(m);bMeshes.clear();for(const[,m]of boatMeshes)scene.remove(m);boatMeshes.clear();boats=[];
+  sel=null;renderSel();$('over').hidden=true;alerted.clear()}
+function afterLoad(){dirtyTerrain=dirtyTrees=true;terrainVer++;setSpeed(1);updateUI()}
+function loadFrom(key){let d=null;try{d=JSON.parse(localStorage.getItem(key)||'null')}catch(e){}
+  if(!d){toast('That save slot is empty.','bad');return false}
+  const keep=S;try{resetWorld();restore(d)}catch(e){S=keep;computeIslands();afterLoad();toast('That save is from an older version and cannot be loaded.','bad');return false}
+  afterLoad();toast(`Loaded day ${1+Math.floor(S.t/30)}.`,'good');return true}
+function restartGame(){resetWorld();newGame();homeCam();afterLoad();toast('A new atoll. Palm Isle is yours again.','good')}
+function gameOver(kind){S.over=kind;setSpeed(0);
+  $('overT').textContent=kind==='bankrupt'?'The treasury is broken':'The islanders have deposed you';
+  $('overWhy').textContent=kind==='bankrupt'?`Debts passed ${-DEBT_LIMIT} gold, so the sultan has handed the atoll to another governor.`:'Too many families went hungry for too long. The island chiefs have chosen a new governor.';
+  $('overStats').textContent=`You lasted ${1+Math.floor(S.t/30)} day${Math.floor(S.t/30)?'s':''} and housed ${Math.floor(totalPop())} residents. Charter goals met: ${GOALS.filter(g=>S.goals[g.id]).length} of ${GOALS.length}.`;
+  $('over').hidden=false;$('overNew').focus()}
 
 function initUI(){
   document.querySelectorAll('[data-ico]').forEach(el=>el.innerHTML=ico(el.dataset.ico));
@@ -1740,11 +1816,16 @@ function initUI(){
     if(t.dataset.act==='help'){closePops();return toggleHelp(true)}
     if(t.dataset.act==='home'){closePops();return homeCam()}
     if(t.dataset.act==='settings')return togglePop('settings');
+    if(t.dataset.act==='new'){if(!newArmed){newArmed=true;$('newLbl').textContent='Click again to start over';return}closePops();return restartGame()}
+    if(t.dataset.save){saveTo(SLOTS[+t.dataset.save]);toast(`Saved to slot ${+t.dataset.save+1}.`,'good');return renderSaves()}
+    if(t.dataset.load){closePops();return loadFrom(t.dataset.load==='auto'?AUTO:SLOTS[+t.dataset.load])}
     if(t.closest('#res'))return uiIsl&&openIsland(uiIsl);
   });
   for(const[b,p]of POPS)$(b).addEventListener('click',()=>togglePop(p));
   document.addEventListener('pointerdown',e=>{if(!e.target.closest('.pop,.ib'))closePops()});
   $('help').addEventListener('click',()=>toggleHelp(false));
+  $('overNew').addEventListener('click',restartGame);
+  $('overLoad').addEventListener('click',()=>{$('over').hidden=true;togglePop('menu')});
   $('charterToggle').addEventListener('click',()=>{const o=$('goals').hidden;$('goals').hidden=!o;$('charterToggle').setAttribute('aria-expanded',o);$('charterToggle').textContent=o?'▴':'▾'});
   $('mapToggle').addEventListener('click',()=>{const m=$('mapbox');m.classList.toggle('open');$('mapToggle').setAttribute('aria-expanded',m.classList.contains('open'))});
   const mini=$('mini');let md=false;
@@ -1778,6 +1859,7 @@ function updateUI(){
   for(const g of GOODS){if(fl[g].use>0){const c=(st?st[g]:0)/fl[g].use;if(c<best){best=c;scarce=g}}}
   for(const g of GOODS)setCtr(g,st?fmt(st[g]):'–',(fl[g].make-fl[g].use)*60,st&&st[g]<1&&fl[g].use>0,g===scarce);
   setCtr('pop',Math.floor(totalPop()));
+  const un=S.unrest||0,ue=document.querySelector('.ctr[data-k="unrest"]');ue.hidden=un<5;setCtr('unrest',Math.round(un)+'%',0,un>=50);
   $('sDay').textContent=1+Math.floor(S.t/30);
   renderCharter();updateChips();renderSel();
   if(tipFor&&!tipFor.isConnected)hideTip();else if(tipFor)$('tip').innerHTML=tipHTML(tipFor.dataset.tip)||$('tip').innerHTML;
@@ -1796,11 +1878,11 @@ function updateLabels(){
 function setQuality(n){Q=QUALITY[n];qName=n;try{localStorage.setItem('islandsim.quality',n)}catch(e){}
   document.querySelectorAll('[data-q]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.q===n));applyQuality()}
 // ---------- persistence for live updates ----------
-function snapshot(){return{v:4,h:Array.from(S.h),tree:Array.from(S.tree),road:Array.from(S.road),buildings:S.buildings.map(b=>({id:b.id,type:b.type,x:b.x,y:b.y,w:b.w,d:b.d,res:b.res,stock:b.stock,off:b.off})),gold:S.gold,t:S.t,nextId:S.nextId,stats:S.stats,goals:S.goals,capital:S.capital,origin:Array.from(origin),cam:{...cam}}}
+function snapshot(){return{v:4,h:Array.from(S.h),tree:Array.from(S.tree),road:Array.from(S.road),buildings:S.buildings.map(b=>({id:b.id,type:b.type,x:b.x,y:b.y,w:b.w,d:b.d,res:b.res,stock:b.stock,off:b.off})),gold:S.gold,t:S.t,nextId:S.nextId,stats:S.stats,goals:S.goals,capital:S.capital,unrest:S.unrest||0,origin:Array.from(origin),cam:{...cam}}}
 function restore(d){
   if(d.v!==4||!d.h||d.h.length!==W*H)throw new Error('old save');
   generate();
-  S={h:Int8Array.from(d.h),tree:Uint8Array.from(d.tree),road:d.road?Uint8Array.from(d.road):new Uint8Array(W*H),bld:new Int32Array(W*H).fill(-1),buildings:[],gold:d.gold,t:d.t,nextId:d.nextId,stats:d.stats,goals:d.goals,capital:d.capital};
+  S={h:Int8Array.from(d.h),tree:Uint8Array.from(d.tree),road:d.road?Uint8Array.from(d.road):new Uint8Array(W*H),bld:new Int32Array(W*H).fill(-1),buildings:[],gold:d.gold,t:d.t,nextId:d.nextId,stats:d.stats,goals:d.goals,capital:d.capital,unrest:d.unrest||0,over:null};
   origin=Uint8Array.from(d.origin);
   for(const b of d.buildings){const nb={w:1,d:1,...b,eff:0,status:''};S.buildings.push(nb);for(let ty=nb.y;ty<nb.y+nb.d;ty++)for(let tx=nb.x;tx<nb.x+nb.w;tx++)S.bld[idx(tx,ty)]=b.id}
   if(d.cam)Object.assign(cam,d.cam);
@@ -1809,7 +1891,7 @@ function restore(d){
 
 
 // ---------- loop ----------
-let last=0,acc=0,uiT=0,goalT=0,miniT=0,alertT=0;
+let last=0,acc=0,uiT=0,goalT=0,miniT=0,alertT=0,autoT=0;
 function frame(ts){
   const t=ts/1000,dt=Math.min(.1,t-(last||t));last=t;
   const kp=600*dt;
@@ -1819,10 +1901,11 @@ function frame(ts){
   if(keys.has('d')||keys.has('arrowright'))panBy(-kp,0);
   if(keys.has('q')||keys.has('e')||cam.spin){cam.goal=null;cam.yaw+=1.6*dt*((keys.has('q')?1:0)-(keys.has('e')?1:0)+(cam.spin||0))}
   if(cam.goal!=null){const d=cam.goal-cam.yaw;cam.yaw+=d*Math.min(1,dt*9);if(Math.abs(d)<.002){cam.yaw=cam.goal;cam.goal=null}}
-  acc+=dt*speed;let n=0;while(acc>=.1&&n<20){step(.1);acc-=.1;n++}if(n>=20)acc=0;
+  if(S.over)acc=0;else acc+=dt*speed;let n=0;while(acc>=.1&&n<20){step(.1);acc-=.1;n++}if(n>=20)acc=0;
   uiT+=dt;if(uiT>.25){uiT=0;updateUI()}
   miniT+=dt;if(miniT>.2){miniT=0;drawMini()}
   alertT+=dt;if(alertT>3){alertT=0;checkAlerts()}
+  autoT+=dt;if(autoT>60){autoT=0;if(!S.over)saveTo(AUTO)}
   goalT+=dt;if(goalT>.5){goalT=0;checkGoals()}
   if(dirtyTerrain)rebuildTerrain();
   if(dirtyTrees)rebuildTrees();
@@ -1851,13 +1934,15 @@ async function start(data){
   catch(e){$('loading').textContent='Some textures could not load. Check your connection and reload.';return}
   let restored=false;
   if(data&&data.h){try{restore(data);restored=true}catch(e){}}
+  let auto=false;
+  if(!restored){try{const a=JSON.parse(localStorage.getItem(AUTO)||'null');if(a){restore(a);auto=true;restored=true}}catch(e){}}
   if(!restored){newGame();homeCam()}
   setTool('inspect');updateUI();
   window.addEventListener('resize',resize);
   window.claude?.hot?.snapshot?.(snapshot);
   $('loading').hidden=true;
-  toast('Welcome, governor. Palm Isle is yours. Reshape the reef and lagoon to bind the atoll together.','good');
-  window.__island={S:()=>S,selectBuilding,openIsland,setCat,toggleHelp,byId,buildRoad,islands:()=>islands,boats:()=>boats,setTool,place,terraform,step,computeIslands,setSpeed,cam,setQuality,renderer,ready:true};
+  toast(auto?`Welcome back, governor. Your autosave from day ${1+Math.floor(S.t/30)} is loaded; the menu starts a new game.`:'Welcome, governor. Palm Isle is yours. Reshape the reef and lagoon to bind the atoll together.','good');
+  window.__island={S:()=>S,saveTo,loadFrom,restartGame,gameOver,roadBeside,selectBuilding,openIsland,setCat,toggleHelp,byId,buildRoad,islands:()=>islands,boats:()=>boats,setTool,place,terraform,step,computeIslands,setSpeed,cam,setQuality,renderer,ready:true};
   requestAnimationFrame(frame);
 }
 window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.hot?.data??{});

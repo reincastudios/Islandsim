@@ -4,6 +4,15 @@ Newest first. Each entry says what changed for the player and where the code liv
 
 ## 2026-10-11
 
+### Roadmap milestone 1: a real economy (PR #5)
+- **Tighter gold:** the game starts with 800 gold instead of 1,200, compounds pay 20% less tax, and every worked building and harbor costs a little more upkeep. Doing nothing now slowly loses money.
+- **Sand roads matter:** a fishery, lumber camp, quarry, sugar field or distillery with a road touching any side works 25% faster. Roads stay optional. The building panel says whether it has a road.
+- **Workers walk to work:** residents fill jobs only within 10 tiles of their compound, on the same island, nearest first. A building with no one in reach stops, and the katheeb says so. When placing, the cursor shows how many residents live within walking distance.
+- **You can lose:** if debts pass 300 gold the sultan takes the atoll, and if unrest reaches 100% the islanders depose you. Unrest rises while more than 30% of residents are hungry and falls when they are fed. It shows in the top bar from 5%, and the katheeb warns at 40% and when the treasury is empty. A closing screen offers a new atoll or loading a save.
+- **Saving:** the menu has three save slots, an autosave every minute, and New game (click twice). The autosave loads when you come back.
+- **Fixes:** the starting fishery is placed by reef shallows when there are any, catches more without reef (6 a minute instead of 3.6), and the capital starts with 40 fish. Its status now says "No reef in reach, so the catch is small" instead of "0 reef tiles nearby".
+- The roadmap ("Island Sim Roadmap" doc) records Ahmed's decisions: roads give a bonus, toddy and coconut goods will replace rum, players can lose, rising sea level is a theme with ways to fight it, and the web game comes before the Unity port.
+
 ### New Anno/Tropico-style interface (PR #5)
 - The whole screen was redesigned from the UI design doc: panels look like carved teak boxes with a whitewashed coral face and a red-black-ochre lacquer band, and an in-house icon set replaces text labels.
 - **Top bar:** gold with its change per minute, then wood, coral stone, fish, sugar and rum for the island you are looking at, each with a trend arrow; residents; day and game speed. Hover a counter to see how much is made and used. A counter turns red and pulses when a good runs out.

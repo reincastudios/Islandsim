@@ -15,7 +15,7 @@ Pick a graphics preset under the gear button at the top right: **Low** (phones),
 - Raise, lower and level land. Raising costs stone from the nearest harbor; lowering returns some.
 - Deep water carries boats, shallow reef blocks them but feeds fisheries. Dredge channels, build land bridges, or split islands.
 - Each island has its own warehouse; boats shuttle goods to the capital. Land bridges merge warehouses.
-- Compounds (walled 3×2 family plots with an old coral house) eat fish and pay more tax with rum. Fishery, lumber camp, quarry, sugar field and distillery; worked buildings can be paused.
+- Compounds (walled 3×2 family plots with an old coral house) eat fish and pay more tax with rum. Fishery, lumber camp, quarry, sugar field and distillery; worked buildings can be paused. Residents walk up to 10 tiles to work, and buildings beside a sand road work 25% faster.
 
 ## Controls
 
@@ -24,6 +24,8 @@ The screen follows the UI design doc ("Island Sim UI Design"): a top bar with go
 - **Build:** pick a category (1 Terraform, 2 Homes, 3 Food, 4 Industry, 5 Harbour, 6 Roads), then a card. Hover a card for what it needs and makes. The cursor shows the cost and, if a tile is refused, why. Right-click or Esc drops the tool.
 - **Inspect:** click a building for its inputs, outputs, workers and actions (pause, demolish), or an island's floating name for its warehouse. Tab jumps to the next settled island.
 - **Camera:** right or middle drag, Shift + drag, Q/E or the ⟲ ⟳ buttons rotate (hold to keep turning; two-finger twist on touch); wheel or pinch zooms; WASD pans; click or drag on the minimap to move; click the needle to face north.
+- **Save:** the menu (top left) has three save slots, an autosave each minute, and New game. The autosave loads when you return.
+- **Losing:** the atoll is lost if debts pass 300 gold, or if unrest reaches 100% because too many families went hungry.
 - **Keys:** V survey, R raise, F lower, T level, G sand road, X demolish, H harbor, C compound, B brush size, Space pause, Esc drop tool / close / menu, F1 help.
 
 ## Update log
