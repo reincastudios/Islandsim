@@ -18,7 +18,7 @@ Pick a graphics preset in the header: **Lo** (phones), **Hi** (refraction, bloom
 
 ## Controls
 
-Left-drag paints the current tool (Survey pans). Right-drag or Q/E rotates, wheel or pinch zooms, WASD pans. Hotkeys: V survey, R raise, F lower, T level, X demolish, H harbor, 1–6 buildings, B brush size, Space pause.
+Left-drag paints the current tool (Survey pans). Right-drag, Shift+drag, Q/E or the ⟲ ⟳ buttons rotate (hold a button to keep turning; two-finger twist on touch), wheel or pinch zooms, WASD pans. Hotkeys: V survey, R raise, F lower, T level, X demolish, H harbor, 1–6 buildings, B brush size, Space pause.
 
 ## Graphics
 

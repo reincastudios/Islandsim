@@ -112,8 +112,8 @@ table.isl td{text-align:right;padding:4px 3px;border-bottom:1px solid color-mix(
     </div>
     <div class="ctrls">
       <div class="seg" role="group" aria-label="Camera">
-        <button id="rotL" title="Rotate left (Q)" aria-label="Rotate camera left">⟲</button>
-        <button id="rotR" title="Rotate right (E)" aria-label="Rotate camera right">⟳</button>
+        <button id="rotL" title="Rotate left (Q). Hold to keep turning" aria-label="Rotate camera left">⟲</button>
+        <button id="rotR" title="Rotate right (E). Hold to keep turning" aria-label="Rotate camera right">⟳</button>
         <button id="home" title="Reset view" aria-label="Reset camera">⌂</button>
       </div>
       <div class="seg" role="group" aria-label="Graphics quality">
@@ -143,7 +143,7 @@ table.isl td{text-align:right;padding:4px 3px;border-bottom:1px solid color-mix(
       <p class="grp-title">Build</p>
       <div class="tgrid" id="tBuild"></div>
     </section>
-    <p class="hint">Left-drag paints the tool (in Survey it pans). Right-drag or Q/E rotates, wheel or pinch zooms, WASD pans. Raising land costs stone from the nearest harbor; lowering returns some.</p>
+    <p class="hint">Left-drag paints the tool (in Survey it pans). Right-drag, Shift+drag, Q/E or the ⟲ ⟳ buttons rotate and tilt (two-finger twist on touch), wheel or pinch zooms, WASD pans. Raising land costs stone from the nearest harbor; lowering returns some.</p>
   </nav>
   <aside id="side" class="panel">
     <button class="toggle" id="sideToggle" aria-expanded="true">Logbook ▾</button>
@@ -987,8 +987,8 @@ function applyQuality(){
 }
 
 // ---------- camera rig ----------
-const cam={tx:W/2,tz:H/2,dist:120,yaw:rad(-28),pitch:rad(54)};
-function homeCam(){cam.tx=AC.x-2;cam.tz=AC.y-6;cam.dist=Math.min(320,132*Math.max(1,1.25/(vw/vh)));cam.yaw=rad(-28);cam.pitch=rad(vw<760?62:50)}
+const cam={tx:W/2,tz:H/2,dist:120,yaw:rad(-28),pitch:rad(54),goal:null,spin:0};
+function homeCam(){cam.goal=null;cam.tx=AC.x-2;cam.tz=AC.y-6;cam.dist=Math.min(320,132*Math.max(1,1.25/(vw/vh)));cam.yaw=rad(-28);cam.pitch=rad(vw<760?62:50)}
 function applyCam(){
   cam.pitch=Math.max(rad(18),Math.min(rad(84),cam.pitch));cam.dist=Math.max(6,Math.min(320,cam.dist));
   cam.tx=Math.max(-10,Math.min(W+10,cam.tx));cam.tz=Math.max(-10,Math.min(H+10,cam.tz));
@@ -1046,14 +1046,15 @@ cv.addEventListener('contextmenu',e=>e.preventDefault());
 cv.addEventListener('pointerdown',e=>{
   cv.setPointerCapture(e.pointerId);pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(pointers.size===2){stroke=null;drag=null;const[a,b]=[...pointers.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y),a:Math.atan2(b.y-a.y,b.x-a.x),cx:(a.x+b.x)/2,cy:(a.y+b.y)/2,dist:cam.dist,yaw:cam.yaw};return}
-  if(e.button===2){drag={mode:'rot',x:e.clientX,y:e.clientY};return}
-  if(e.button===1||(tool==='inspect'&&e.button===0)){drag={mode:'pan',x:e.clientX,y:e.clientY,moved:0};return}
+  // rotate: right or middle drag, or Shift/Alt/Ctrl + left drag (trackpads, one-button mice)
+  if(e.button===2||e.button===1||(e.button===0&&(e.shiftKey||e.altKey||e.ctrlKey))){cam.goal=null;drag={mode:'rot',x:e.clientX,y:e.clientY};return}
+  if(tool==='inspect'&&e.button===0){drag={mode:'pan',x:e.clientX,y:e.clientY,moved:0};return}
   stroke={done:new Set(),target:0,last:null};const t=pick(e.clientX,e.clientY);if(t){stroke.last=t.x+','+t.y;applyAt(t,true)}
 });
 cv.addEventListener('pointermove',e=>{
   if(pointers.has(e.pointerId))pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(pinch&&pointers.size===2){const[a,b]=[...pointers.values()];const d=Math.hypot(a.x-b.x,a.y-b.y),an=Math.atan2(b.y-a.y,b.x-a.x);
-    cam.dist=pinch.dist*pinch.d/Math.max(20,d);cam.yaw=pinch.yaw+(an-pinch.a);const cx=(a.x+b.x)/2,cy=(a.y+b.y)/2;panBy(cx-pinch.cx,cy-pinch.cy);pinch.cx=cx;pinch.cy=cy;return}
+    cam.goal=null;cam.dist=pinch.dist*pinch.d/Math.max(20,d);cam.yaw=pinch.yaw+(an-pinch.a);const cx=(a.x+b.x)/2,cy=(a.y+b.y)/2;panBy(cx-pinch.cx,cy-pinch.cy);pinch.cx=cx;pinch.cy=cy;return}
   if(drag){const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.x=e.clientX;drag.y=e.clientY;
     if(drag.mode==='rot'){cam.yaw-=dx*0.006;cam.pitch+=dy*0.005}else{panBy(dx,dy);drag.moved+=Math.abs(dx)+Math.abs(dy)}return}
   const t=pick(e.clientX,e.clientY);hover=t;
@@ -1087,7 +1088,12 @@ function buildToolbar(){
   document.querySelectorAll('[data-tool]').forEach(b=>b.addEventListener('click',()=>setTool(b.dataset.tool)));
   document.querySelectorAll('[data-brush]').forEach(b=>b.addEventListener('click',()=>setBrush(+b.dataset.brush)));
   document.querySelectorAll('[data-speed]').forEach(b=>b.addEventListener('click',()=>setSpeed(+b.dataset.speed)));
-  $('rotL').addEventListener('click',()=>{cam.yaw+=Math.PI/4});$('rotR').addEventListener('click',()=>{cam.yaw-=Math.PI/4});$('home').addEventListener('click',homeCam);
+  // rotate buttons: a tap turns 45° smoothly, holding spins until released
+  [['rotL',1],['rotR',-1]].forEach(([id,dir])=>{const b=$(id);let t0=0;
+    b.addEventListener('pointerdown',e=>{b.setPointerCapture(e.pointerId);t0=performance.now();cam.spin=dir;cam.goal=null});
+    const up=()=>{if(!cam.spin)return;cam.spin=0;if(performance.now()-t0<280)cam.goal=Math.round((cam.yaw+dir*Math.PI/4)/(Math.PI/4))*(Math.PI/4)};
+    b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);
+    b.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();cam.goal=(cam.goal??cam.yaw)+dir*Math.PI/4}})});$('home').addEventListener('click',homeCam);
   document.querySelectorAll('[data-q]').forEach(b=>b.addEventListener('click',()=>setQuality(b.dataset.q)));
   $('sideToggle').addEventListener('click',()=>{const s=$('side');s.classList.toggle('closed');$('sideToggle').setAttribute('aria-expanded',!s.classList.contains('closed'))});
 }
@@ -1160,7 +1166,8 @@ function frame(ts){
   if(keys.has('s')||keys.has('arrowdown'))panBy(0,-kp);
   if(keys.has('a')||keys.has('arrowleft'))panBy(kp,0);
   if(keys.has('d')||keys.has('arrowright'))panBy(-kp,0);
-  if(keys.has('q'))cam.yaw+=1.6*dt;if(keys.has('e'))cam.yaw-=1.6*dt;
+  if(keys.has('q')||keys.has('e')||cam.spin){cam.goal=null;cam.yaw+=1.6*dt*((keys.has('q')?1:0)-(keys.has('e')?1:0)+(cam.spin||0))}
+  if(cam.goal!=null){const d=cam.goal-cam.yaw;cam.yaw+=d*Math.min(1,dt*9);if(Math.abs(d)<.002){cam.yaw=cam.goal;cam.goal=null}}
   acc+=dt*speed;let n=0;while(acc>=.1&&n<20){step(.1);acc-=.1;n++}if(n>=20)acc=0;
   uiT+=dt;if(uiT>.25){uiT=0;updateUI()}
   goalT+=dt;if(goalT>.5){goalT=0;checkGoals()}
