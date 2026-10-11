@@ -154,6 +154,11 @@ kbd{font-family:var(--f-ui);font-size:11px;font-weight:700;color:var(--ink-2);bo
 .chip.no{background:color-mix(in srgb,var(--bad) 22%,#fff);color:#8c2a1f}
 .brushes{display:flex;flex-direction:column;justify-content:center;gap:4px;padding:0 4px 0 8px;border-left:1px solid var(--coral-2)}
 .brushes .lbl2{font-size:11px;color:var(--deep)}
+.bsz{display:flex;align-items:center;gap:6px}
+#cards.compact .card{min-width:0;padding:7px 20px 7px 7px;column-gap:5px;flex:none;grid-template-rows:auto} #cards.compact .card .chips{display:none} #cards.compact .card svg.i{width:26px;height:26px;grid-row:auto} .segc.lv{display:grid;grid-template-columns:repeat(3,auto);border-radius:8px} .segc.lv button{border-radius:6px} #cards .brushes{flex:none} #cards .brushes[hidden]{display:none}
+.bsz button{width:24px;height:24px;border-radius:5px;border:1.5px solid #d3c6b0;background:#fbf8f2;font-weight:700;line-height:1}
+.bsz input{width:64px;accent-color:var(--ochre)} .bsz b{min-width:12px;text-align:center;font-variant-numeric:tabular-nums}
+.segc.lv button{display:flex;flex-direction:column;align-items:center;line-height:1.1;padding:2px 5px;font-size:12px} .segc.lv small{font-size:10px;color:var(--deep)}
 
 /* selection and island panels */
 #sel{position:absolute;right:12px;bottom:12px;width:330px;max-height:calc(100% - 140px);overflow:auto}
@@ -190,6 +195,18 @@ kbd{font-family:var(--f-ui);font-size:11px;font-weight:700;color:var(--ink-2);bo
 .stock .g .tr{font-size:11.5px;color:#7b6f62} .stock .g .tr.up{color:#3c7d3a} .stock .g .tr.dn{color:#b33a2a}
 .stock .g.out{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 12%,#fff)}
 .boat{font-size:13px;display:flex;gap:6px;align-items:center}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.t2{display:flex;align-items:center;gap:6px;font-weight:700;font-size:13px}
+.trade{display:flex;flex-direction:column;gap:5px}
+.tg{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:6px;padding:4px 8px 4px 6px;border:1.5px solid #d3c6b0;border-radius:6px;background:#fbf8f2;font-size:13px;text-align:left}
+.tg svg.i{width:16px;height:16px;color:var(--teak)} .tg b{font-variant-numeric:tabular-nums;color:var(--deep)}
+.tg[aria-pressed="true"]{border-color:var(--lagoon);background:color-mix(in srgb,var(--lagoon) 12%,#fff)}
+.tg[aria-pressed="false"] span{color:#7b6f62;text-decoration:line-through}
+ul.age{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px;font-size:13px}
+ul.age li{display:flex;gap:6px;align-items:flex-start}
+ul.age li::before{content:"";flex:none;width:12px;height:12px;margin-top:2px;border-radius:50%;border:1.5px solid var(--ink-2)}
+ul.age li.ok::before{background:var(--lagoon);border-color:var(--lagoon)} ul.age li .num{margin-left:auto;color:var(--deep)}
+.ctr.idle{display:none}
 
 /* floating island names: click for the island panel */
 #labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
@@ -318,7 +335,7 @@ kbd{font-family:var(--f-ui);font-size:11px;font-weight:700;color:var(--ink-2);bo
     </div>
 
     <section id="charter" class="pnl" aria-label="Charter">
-      <div class="hd"><h2>Charter</h2><button class="x" id="charterToggle" aria-expanded="false" aria-label="Show all charter goals">▾</button></div>
+      <div class="hd"><h2 id="cAge">Age of Cowries</h2><button class="x" id="charterToggle" aria-expanded="false" aria-label="Show all charter goals">▾</button></div>
       <div class="body">
         <div class="goal" id="cGoal"></div>
         <div class="why" id="cWhy"></div>
@@ -397,10 +414,10 @@ const ATOLLS=[
 // kinds: rim, long, wooded (big, dense forest), kulhi (mangrove wetland and pond), vilu (ring round a pool),
 // finolhu (bare sandbank), bird (protected), lone (the single-island atoll)
 const ISL=[
-  // home atoll: the first three keep their roles (capital, coral stone, cane behind lagoon flats)
+  // home atoll: the first three keep their roles (capital, coral stone, coconuts behind lagoon flats)
   {name:'Palm Isle',      at:0,kind:'rim',    ang:214,ext:26,rw:10, off:2.5,hills:.72},
   {name:'Coral Isle',     at:0,kind:'rim',    ang:313,ext:15,rw:8.5,off:1.5,hills:.6},
-  {name:'Sugar Cay',      at:0,kind:'rim',    ang:92, ext:18,rw:6.5,off:0,  hills:0,flats:true},
+  {name:'Kaashi Cay',     at:0,kind:'rim',    ang:92, ext:18,rw:6.5,off:0,  hills:0,flats:true},
   {name:'Dhigu Isle',     at:0,kind:'long',   ang:50, ext:17,rw:3.6,off:0,  hills:0},
   {name:'Raiveli Isle',   at:0,kind:'kulhi',  ang:264,ext:12,rw:9,  off:3,  hills:0},
   {name:'Bodu Vilu',      at:0,kind:'vilu',   ang:350,ext:8, rw:7,  off:1,  hills:0},
@@ -462,24 +479,37 @@ for(const I of ISL){I.rw*=SC;I.off*=SC}
 // ground types laid over the height map
 const GT={none:0,kulhi:1,pond:2,taro:3,seagrass:4,finolhu:5,bird:6};
 const GT_NAME=['','Kulhi: mangrove wetland','Brackish pond','Taro field','Seagrass meadow','Finolhu: shifting sandbank','Bird island (protected)'];
-const GOODS=['wood','stone','fish','sugar','rum'];
-const GOOD_LABEL={wood:'Wood',stone:'Coral stone',fish:'Fish',sugar:'Sugar',rum:'Rum'};
+// Age 1, the Age of Cowries (c. 1200–1550): fish and coconuts feed the islands; rope, dried fish and cowries go to passing traders
+const GOODS=['wood','stone','fish','coconut','toddy','hikimas','rope','cowrie','rice'];
+const GOOD_LABEL={wood:'Timber',stone:'Coral stone',fish:'Fish',coconut:'Coconuts',toddy:'Sweet toddy',hikimas:'Dried fish (hiki mas)',rope:'Coir rope',cowrie:'Cowries',rice:'Rice'};
+const noStock=()=>Object.fromEntries(GOODS.map(g=>[g,0]));
 const DEF={
-  harbor:    {name:'Harbor',     key:'H', cost:{gold:300,wood:10}, upkeep:0.5, h:[0,1], jobs:0, info:'Island warehouse and boat berth. Needs a coastal tile; boats need deep water beside it.'},
-  house:     {name:'Compound',   key:'C', cost:{gold:60,wood:6},   upkeep:0,   h:[0,2], jobs:0, size:[3,2], info:'A goathi: a family plot inside a low coral wall, with an old coral-stone house. Needs 3×2 tiles of level ground. Up to 6 residents on fish, 12 with rum. Pays tax when fed.'},
-  fishery:   {name:'Fishery',    key:'', cost:{gold:60,wood:5},   upkeep:0.2, h:[0,1], jobs:2, info:'Coast only. Catch grows with shallow reef tiles within 2.'},
-  lumber:    {name:'Lumber camp',key:'', cost:{gold:50},          upkeep:0.15,h:[1,3], jobs:2, info:'Cuts wood from trees within 2 tiles. Terraforming clears trees.'},
-  quarry:    {name:'Quarry',     key:'', cost:{gold:80,wood:5},   upkeep:0.3, h:[2,3], jobs:2, info:'Cuts coral stone from low ridges (height 2+). Coral Isle has the most. Higher ground yields more.'},
-  plantation:{name:'Sugar field',key:'', cost:{gold:60,wood:4},   upkeep:0.2, h:[1,2], jobs:2, info:'Lowland (height 1–2). +50% within 2 tiles of water.'},
-  distillery:{name:'Distillery', key:'', cost:{gold:150,wood:8,stone:6}, upkeep:0.5, h:[0,3], jobs:2, info:'Turns sugar into rum.'},
+  harbor:    {name:'Jetty',       key:'H', cost:{gold:300,wood:10}, upkeep:0.5, h:[0,1], jobs:0, info:'Island warehouse and dhoni berth. Needs a coastal tile; boats need deep water beside it. The capital\'s jetty is the trade post, where passing ships buy exports and sell rice.'},
+  house:     {name:'Compound',    key:'C', cost:{gold:60,wood:6},   upkeep:0,   h:[0,2], jobs:0, size:[3,2], sizes:[[3,2],[4,3]], info:'A goathi: a fishing family\'s walled plot with a thatched house. Families need fish or rice, then coconuts and a mosque within walking distance; sweet toddy raises their tax.'},
+  fishery:   {name:'Fishing dhoni berth',key:'', cost:{gold:60,wood:5}, upkeep:0.2, h:[0,1], jobs:2, range:2, info:'Coast only. The catch grows with shallow reef tiles within 2, and with kulhi or seagrass nurseries within 3.'},
+  drying:    {name:'Fish drying racks',key:'', cost:{gold:80,wood:8}, upkeep:0.2, h:[0,2], jobs:2, info:'Boils, smokes and sun-dries fish into hiki mas, which keeps and sells well to traders. Burns timber as firewood.'},
+  grove:     {name:'Coconut grove',key:'', cost:{gold:50,wood:3},   upkeep:0.15,h:[1,2], jobs:2, range:2, info:'Lowland (height 1–2). +50% within 2 tiles of water. Families need coconuts, and the rope yard turns them into coir.'},
+  toddy:     {name:'Toddy tapper',key:'', cost:{gold:60,wood:4},    upkeep:0.15,h:[0,3], jobs:1, range:3, info:'Climbs palms for sweet toddy (raa) and palm sugar. Needs coconut palms within 3 tiles: wild palms count, and each coconut grove counts as six.'},
+  lumber:    {name:'Timber cutter',key:'', cost:{gold:50},          upkeep:0.15,h:[1,3], jobs:2, range:2, info:'Fells trees within 2 tiles for timber. Palms regrow slowly. Terraforming clears trees.'},
+  quarry:    {name:'Coral stone cutter',key:'', cost:{gold:80,wood:5}, upkeep:0.3, h:[0,3], jobs:2, range:2, info:'Cuts coral stone from the reef flat: more shallow reef tiles within 2 cut more, and height 2+ ridges add more.'},
+  coir:      {name:'Coir rope yard',key:'', cost:{gold:120,wood:10}, upkeep:0.3, h:[0,1], jobs:3, info:'Soaks coconut husks in the lagoon, then beats and twists the fibre into rope, the main export of the age. Needs water within 2 tiles.'},
+  cowrie:    {name:'Cowrie beach',key:'', cost:{gold:40,wood:2},    upkeep:0.1, h:[0,0], jobs:2, range:2, info:'Women gather cowrie shells in the shallows to sell to traders. Beach only; more shallow reef tiles within 2 gather more.'},
+  mosque:    {name:'Island mosque',key:'', cost:{gold:200,wood:10,stone:20}, upkeep:0.3, h:[0,2], jobs:0, size:[2,2], unit:true, info:'A small coral-stone mosque. Compounds on the same island within 10 tiles have their faith need met.'},
+  palace:    {name:'Sultan\'s palace',key:'', cost:{gold:600,wood:30,stone:40}, upkeep:1, h:[1,2], jobs:0, size:[3,3], unit:true, info:'The capital\'s main building, one per game, on the capital island. Shows what the age still needs and starts the advance.'},
 };
+// what passing traders pay for exports and charge for rice, in gold per unit
+const PRICE={rope:8,hikimas:6,cowrie:5,coconut:1,fish:1},RICE_PRICE=3,RICE_KEEP=40,TRADE_EVERY=60;
+// Age 1 is complete when the capital meets this charter (Ages and Buildings doc)
+const AGE1={fishers:60,gold:1500,rope:40,stone:30};
+const MOSQUE_WALK=10;
 // economy (roadmap milestone 1): tax per fed resident per second, the road bonus, how far residents walk to work, and the debt that loses the game
 const TAX=0.08,ROAD_BONUS=1.25,WALK=10,DEBT_LIMIT=-300;
 const TERRA={
   inspect:{name:'Survey',key:'V',cs:'look & pan'},
   raise:  {name:'Raise',key:'R',cs:'4g + 1 stone'},
   lower:  {name:'Lower',key:'F',cs:'4g, +½ stone'},
-  flatten:{name:'Level',key:'T',cs:'match first tile'},
+  flatten:{name:'Level',key:'T',cs:'to the picked height'},
+  smooth: {name:'Smooth',key:'Y',cs:'evens out bumps'},
   road:   {name:'Sand road',key:'G',cs:'2g per tile'},
   demolish:{name:'Demolish',key:'X',cs:'50% refund'},
 };
@@ -567,7 +597,7 @@ function generate(){
         const rw=I.rw*(.8+.45*fbm(a*.06,k*3,44));
         const u=(r+I.off)/rw;if(Math.abs(u)>1.6)continue;
         const e=Math.hypot(u,da/I.ext)+(fbm(x/SC*.16,y/SC*.16,11+k)-.5)*.5;
-        if(I.flats&&r<1&&r>-20*SC&&Math.abs(da)<I.ext+10&&v<-1) v=-1;   // Sugar Cay sits behind broad lagoon flats: too shallow for boats
+        if(I.flats&&r<1&&r>-20*SC&&Math.abs(da)<I.ext+10&&v<-1) v=-1;   // Kaashi Cay sits behind broad lagoon flats: too shallow for boats
         if(e>=1.15)continue;
         const t=Math.max(0,1-e),nz=(fbm(x/SC*.3,y/SC*.3,21+k)-.5)*.4;
         // a white beach ring, then flat ground at height 1; only a few ridges reach height 2
@@ -612,9 +642,11 @@ function seaAt(x,y){
 function countAround2(arr,x,y,r,val){for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){const nx=x+dx,ny=y+dy;if(inb(nx,ny)&&arr[idx(nx,ny)]===val)return true}return false}
 function lagoonNear(lag,x,y){return countAround2(lag,x,y,3,1)}
 
+// trade post settings: which exports passing ships may buy from the capital, and whether to buy rice
+function newTrade(){return{sell:{rope:true,hikimas:true,cowrie:true,coconut:false,fish:false},rice:true,next:45,visits:0,earned:0,last:null}}
 function newGame(){
   const g=generate();
-  S={h:g.h,tree:g.tree,gt:g.gt,road:new Uint8Array(W*H),bld:new Int32Array(W*H).fill(-1),buildings:[],gold:800,t:0,nextId:1,stats:{rum:0,sugarTrip:0},goals:{},capital:0,unrest:0,names:{},over:null};
+  S={h:g.h,tree:g.tree,gt:g.gt,road:new Uint8Array(W*H),bld:new Int32Array(W*H).fill(-1),buildings:[],gold:800,t:0,nextId:1,stats:{rope:0,linkTrip:0},goals:{},capital:0,unrest:0,names:{},age:1,ageDone:false,trade:newTrade(),over:null};
   computeIslands();
   let best=null,bs=1e9;
   for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){
@@ -627,7 +659,7 @@ function newGame(){
     for(const[dx,dy]of N4){const i=idx(best[0]+dx,best[1]+dy);if(S.h[i]<0)S.h[i]=-2}
   }
   const hb=addBuilding('harbor',best[0],best[1]);
-  hb.stock={wood:30,stone:24,fish:40,sugar:0,rum:0};
+  hb.stock={...noStock(),wood:30,stone:24,fish:40,coconut:20};
   S.capital=hb.id;computeIslands();
   for(const type of ['house','house','house','fishery','lumber']){
     let pick=null,pd=1e9;
@@ -642,7 +674,7 @@ function newGame(){
   computeIslands();dirtyTrees=miniDirty=true;
 }
 function addBuilding(type,x,y,w=1,d=1){miniDirty=true;
-  const b={id:S.nextId++,type,x,y,w,d,res:type==='house'?2:0,eff:0,status:'',stock:type==='harbor'?{wood:0,stone:0,fish:0,sugar:0,rum:0}:null};
+  const b={id:S.nextId++,type,x,y,w,d,res:type==='house'?2:0,eff:0,status:'',stock:type==='harbor'?noStock():null};
   S.buildings.push(b);
   for(let ty=y;ty<y+d;ty++)for(let tx=x;tx<x+w;tx++){const i=idx(tx,ty);S.bld[i]=b.id;S.tree[i]=0;S.road[i]=0}
   if(type==='house'){const t=yardPalmTile(b);if(t)S.tree[idx(t[0],t[1])]=2}   // a coconut palm in the yard
@@ -652,7 +684,7 @@ function addBuilding(type,x,y,w=1,d=1){miniDirty=true;
 // compounds face their gate along local +z; long plots turn 0/180°, deep plots ±90°
 function plotRot(b){const flip=hash2(b.x,b.y,1)<.5?0:Math.PI;return(b.w>=b.d?0:Math.PI/2)+flip}
 function plotCentre(b){return{x:b.x+(b.w||1)/2,y:b.y+(b.d||1)/2}}
-function yardPalmTile(b){const c=plotCentre(b),r=plotRot(b),lx=1,lz=.5; // front corner opposite the well
+function yardPalmTile(b){const c=plotCentre(b),r=plotRot(b),big=b.w*b.d>6,lx=big?.55:1,lz=big?Math.min(b.w,b.d)/2-.45:.5; // front, away from the well
   const wx=c.x+lx*Math.cos(r)+lz*Math.sin(r),wz=c.y-lx*Math.sin(r)+lz*Math.cos(r);const tx=Math.floor(wx),ty=Math.floor(wz);
   return inb(tx,ty)&&S.bld[idx(tx,ty)]===b.id?[tx,ty]:null}
 const byId=id=>S.buildings.find(b=>b.id===id);
@@ -725,8 +757,8 @@ function bfsPath(sx,sy,tx,ty){
 function planBoat(bt){
   const hb=byId(bt.home),cap=capitalHarbor();bt.ver=terrainVer;
   const hbB=berthOf(hb.x,hb.y),capB=berthOf(cap.x,cap.y);
-  if(!hbB){bt.state='blocked';bt.why=`No deep water beside the ${islandName(hb)} harbor`;bt.path=null;return}
-  if(!capB){bt.state='blocked';bt.why='No deep water beside the capital harbor';bt.path=null;return}
+  if(!hbB){bt.state='blocked';bt.why=`No deep water beside the ${islandName(hb)} jetty`;bt.path=null;return}
+  if(!capB){bt.state='blocked';bt.why='No deep water beside the capital jetty';bt.path=null;return}
   let sx=Math.round(bt.x),sy=Math.round(bt.y);
   if(!inb(sx,sy)||S.h[idx(sx,sy)]>-2){
     if(bt.state==='sail'){toast(`The ${islandName(hb)} boat ran aground and lost its cargo.`,'bad',{x:sx,y:sy});bt.cargo={}}
@@ -754,16 +786,21 @@ function stepBoats(dt){
     }
     if(bt.pi>=bt.path.length-1){
       if(bt.dir==='out'){unload(capH,bt);load(capH,home,bt);bt.dir='home'}
-      else{unload(home,bt);load(home,capH,bt);bt.dir='out';bt.trips++;if(origin[idx(hb.x,hb.y)]===2)S.stats.sugarTrip++}
+      else{unload(home,bt);load(home,capH,bt);bt.dir='out';bt.trips++;if(origin[idx(hb.x,hb.y)]===2)S.stats.linkTrip++}
       planBoat(bt);
     }
   }
 }
 
 // ---------- placement ----------
+let plot=0;   // compound plot size picked in the Homes cards: 0 = 3×2, 1 = 4×3
+const BIG_HOUSE={gold:110,wood:11};
+const costOf=type=>type==='house'&&plot===1?BIG_HOUSE:DEF[type].cost;
+const costOfB=b=>b.type==='house'&&b.w*b.d>6?BIG_HOUSE:DEF[b.type].cost;
+const plotFactor=b=>(b.w||1)*(b.d||1)/6;   // a 4×3 compound holds twice the families of a 3×2 one
 function stockOf(isl){return isl&&isl.harbor?isl.harbor.stock:null}
 // a building's tiles: the hovered tile sits at (or just before) the middle; multi-tile plots may be turned 90°
-function footprint(type,x,y,turned){const sz=DEF[type].size;if(!sz)return{x,y,w:1,d:1};const[w,d]=turned?[sz[1],sz[0]]:sz;return{x:x-((w-1)>>1),y:y-((d-1)>>1),w,d}}
+function footprint(type,x,y,turned){const d0=DEF[type],sz=d0.sizes?d0.sizes[plot]:d0.size;if(!sz)return{x,y,w:1,d:1};const[w,d]=turned?[sz[1],sz[0]]:sz;return{x:x-((w-1)>>1),y:y-((d-1)>>1),w,d}}
 function canPlace(type,x,y,free){
   if(!DEF[type].size)return canPlaceAt(type,footprint(type,x,y),free);
   const a=canPlaceAt(type,footprint(type,x,y,false),free);if(a.ok)return a;    // try both ways round
@@ -785,35 +822,38 @@ function canPlaceAt(type,fp,free){
   const isl=islandOf(x,y);
   if(type==='harbor'){
     if(!adjWater(x,y))return{ok:false,why:'Harbor must touch the sea'};
-    if(isl.harbor)return{ok:false,why:`${isl.name} already has a harbor`};
+    if(isl.harbor)return{ok:false,why:`${isl.name} already has a jetty`};
   }else{
-    if(!isl.harbor)return{ok:false,why:`${isl.name} has no harbor yet. Build one first.`};
-    if(type==='fishery'&&!adjWater(x,y))return{ok:false,why:'Fishery must touch the sea'};
+    if(!isl.harbor)return{ok:false,why:`${isl.name} has no jetty yet. Build one first.`};
+    if(type==='fishery'&&!adjWater(x,y))return{ok:false,why:'A dhoni berth must touch the sea'};
+    if(type==='coir'&&!countAround(x,y,2,i=>S.h[i]<0))return{ok:false,why:'The rope yard soaks husks in the lagoon: build it within 2 tiles of water'};
+    if(type==='palace'){if(S.buildings.some(b=>b.type==='palace'))return{ok:false,why:'There is only one Sultan\'s palace'};
+      if(isl!==capitalIsland())return{ok:false,why:'The palace must stand on the capital island'}}
   }
   if(free)return{ok:true,fp};
-  const st=type==='harbor'?capitalIsland()?.harbor?.stock:stockOf(isl);
-  for(const k in d.cost){
-    if(k==='gold'){if(S.gold<d.cost.gold)return{ok:false,why:`Need ${d.cost.gold} gold`}}
-    else if(!st||st[k]<d.cost[k])return{ok:false,why:`Need ${d.cost[k]} ${k} in ${type==='harbor'?'the capital':isl.name} stock`};
+  const st=type==='harbor'?capitalIsland()?.harbor?.stock:stockOf(isl),cost=costOf(type);
+  for(const k in cost){
+    if(k==='gold'){if(S.gold<cost.gold)return{ok:false,why:`Need ${cost.gold} gold`}}
+    else if(!st||st[k]<cost[k])return{ok:false,why:`Need ${cost[k]} ${GOOD_LABEL[k].toLowerCase()} in ${type==='harbor'?'the capital':isl.name} stock`};
   }
   return{ok:true,fp};
 }
 function place(type,x,y){
   const r=canPlace(type,x,y);if(!r.ok){if(r.why)refuse(r.why);return false}
-  const isl=islandOf(x,y),d=DEF[type];
+  const isl=islandOf(x,y),cost=costOf(type);
   const st=type==='harbor'?capitalIsland().harbor.stock:stockOf(isl);
-  for(const k in d.cost){if(k==='gold')S.gold-=d.cost.gold;else st[k]-=d.cost[k]}
+  for(const k in cost){if(k==='gold')S.gold-=cost.gold;else st[k]-=cost[k]}
   const b=addBuilding(type,r.fp.x,r.fp.y,r.fp.w,r.fp.d);
   if(type==='harbor'){computeIslands();
-    if(!berthOf(x,y))toast('Harbor built, but no deep water touches it. Lower a neighbouring shallow so boats can dock.','bad',{x,y});
-    else toast(`Harbor founded on ${isl.name}. Its boat will try to sail for the capital.`,'good',{x,y});
+    if(!berthOf(x,y))toast('Jetty built, but no deep water touches it. Lower a neighbouring shallow so boats can dock.','bad',{x,y});
+    else toast(`Jetty founded on ${isl.name}. Its dhoni will try to sail for the capital.`,'good',{x,y});
   }else b.isl=comp[idx(x,y)];
   return true;
 }
 function demolish(x,y){
   const b=bAt(x,y);if(!b)return;
-  if(b.id===S.capital){refuse('The capital harbor cannot be demolished');return}
-  S.gold+=Math.floor((DEF[b.type].cost.gold||0)/2);
+  if(b.id===S.capital){refuse('The capital jetty cannot be demolished');return}
+  S.gold+=Math.floor((costOfB(b).gold||0)/2);
   if(b.type==='harbor'&&!b.merged){const other=S.buildings.find(o=>o!==b&&o.type==='harbor'&&o.isl===b.isl);if(other)for(const g of GOODS)other.stock[g]+=b.stock[g]}
   S.buildings=S.buildings.filter(o=>o!==b);
   for(let ty=b.y;ty<b.y+(b.d||1);ty++)for(let tx=b.x;tx<b.x+(b.w||1);tx++)S.bld[idx(tx,ty)]=-1;markTrees(b.x,b.y,b.x+(b.w||1)-1,b.y+(b.d||1)-1);markTerrain(b.x-1,b.y-1,b.x+(b.w||1),b.y+(b.d||1));
@@ -835,11 +875,12 @@ function removeRoad(x,y){if(!inb(x,y))return;const i=idx(x,y);if(!S.road[i])retu
 
 // ---------- terraforming ----------
 function nearestHarborIsland(x,y){let best=null,bd=1e9;for(const isl of islands){const h=isl.harbor;if(!h)continue;const d=Math.abs(h.x-x)+Math.abs(h.y-y);if(d<bd){bd=d;best=isl}}return best}
-function terraform(x,y,mode,target){
+// dry = only check and price the change; while a stroke is open each tile's first state is kept for Ctrl+Z
+function terraform(x,y,mode,target,dry){
   if(!inb(x,y))return{ok:false};
   const i=idx(x,y),cur=S.h[i];
   let to=cur;
-  if(mode==='raise')to=Math.min(MAXH,cur+1);else if(mode==='lower')to=Math.max(MINH,cur-1);else if(mode==='flatten')to=target;
+  if(mode==='raise')to=Math.min(MAXH,cur+1);else if(mode==='lower')to=Math.max(MINH,cur-1);else if(mode==='flatten'||mode==='smooth')to=target;
   if(to===cur)return{ok:true,noop:true};
   const b=bAt(x,y);if(b)return{ok:false,why:`Demolish the ${DEF[b.type].name} before reshaping its tile`};
   if(S.gt[i]===GT.bird)return{ok:false,why:'Birds nest here. The island is protected.'};
@@ -847,8 +888,11 @@ function terraform(x,y,mode,target){
   const steps=Math.abs(to-cur),up=to>cur;
   const src=nearestHarborIsland(x,y),st=src?.harbor?.stock,gold=4*steps;
   if(S.gold<gold)return{ok:false,why:'Not enough gold to move earth'};
-  if(up&&(!st||st.stone<steps))return{ok:false,why:`Need ${steps} stone at ${src?src.name:'a harbor'} to raise land`};
+  if(up&&(!st||st.stone<steps))return{ok:false,why:`Need ${steps} stone at ${src?src.name:'a jetty'} to raise land`};
+  if(dry)return{ok:true,gold,stone:up?steps:-steps*0.5};
+  if(stroke?.undo&&!stroke.undo.has(i))stroke.undo.set(i,{h:cur,tree:S.tree[i],gt:S.gt[i],road:S.road[i],o:origin[i]});
   S.gold-=gold;spend.g+=gold;if(up){st.stone-=steps;spend.s+=steps}else if(st){st.stone+=steps*0.5;spend.s-=steps*0.5}
+  if(stroke){stroke.gold+=gold;if(st){stroke.src=st;stroke.stone+=up?steps:-steps*0.5}}
   const wasLand=cur>=0,isLand=to>=0;
   S.h[i]=to;S.tree[i]=0;if(to<0)S.road[i]=0;
   if(S.gt[i]!==GT.bird)S.gt[i]=0;                    // filling a kulhi or a taro field turns it into plain ground
@@ -856,8 +900,26 @@ function terraform(x,y,mode,target){
   terrainVer++;markShore(x,y);markTrees(x,y);
   return{ok:true,coast:wasLand!==isLand};
 }
+// smoothing: each tile steps once toward the rounded mean of its 3×3 neighbourhood (worked out before any tile moves)
+function smoothTargets(cx,cy){const out=[];
+  forBrush(cx,cy,(x,y)=>{let sum=0,n=0;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const nx=x+dx,ny=y+dy;if(inb(nx,ny)){sum+=S.h[idx(nx,ny)];n++}}
+    const cur=S.h[idx(x,y)],m=Math.round(sum/n);if(m!==cur)out.push([x,y,cur+Math.sign(m-cur)])});return out}
+// Ctrl+Z: undo the last terraforming stroke within 10 seconds, with the gold and stone given back
+const undoStack=[];
+function undoTerraform(){
+  const now=performance.now();while(undoStack.length&&now-undoStack[undoStack.length-1].at>10000)undoStack.length=0;
+  const u=undoStack.pop();if(!u){toast('Nothing to undo. Only reshaping from the last 10 seconds can be undone.');return}
+  let coast=false,x0=W,y0=H,x1=0,y1=0;
+  for(const[i,o]of u.undo){const x=i%W,y=(i/W)|0;if(S.bld[i]>=0)continue;if((S.h[i]>=0)!==(o.h>=0))coast=true;
+    S.h[i]=o.h;S.tree[i]=o.tree;S.gt[i]=o.gt;S.road[i]=o.road;origin[i]=o.o;markShore(x,y);x0=Math.min(x0,x);y0=Math.min(y0,y);x1=Math.max(x1,x);y1=Math.max(y1,y)}
+  S.gold+=u.gold;if(u.src)u.src.stone+=u.stone;terrainVer++;markTrees(x0,y0,x1,y1);
+  if(coast)computeIslands();toast(`Undone: ${u.undo.size} tile${u.undo.size>1?'s':''} put back, ${Math.round(u.gold)} gold returned.`,'good');
+}
 
 // ---------- simulation ----------
+function mosqueNear(h){const c=plotCentre(h);for(const m of S.buildings)if(m.type==='mosque'&&m.isl===h.isl){const q=plotCentre(m);if(Math.hypot(q.x-c.x,q.y-c.y)<=MOSQUE_WALK)return true}return false}
+// palms a toddy tapper can climb: wild coconut palms within 3 tiles, plus six for each coconut grove in reach
+function palmsNear(b){let n=countAround(b.x,b.y,3,i=>S.tree[i]===2);for(const g of S.buildings)if(g.type==='grove'&&Math.abs(g.x-b.x)<=3&&Math.abs(g.y-b.y)<=3)n+=6;return n}
 function step(dt){
   S.t+=dt;
   for(const isl of islands){isl.res=0;isl.jobs=0}
@@ -871,24 +933,40 @@ function step(dt){
     const d=DEF[b.type];upkeep+=d.upkeep;
     const isl=islands[b.isl],st=stockOf(isl);
     if(b.type==='harbor'){b.status=b.merged?`Merged into the ${isl?.name} warehouse`:(berthOf(b.x,b.y)?'Berth open':'No deep-water berth');continue}
-    if(!st){b.eff=0;b.status='No harbor on this island';continue}
+    if(!st){b.eff=0;b.status='No jetty on this island';continue}
     if(b.off){b.eff=0;b.rate=0;b.status='Paused';continue}
     const road=d.jobs?roadBeside(b):false,e=d.jobs?b.staff*(road?ROAD_BONUS:1):1;b.eff=d.jobs?b.staff:1;b.road=road;
     switch(b.type){
       case'house':{
-        const need=0.012*b.res*dt;let fed=false,lux=false;
-        if(st.fish>=need){st.fish-=need;fed=true}
-        const rn=0.005*b.res*dt;if(fed&&st.rum>=rn){st.rum-=rn;lux=true}
-        const cap=lux?12:6;
-        if(fed)b.res=b.res<cap?Math.min(cap,b.res+0.06*dt):Math.max(cap,b.res-0.04*dt);else b.res=Math.max(1,b.res-0.04*dt);
-        if(fed)income+=TAX*b.res*(lux?2:1);
-        b.status=!fed?'Hungry: needs fish':lux?'Fed and enjoying rum':'Fed (rum would double tax)';b.eff=fed?1:0.3;break}
+        // needs, in order: food (fish, else bought rice), coconuts, a mosque in walking distance; sweet toddy is the treat
+        const need=0.012*b.res*dt,f=plotFactor(b),n=b.need||(b.need={});
+        n.food=false;if(st.fish>=need){st.fish-=need;n.food=true}else if(st.rice>=need){st.rice-=need;n.food=n.rice=true}
+        if(n.food&&st.fish>=need)n.rice=false;
+        const cn=0.006*b.res*dt;n.coco=n.food&&st.coconut>=cn;if(n.coco)st.coconut-=cn;
+        n.faith=mosqueNear(b);
+        const tn=0.004*b.res*dt;n.toddy=n.food&&st.toddy>=tn;if(n.toddy)st.toddy-=tn;
+        const cap=f*(4+(n.coco?2:0)+(n.faith?2:0));b.cap=cap;
+        if(n.food)b.res=b.res<cap?Math.min(cap,b.res+0.06*dt):Math.max(cap,b.res-0.04*dt);else b.res=Math.max(1,b.res-0.04*dt);
+        b.tax=n.food?TAX*b.res*(1+(n.coco?.25:0)+(n.faith?.25:0)+(n.toddy?.5:0)):0;income+=b.tax;
+        const miss=[!n.coco&&'coconuts',!n.faith&&'a mosque nearby'].filter(Boolean);
+        b.status=!n.food?'Hungry: needs fish or rice':miss.length?`Fed; wants ${miss.join(' and ')}`:n.toddy?'Content, and enjoying sweet toddy':'Content (sweet toddy would raise tax)';
+        b.eff=n.food?1:0.3;break}
       case'fishery':{const n=countAround(b.x,b.y,2,i=>S.h[i]===-1&&S.gt[i]!==GT.pond);const nur=Math.min(8,countAround(b.x,b.y,3,i=>S.gt[i]===GT.kulhi||S.gt[i]===GT.pond||S.gt[i]===GT.seagrass));
         const r=(0.1+0.035*Math.min(n,10)+0.012*nur)*e;st.fish+=r*dt;b.rate=r;b.status=(n?`${n} reef tiles in reach`:'No reef in reach, so the catch is small')+(nur?`; ${nur} nursery tiles (kulhi or seagrass)`:'');break}
       case'lumber':{const n=countAround(b.x,b.y,2,i=>S.tree[i]>0);const r=0.03*Math.min(n,12)*e;st.wood+=r*dt;b.rate=r;b.status=n?`${n} trees in reach`:'No trees in reach';if(!n)b.eff=0;break}
-      case'quarry':{const hv=S.h[idx(b.x,b.y)];const r=(0.15+0.05*(hv-2))*e;st.stone+=r*dt;b.rate=r;b.status=`Height ${hv} coral ridge`;break}
-      case'plantation':{const near=countAround(b.x,b.y,2,i=>S.h[i]<0)>0;const r=0.12*(near?1.5:1)*e;st.sugar+=r*dt;b.rate=r;b.status=near?'Coastal soil, +50%':'Inland soil';break}
-      case'distillery':{const want=0.2*e*dt;const take=Math.min(want,st.sugar);st.sugar-=take;st.rum+=take/2;S.stats.rum+=take/2;b.rate=take/2/dt;b.status=take<want*0.5?'Waiting for sugar':'Distilling';if(take<want*0.5)b.eff=0;break}
+      case'quarry':{const hv=S.h[idx(b.x,b.y)],reef=countAround(b.x,b.y,2,i=>S.h[i]===-1);const r=(0.06+0.012*Math.min(reef,10)+0.05*Math.max(0,hv-1))*e;st.stone+=r*dt;b.rate=r;
+        b.status=reef?`${reef} reef-flat tiles in reach`+(hv>=2?` and a height ${hv} ridge`:''):hv>=2?`Height ${hv} coral ridge`:'No reef flat in reach, so little stone';break}
+      case'grove':{const near=countAround(b.x,b.y,2,i=>S.h[i]<0)>0;const r=0.12*(near?1.5:1)*e;st.coconut+=r*dt;b.rate=r;b.status=near?'Sea air, +50%':'Inland palms';break}
+      case'toddy':{const p=palmsNear(b);const r=0.02*Math.min(p,12)*e;st.toddy+=r*dt;b.rate=r;b.status=p?`${Math.min(p,12)} palms to tap${p>12?' (12 is the most one tapper climbs)':''}`:'No coconut palms within 3 tiles';if(!p)b.eff=0;break}
+      case'drying':{const want=0.2*e*dt,take=Math.min(want,st.fish),fw=take*0.2;
+        if(take<want*0.5||st.wood<fw){b.rate=0;b.eff=0;b.status=take<want*0.5?'Waiting for fish':'Waiting for timber (firewood)';break}
+        st.fish-=take;st.wood-=fw;st.hikimas+=take/2;b.rate=take/2/dt;b.status='Boiling, smoking and drying fish';break}
+      case'coir':{const want=0.25*e*dt,take=Math.min(want,st.coconut);
+        if(take<want*0.5){b.rate=0;b.eff=0;b.status='Waiting for coconuts';break}
+        st.coconut-=take;st.rope+=take*.4;S.stats.rope=(S.stats.rope||0)+take*.4;b.rate=take*.4/dt;b.status='Soaking husks and twisting rope';break}
+      case'cowrie':{const n=countAround(b.x,b.y,2,i=>S.h[i]===-1);const r=(0.04+0.012*Math.min(n,10))*e;st.cowrie+=r*dt;b.rate=r;b.status=n?`${n} shallow tiles to search`:'Few shallows, so few shells';break}
+      case'mosque':b.status='Families within '+MOSQUE_WALK+' tiles can pray here';break;
+      case'palace':{const r=S.ageDone?null:ageReady();b.status=S.ageDone?'The Age of Cowries is complete':r.ok?'The charter is met: the age can advance':`${r.items.filter(i=>i.have>=i.need).length} of ${r.items.length} conditions met to end the age`;break}
     }
     if(d.jobs&&b.staff<=0)b.status+=' · no residents within walking distance';else if(d.jobs&&b.staff<1)b.status+=` · ${Math.round(b.staff*100)}% staffed`;
   }
@@ -898,7 +976,7 @@ function step(dt){
   let pop=0,hungry=0;for(const b of S.buildings)if(b.type==='house'){pop+=b.res;if(/^Hungry/.test(b.status))hungry+=b.res}
   const share=pop?hungry/pop:0;S.unrest=Math.max(0,Math.min(100,(S.unrest||0)+(share>0.3?share*0.8:-0.6)*dt));
   if(!S.over){if(S.gold<DEBT_LIMIT)gameOver('bankrupt');else if(S.unrest>=100)gameOver('unrest')}
-  stepBoats(dt);
+  stepBoats(dt);stepTrader(dt);
   if(Math.random()<dt*3){const x=(Math.random()*W)|0,y=(Math.random()*H)|0,i=idx(x,y);
     if(!S.tree[i]&&!S.road[i]&&S.bld[i]<0&&S.h[i]>=1&&S.h[i]<=4&&countAround(x,y,1,j=>S.tree[j]===1)>=2&&!S.gt[i]){S.tree[i]=1;markTrees(x,y)}}
 }
@@ -919,13 +997,77 @@ function roadBeside(b){const w=b.w||1,d=b.d||1;
   for(let y=b.y;y<b.y+d;y++)for(const x of[b.x-1,b.x+w])if(inb(x,y)&&S.road[idx(x,y)])return true;
   return false}
 
-// ---------- goals ----------
+// ---------- trade post: passing ships call at the capital jetty ----------
+// a ship sails in from the open ocean along deep water (crossing the reef only if no channel exists), trades, and leaves
+let trader=null,tradeRouteCache={ver:-1,path:null};
+function tradeRoute(){
+  if(tradeRouteCache.ver===terrainVer)return tradeRouteCache.path;
+  const cap=capitalHarbor(),bth=cap&&berthOf(cap.x,cap.y);let path=null;
+  if(bth)for(const minH of[-2,-1]){
+    const prev=new Int32Array(W*H).fill(-1),q=new Int32Array(W*H);let qh=0,qt=0,s=idx(bth[0],bth[1]),end=-1;q[qt++]=s;prev[s]=s;
+    while(qh<qt){const c=q[qh++],cx=c%W,cy=(c/W)|0;
+      if(S.h[c]===MINH&&Math.hypot(cx-bth[0],cy-bth[1])>24&&seaAt(cx,cy)){end=c;break}
+      for(const[dx,dy]of N4){const nx=cx+dx,ny=cy+dy;if(!inb(nx,ny))continue;const ni=idx(nx,ny);if(prev[ni]<0&&S.h[ni]<=minH){prev[ni]=c;q[qt++]=ni}}}
+    if(end>=0){path=[];for(let c=end;c!==s;c=prev[c])path.push([c%W,(c/W)|0]);path.push(bth);
+      // start a little further out so the ship is seen arriving
+      const[x0,y0]=path[0],[x1,y1]=path[Math.min(6,path.length-1)];for(let k=1;k<=12;k++){const x=Math.round(x0+(x0-x1)*k/2),y=Math.round(y0+(y0-y1)*k/2);if(!inb(x,y))break;path.unshift([x,y])}
+      break}
+  }
+  tradeRouteCache={ver:terrainVer,path};return path;
+}
+function doTrade(){
+  const st=capitalIsland()?.harbor?.stock;if(!st)return;const T=S.trade;let gold=0;const sold=[];
+  for(const g in PRICE){if(!T.sell[g])continue;const keep=g==='rope'&&!S.ageDone?AGE1.rope:g==='fish'||g==='coconut'?20:0;
+    const n=Math.floor(Math.max(0,st[g]-keep));if(n<=0)continue;st[g]-=n;gold+=n*PRICE[g];sold.push(`${n} ${GOOD_LABEL[g].toLowerCase()}`)}
+  let rice=0;if(T.rice){rice=Math.max(0,Math.min(Math.floor(RICE_KEEP-st.rice),Math.floor((S.gold+gold)/RICE_PRICE)));st.rice+=rice;gold-=rice*RICE_PRICE}
+  S.gold+=gold;T.visits++;T.earned+=gold+rice*RICE_PRICE;T.last={day:1+Math.floor(S.t/30),sold:sold.join(', ')||'nothing',rice,gold};
+  const cap=capitalHarbor();
+  toast(sold.length||rice?`A trading ship called at the capital${sold.length?`, bought ${sold.join(', ')}`:''}${rice?`${sold.length?' and':','} sold you ${rice} rice`:''}. ${gold>=0?'+':'−'}${Math.abs(Math.round(gold))} gold.`
+    :'A trading ship called at the capital but found nothing to buy. Make coir rope, dried fish or cowries, and let the trade post sell them.',sold.length?'good':'',cap?{x:cap.x,y:cap.y}:null);
+}
+function stepTrader(dt){
+  const T=S.trade;if(!T||!capitalHarbor())return;
+  if(!trader){if(S.t<T.next)return;
+    const p=tradeRoute();T.next=S.t+TRADE_EVERY;
+    if(!p){doTrade();return}                      // no water route at all: the ship anchors off the reef and sends boats in
+    trader={path:p,pi:0,x:p[0][0],y:p[0][1],ang:0,state:'in',wait:0};return}
+  if(trader.state==='dock'){trader.wait-=dt;if(trader.wait<=0){trader.path.reverse();trader.pi=0;trader.state='out'}return}
+  let move=6*dt;const P=trader.path;
+  while(move>0&&trader.pi<P.length-1){const[nx,ny]=P[trader.pi+1],dx=nx-trader.x,dy=ny-trader.y,d=Math.hypot(dx,dy);
+    if(d>0)trader.ang=Math.atan2(dy,dx);if(d<=move){trader.x=nx;trader.y=ny;trader.pi++;move-=d}else{trader.x+=dx/d*move;trader.y+=dy/d*move;move=0}}
+  if(trader.pi>=P.length-1){if(trader.state==='in'){doTrade();trader.state='dock';trader.wait=6}else trader=null}
+}
+const tradeIn=()=>Math.max(0,Math.ceil((S.trade?.next??0)-S.t));
+
+// ---------- the age: what Age 1 still needs before it can advance ----------
+function contentFishers(){let n=0;for(const b of S.buildings)if(b.type==='house'&&b.need?.food&&b.need.coco&&b.need.faith)n+=b.res;return n}
+function ageReady(){const st=capitalIsland()?.harbor?.stock||{},has=t=>S.buildings.some(b=>b.type===t);
+  const items=[
+    {t:`${AGE1.fishers} fishers with all needs met`,have:Math.floor(contentFishers()),need:AGE1.fishers},
+    {t:'A coir rope yard',have:has('coir')?1:0,need:1},
+    {t:'A trading ship has called at the jetty',have:S.trade?.visits?1:0,need:1},
+    {t:'The Sultan\'s palace',have:has('palace')?1:0,need:1},
+    {t:`${AGE1.gold} gold`,have:Math.floor(S.gold),need:AGE1.gold},
+    {t:`${AGE1.rope} coir rope at the capital`,have:Math.floor(st.rope||0),need:AGE1.rope},
+    {t:`${AGE1.stone} coral stone at the capital`,have:Math.floor(st.stone||0),need:AGE1.stone}];
+  return{items,ok:items.every(i=>i.have>=i.need)}}
+function advanceAge(){
+  if(S.ageDone)return;const r=ageReady();if(!r.ok){refuse('The charter is not met yet');return}
+  const st=capitalIsland().harbor.stock;S.gold-=AGE1.gold;st.rope-=AGE1.rope;st.stone-=AGE1.stone;S.ageDone=true;
+  const p=S.buildings.find(b=>b.type==='palace');
+  toast('The Sultan proclaims the end of the Age of Cowries. Portuguese sails are sighted on the horizon: the Age of Forts and Sail comes in the next update.','good',p?{x:p.x,y:p.y}:null);
+}
+
+// ---------- goals: the Age 1 charter ----------
 const GOALS=[
-  {id:'grow',  t:'Grow Palm Isle to 30 residents',        s:'Compounds need fish. Fisheries love reef shallows.', ok:()=>(capitalIsland()?.res||0)>=30},
-  {id:'basalt',t:'Quarry coral stone on Coral Isle',            s:'Settle it with a harbor across the lagoon, or raise a land bridge along the reef.', ok:()=>S.buildings.some(b=>b.type==='quarry'&&origin[idx(b.x,b.y)]===1&&b.eff>0&&stockOf(islands[b.isl]))},
-  {id:'sugar', t:'Link Sugar Cay to the capital',          s:'Broad lagoon flats keep boats away. Dredge a channel to its harbor.', ok:()=>S.stats.sugarTrip>0||((capitalIsland()?.parts||[]).includes(2)&&S.buildings.some(b=>b.type==='plantation'&&origin[idx(b.x,b.y)]===2))},
-  {id:'rum',   t:'Distil 25 barrels of rum',                s:'Sugar fields feed distilleries. Rum doubles house tax.', ok:()=>S.stats.rum>=25},
-  {id:'pop',   t:'Reach 200 residents across the atoll',    s:'', ok:()=>totalPop()>=200},
+  {id:'grow',   t:'Grow the capital to 30 residents',   s:'Compounds need fish. Dhoni berths catch most beside reef shallows.', ok:()=>(capitalIsland()?.res||0)>=30},
+  {id:'coconut',t:'Feed coconuts to a compound',         s:'Plant a coconut grove on low ground near the water. Fed families with coconuts grow bigger.', ok:()=>S.buildings.some(b=>b.type==='house'&&b.need?.coco)},
+  {id:'mosque', t:'Build an island mosque',              s:'Cut coral stone from the reef flat first. Families within 10 tiles get their faith need met.', ok:()=>S.buildings.some(b=>b.type==='mosque')},
+  {id:'trade',  t:'Sell goods to a passing ship',        s:'Traders call at the capital jetty every two days. Coir rope, dried fish and cowries sell best.', ok:()=>(S.trade?.earned||0)>0},
+  {id:'rope',   t:'Twist 40 coir rope',                  s:'A rope yard by the lagoon turns coconuts into rope, the great export of the age.', ok:()=>(S.stats.rope||0)>=40},
+  {id:'palace', t:'Build the Sultan\'s palace',          s:'It stands on the capital island and needs 40 coral stone and 30 timber.', ok:()=>S.buildings.some(b=>b.type==='palace')},
+  {id:'fishers',t:`House ${AGE1.fishers} fishers with all needs met`, s:'Fish or rice, coconuts and a mosque within walking distance.', ok:()=>contentFishers()>=AGE1.fishers},
+  {id:'advance',t:'Complete the Age of Cowries',         s:'Open the palace and advance once its list is met.', ok:()=>S.ageDone},
 ];
 const totalPop=()=>S.buildings.reduce((a,b)=>a+(b.type==='house'?b.res:0),0);
 function checkGoals(){for(const g of GOALS){if(!S.goals[g.id]&&g.ok()){S.goals[g.id]=true;toast(`Charter goal met: ${g.t}`,'good');const c=$('charter');c.classList.remove('won');void c.offsetWidth;c.classList.add('won');if(GOALS.every(x=>S.goals[x.id]))toast('Every charter goal met. The atoll thrives.','good')}}}
@@ -1328,6 +1470,7 @@ const mat={
   rope:M(0xb89a6a,.95),fish:M(0x9aa6ac,.4,{metalness:.3}),soil:M(0x8a6a48,1,{map:tex('soil_albedo.jpg',true),normalMap:tex('soil_normal.jpg')}),
   pip:new THREE.MeshBasicMaterial({color:0xff5a4f,toneMapped:false}),
   coral:M(0xf4efe4,.96,{map:T.rock,normalMap:T.rockN}),lime:M(0xf3eee2,.94,{map:T.plaster,normalMap:T.plasterN})};
+const clayMat=M(0xa8583a,.8),huskMat=M(0x8a5a32,.95),shellMat=M(0xf6efe0,.35);
 const WALLS=[0xf6ead2,0xf7cfae,0xc4e4da,0xf8e8a6,0xeebdb4,0xcfdcf2,0xfaf4ea].map(c=>M(c,.92,{map:T.plaster,normalMap:T.plasterN}));
 const SHUTTERS=[0x2f7f7a,0x3a5f9a,0x9a3a2f,0x5a8a3a,0x2f6f9a].map(c=>M(c,.8,{map:T.wood,normalMap:T.woodN}));
 
@@ -1448,7 +1591,7 @@ function windowsOn(k,w,h,d,y,shut,count=1){ // dark panes with wooden frames and
   for(const sz of [-1,1])for(let i=0;i<count;i++){const x=count===1?0:(i/(count-1)-.5)*w*.55;
     k.add(mat.glass,B(.1,.11,.012,x,y,sz*(d/2+.004))).add(mat.plank,B(.12,.012,.02,x,y-.008,sz*(d/2+.006)))
      .add(shut,B(.04,.12,.01,x-.075,y-.005,sz*(d/2+.008))).add(shut,B(.04,.12,.01,x+.075,y-.005,sz*(d/2+.008)))}}
-function makeModel(type,capital,seed=0){
+function makeModel(type,capital,seed=0,pw=3,pd=2){
   const k=kit();const wall=WALLS[seed%WALLS.length],shut=SHUTTERS[(seed>>2)%SHUTTERS.length];
   switch(type){
     case'harbor':{ // warehouse on a timber deck, with a pier running out toward the berth (+z)
@@ -1461,28 +1604,33 @@ function makeModel(type,capital,seed=0){
       k.add(mat.dark,C(.012,.015,.85,-.4,.06,.38,6)).add(capital?mat.capFlag:mat.flag,new THREE.PlaneGeometry(.24,.14,4,1).translate(-.4+.12,.82,.38));
       for(const z of [.6,.9,1.15])k.add(mat.dark,C(.018,.02,.06,.36,.06,z,6));
       break}
-    case'house':{ // goathi: a 3×2-tile plot inside a low coral wall (faaru), gate on +z, old coral-stone house at the back
-      const hx=1.45,hz=.95,t=.06,wh=.16,gx=-.35,gw=.36;
+    case'house':{ // goathi: a walled plot (faaru, 3×2 or 4×3 tiles), gate on +z, thatched coral-stone house at the back
+      const hx=pw/2-.05,hz=pd/2-.05,t=.06,wh=.16,gx=-.35,gw=.36,big=pw*pd>6;
       const wallSeg=(x0,x1,z0,z1)=>{const w=Math.abs(x1-x0)||t,d=Math.abs(z1-z0)||t,cx=(x0+x1)/2,cz=(z0+z1)/2;
         k.add(mat.coral,B(w,wh,d,cx,0,cz,3)).add(mat.lime,B(w+.02,.03,d+.02,cx,wh,cz,3))};
       wallSeg(-hx,hx,-hz,-hz);wallSeg(-hx,-hx,-hz,hz);wallSeg(hx,hx,-hz,hz);
       wallSeg(-hx,gx-gw/2,hz,hz);wallSeg(gx+gw/2,hx,hz,hz);
       for(const x of [gx-gw/2-.02,gx+gw/2+.02])k.add(mat.lime,B(.09,.25,.09,x,0,hz,3)).add(mat.lime,B(.11,.025,.11,x,.25,hz,3));
-      // the house: lime-washed coral walls on a plinth, wooden door and lattice windows, deep hipped thatch roof
-      const H0=-.42,hw=1.3,hd=.72;
-      k.add(mat.coral,B(hw+.08,.06,hd+.08,-.2,0,H0,3)).add(mat.lime,B(hw,.4,hd,-.2,.06,H0,3));
-      k.add(mat.thatch,hip(hw,hd,.36,.13).translate(-.2,.46,H0));
-      k.add(mat.wood,B(.16,.25,.014,-.2,.06,H0+hd/2+.004)).add(mat.dark,B(.012,.012,.012,-.15,.17,H0+hd/2+.012));
-      for(const x of [-.62,.22]){k.add(mat.dark,B(.13,.11,.01,x-.2+.2,.2,H0+hd/2+.003));
-        for(let i=0;i<3;i++)k.add(mat.wood,B(.012,.11,.014,x+(i-1)*.04,.2,H0+hd/2+.006));k.add(mat.wood,B(.15,.014,.016,x,.2,H0+hd/2+.006)).add(mat.wood,B(.15,.014,.016,x,.31,H0+hd/2+.006))}
+      // the house: lime-washed coral walls on a plinth, wooden door and lattice windows, deep hipped cadjan thatch roof
+      const house=(cx,cz,hw,hd)=>{k.add(mat.coral,B(hw+.08,.06,hd+.08,cx,0,cz,3)).add(mat.lime,B(hw,.4,hd,cx,.06,cz,3));
+        k.add(mat.thatch,hip(hw,hd,.36,.13).translate(cx,.46,cz));
+        k.add(mat.wood,B(.16,.25,.014,cx,.06,cz+hd/2+.004)).add(mat.dark,B(.012,.012,.012,cx+.05,.17,cz+hd/2+.012));
+        for(const x of hw>1?[cx-.42,cx+.42]:[cx-.26]){k.add(mat.dark,B(.13,.11,.01,x,.2,cz+hd/2+.003));
+          for(let i=0;i<3;i++)k.add(mat.wood,B(.012,.11,.014,x+(i-1)*.04,.2,cz+hd/2+.006));k.add(mat.wood,B(.15,.014,.016,x,.2,cz+hd/2+.006)).add(mat.wood,B(.15,.014,.016,x,.31,cz+hd/2+.006))}};
+      const H0=-hz+.53;house(-.2-(big?.4:0),H0,1.3,.72);
+      if(big){house(hx-.5,.05,.72,.62);                                   // a second house for a married son's family
+        // a little vegetable patch and drying mat in the open yard
+        k.add(mat.soil,B(.7,.03,.42,-hx+.62,0,hz-.95,1.6));for(let i=0;i<6;i++)k.add(caneMat,new THREE.PlaneGeometry(.12,.14).translate(-hx+.36+(i%3)*.26,.1,hz-1.05+((i/3)|0)*.2));
+        k.add(mat.rope,B(.5,.012,.36,.25,0,hz-.45,6))}
       // kitchen hut (badige) in a back corner
-      k.add(mat.coral,B(.4,.24,.34,1.0,0,-.58,3)).add(mat.thatch,gable(.4,.34,.15,.06,2.5).translate(1.0,.24,-.58)).add(mat.dark,B(.1,.16,.01,1.0,0,-.41+.002));
+      k.add(mat.coral,B(.4,.24,.34,hx-.45,0,-hz+.37,3)).add(mat.thatch,gable(.4,.34,.15,.06,2.5).translate(hx-.45,.24,-hz+.37)).add(mat.dark,B(.1,.16,.01,hx-.45,0,-hz+.54+.002));
       // well (valu) with a little bucket frame
-      k.add(mat.coral,C(.11,.12,.12,-1.05,0,.48,14)).add(mat.dark,C(.085,.085,.005,-1.05,.12,.48,14));
-      k.add(mat.wood,C(.008,.008,.24,-1.17,0,.48,5)).add(mat.wood,C(.008,.008,.24,-.93,0,.48,5)).add(mat.wood,B(.28,.016,.016,-1.05,.23,.48)).add(mat.rope,C(.004,.004,.08,-1.05,.15,.48,4));
+      const wx=-hx+.4,wz=hz-.47;
+      k.add(mat.coral,C(.11,.12,.12,wx,0,wz,14)).add(mat.dark,C(.085,.085,.005,wx,.12,wz,14));
+      k.add(mat.wood,C(.008,.008,.24,wx-.12,0,wz,5)).add(mat.wood,C(.008,.008,.24,wx+.12,0,wz,5)).add(mat.wood,B(.28,.016,.016,wx,.23,wz)).add(mat.rope,C(.004,.004,.08,wx,.15,wz,4));
       // two joali, rope-net seats on wooden frames, in front of the house
-      for(const x of [.25,.5]){const z=.06;for(const[dx,dz]of[[-.06,-.05],[.06,-.05],[-.06,.05],[.06,.05]])k.add(mat.wood,C(.006,.006,.14,x+dx,0,z+dz,4));
-        k.add(mat.rope,B(.12,.012,.12,x,.07,z).rotateX(-.25).translate(0,0,0)).add(mat.wood,B(.14,.012,.012,x,.14,z-.05))}
+      for(const x of big?[-.5,-.25]:[.25,.5]){const z=hz-.89;for(const[dx,dz]of[[-.06,-.05],[.06,-.05],[-.06,.05],[.06,.05]])k.add(mat.wood,C(.006,.006,.14,x+dx,0,z+dz,4));
+        k.add(mat.rope,B(.12,.012,.12,x,.07,z).rotateX(-.25)).add(mat.wood,B(.14,.012,.012,x,.14,z-.05))}
       break}
     case'fishery':{
       k.add(mat.plank,B(.62,.05,.5,0,0,0,2)).add(mat.wood,B(.42,.28,.34,-.12,.05,-.05,2)).add(mat.thatch,gable(.42,.34,.2,.08,2.5).translate(-.12,.33,-.05));
@@ -1501,28 +1649,73 @@ function makeModel(type,capital,seed=0){
       for(const[x,z,w,h,d]of[[-.2,-.18,.3,.24,.26],[.22,.16,.22,.16,.26],[.24,-.22,.18,.13,.16],[-.18,.22,.2,.1,.14],[.0,.0,.12,.08,.12]])k.add(mat.stone,B(w,h,d,x,.06,z,2.5));
       k.add(mat.wood,C(.015,.015,.6,-.36,.06,.34,5)).add(mat.wood,C(.012,.012,.38,0,0,0,5).rotateZ(1.25).translate(-.2,.6,.34)).add(mat.rope,C(.004,.004,.3,-.04,.34,.34,3));
       break}
-    case'plantation':{ // rows of sugar cane on tilled soil
-      k.add(mat.soil,B(.96,.04,.96,0,0,0,1.6));
-      const cane=[];for(let row=0;row<5;row++)for(let i=0;i<9;i++){const x=-.38+row*.19+(hash2(row,i,7)-.5)*.04,z=-.4+i*.1;const h=.32+hash2(row,i,8)*.12;
-        cane.push(new THREE.PlaneGeometry(.16,h).translate(0,h/2+.04,0).rotateY(hash2(row,i,9)*3).translate(x,0,z))}
-      k.add(caneMat,merge(cane));
+    case'grove':{ // a few young coconut palms on swept sand, with a heap of husked nuts
+      k.add(mat.soil,B(.96,.03,.96,0,0,0,1.6));
+      for(const[x,z,r,sc]of[[-.26,-.24,0,.44],[.24,-.2,2.1,.4],[-.2,.24,4.2,.42],[.27,.27,1.2,.46]]){
+        k.add(palmBarkMat,palmTrunkGeo.clone().scale(sc,sc,sc).rotateY(r).translate(x,.03,z)).add(frondMat,frondGeo.clone().scale(sc,sc,sc).rotateY(r).translate(x,.03,z)).add(nutMat,coconutGeo.clone().scale(sc,sc,sc).rotateY(r).translate(x,.03,z))}
+      for(let i=0;i<7;i++)k.add(nutMat,NI(new THREE.SphereGeometry(.035,8,6)).translate(.02+(i%3)*.06-(i>4?.03:0),.06+(i>4?.05:0),.0+((i/3)|0)*.05));
       break}
-    case'distillery':{
-      k.add(mat.stoneD,B(.66,.05,.54,-.04,0,0,2.5)).add(wall,B(.6,.36,.48,-.04,.05,0,2.5)).add(mat.roofGreen,gable(.6,.48,.22).translate(-.04,.41,0));
-      windowsOn(k,.6,.36,.48,.24,shut,2);k.add(mat.wood,B(.12,.2,.012,-.04,.05,.246));
-      k.add(mat.stoneD,C(.06,.075,.82,.2,.05,-.15,8)).add(mat.copper,C(.11,.12,.2,-.3,.05,.34,14)).add(mat.copper,NI(new THREE.SphereGeometry(.11,14,8,0,Math.PI*2,0,Math.PI/2)).translate(-.3,.25,.34));
-      k.add(mat.copper,C(.015,.015,.22,0,0,0,6).rotateZ(1.1).translate(-.2,.36,.34));
-      for(const[x,z]of[[.2,.33],[.31,.3]])k.add(mat.wood,C(.05,.05,.12,x,.05,z,10));
+    case'toddy':{ // the tapper's hut beside a notched palm, clay pots (raa) hung under its crown
+      k.add(mat.wood,B(.36,.24,.3,-.2,0,-.18,2)).add(mat.thatch,gable(.36,.3,.15,.07,2.5).translate(-.2,.24,-.18));
+      const sc=.5;k.add(palmBarkMat,palmTrunkGeo.clone().scale(sc,sc,sc).translate(.2,0,.12)).add(frondMat,frondGeo.clone().scale(sc,sc,sc).translate(.2,0,.12));
+      for(let i=0;i<5;i++)k.add(mat.dark,B(.05,.01,.02,.2+i*.004,.08+i*.11,.12+.03));
+      for(const[x,y,z]of[[.23,.6,.16],[.18,.58,.08],[.16,.05,-.04],[.04,.05,.05],[.1,.05,-.02]])k.add(clayMat,NI(new THREE.SphereGeometry(.035,10,8)).scale(1,1.2,1).translate(x,y+.04,z));
+      break}
+    case'drying':{ // a cooking shed with a boiling pot, then racks of fish smoked and drying in the sun
+      k.add(mat.plank,B(.9,.04,.7,0,0,0,2)).add(mat.wood,B(.3,.24,.28,-.28,.04,-.16,2)).add(mat.thatch,gable(.3,.28,.14,.07,2.5).translate(-.28,.28,-.16));
+      k.add(mat.dark,C(.07,.06,.08,-.28,.04,.12,12)).add(mat.stoneD,C(.09,.1,.03,-.28,.04,.12,10));
+      for(const z of[-.2,.02,.24]){for(const x of[.02,.38])k.add(mat.wood,C(.01,.012,.26,x,.04,z,5));
+        k.add(mat.wood,C(.008,.008,.38,0,0,0,4).rotateZ(Math.PI/2).translate(.2,.28,z));
+        for(let i=0;i<5;i++)k.add(mat.fish,B(.018,.09,.006,.07+i*.07,.17,z).rotateY(0))}
+      k.add(mat.rope,B(.28,.012,.2,.2,.04,.36,6));
+      break}
+    case'coir':{ // husks soak in a pit, then fibre is twisted into rope along a walk of posts
+      k.add(mat.plank,B(.34,.04,.3,-.3,0,-.28,2)).add(mat.wood,B(.3,.22,.26,-.3,.04,-.28,2)).add(mat.thatch,gable(.3,.26,.14,.07,2.5).translate(-.3,.26,-.28));
+      for(let i=0;i<9;i++)k.add(huskMat,NI(new THREE.SphereGeometry(.045,7,5)).scale(1.2,.8,1).translate(.12+(i%3)*.08,.035+((i/6)|0)*.05,-.32+((i/3)%2|0)*.07));
+      for(const x of[-.42,.42])for(const z of[.08,.22,.36])k.add(mat.wood,C(.012,.014,.2,x,0,z,5));
+      for(const z of[.08,.22,.36])k.add(mat.rope,C(.006,.006,.84,0,0,0,4).rotateZ(Math.PI/2).translate(0,.16,z));
+      k.add(mat.rope,C(.06,.06,.06,.3,0,-.05,10)).add(mat.rope,C(.05,.05,.05,.3,.06,-.05,10));
+      break}
+    case'cowrie':{ // a palm-leaf shade on the beach, woven baskets of shells
+      for(const[x,z]of[[-.3,-.25],[.1,-.25],[-.3,.05],[.1,.05]])k.add(mat.wood,C(.012,.014,.26,x,0,z,5));
+      k.add(mat.thatch,gable(.48,.4,.1,.04,2.5).translate(-.1,.26,-.1));
+      for(const[x,z]of[[.28,.2],[.36,.06],[-.1,.25]]){k.add(mat.rope,C(.06,.045,.07,x,0,z,12));for(let i=0;i<4;i++)k.add(shellMat,NI(new THREE.SphereGeometry(.014,6,5)).translate(x+(i%2-.5)*.04,.075,z+((i/2)|0)*.03-.015))}
+      for(let i=0;i<10;i++)k.add(shellMat,NI(new THREE.SphereGeometry(.012,6,5)).scale(1,.6,1.4).translate(-.4+hash2(i,1,5)*.8,.01,.2+hash2(i,2,5)*.2));
+      break}
+    case'mosque':{ // 2×2: a small lime-washed coral mosque with a carved wooden hipped roof, in a walled yard with a well
+      const Y=.0;k.add(mat.coral,B(1.9,.05,1.9,0,Y,0,3));
+      const w=(x0,x1,z0,z1)=>{const ww=Math.abs(x1-x0)||.06,dd=Math.abs(z1-z0)||.06;k.add(mat.coral,B(ww,.14,dd,(x0+x1)/2,.05,(z0+z1)/2,3)).add(mat.lime,B(ww+.02,.025,dd+.02,(x0+x1)/2,.19,(z0+z1)/2,3))};
+      w(-.92,.92,-.92,-.92);w(-.92,-.92,-.92,.92);w(.92,.92,-.92,.92);w(-.92,-.2,.92,.92);w(.2,.92,.92,.92);
+      k.add(mat.coral,B(1.1,.1,.8,0,.05,-.25,3)).add(mat.lime,B(1,.5,.7,0,.15,-.25,3));
+      k.add(mat.wood,hip(1,.7,.32,.12).translate(0,.65,-.25)).add(mat.wood,B(.06,.06,.06,0,.97,-.25)).add(mat.copper,C(.0,.03,.1,0,1.03,-.25,8));
+      for(const x of[-.32,0,.32])k.add(mat.wood,B(.14,.26,.012,x,.17,.105));
+      k.add(mat.lime,B(1.1,.04,.3,0,.15,.25,3));for(const x of[-.5,-.17,.17,.5])k.add(mat.wood,C(.022,.025,.42,x,.19,.38,8));
+      k.add(mat.wood,B(1.16,.03,.36,0,.61,.25,3));
+      k.add(mat.coral,C(.1,.11,.11,.6,.05,.55,14)).add(mat.dark,C(.08,.08,.005,.6,.16,.55,14));
+      for(const[x,z]of[[-.6,.5],[-.7,.3],[-.5,.3]])k.add(mat.lime,B(.05,.12,.02,x,.05,z));
+      break}
+    case'palace':{ // 3×3: the Sultan's palace, a walled compound with a two-storey hall, tiled roof and a red flag over the gate
+      const hx=1.42,ww=(x0,x1,z0,z1)=>{const a=Math.abs(x1-x0)||.08,d=Math.abs(z1-z0)||.08;k.add(mat.coral,B(a,.3,d,(x0+x1)/2,0,(z0+z1)/2,3)).add(mat.lime,B(a+.03,.04,d+.03,(x0+x1)/2,.3,(z0+z1)/2,3))};
+      ww(-hx,hx,-hx,-hx);ww(-hx,-hx,-hx,hx);ww(hx,hx,-hx,hx);ww(-hx,-.3,hx,hx);ww(.3,hx,hx,hx);
+      for(const x of[-.34,.34])k.add(mat.lime,B(.16,.6,.16,x,0,hx,3)).add(mat.coral,B(.2,.05,.2,x,.6,hx,3));
+      k.add(mat.lime,B(.84,.12,.14,0,.5,hx,3));
+      k.add(mat.coral,B(2.0,.1,1.2,0,0,-.5,3)).add(wall,B(1.8,.55,1.0,0,.1,-.5,3)).add(mat.wood,B(1.84,.04,1.04,0,.65,-.5,3)).add(wall,B(1.4,.45,.8,0,.69,-.5,3));
+      k.add(mat.roof,hip(1.4,.8,.45,.16).translate(0,1.14,-.5));
+      windowsOn(k,1.8,.55,1.0,.36,shut,4);windowsOn(k,1.4,.45,.8,.9,shut,3);
+      k.add(mat.wood,B(.3,.36,.014,0,.1,0+.004));
+      for(const x of[-.75,-.45,.45,.75])k.add(mat.lime,C(.04,.045,.55,x,.1,.12,10));k.add(mat.roof,B(1.8,.04,.34,0,.65,.08,3));
+      k.add(mat.dark,C(.015,.018,1.3,-1.2,0,1.2,6)).add(mat.capFlag,new THREE.PlaneGeometry(.36,.22,4,1).translate(-1.2+.18,1.18,1.2));
+      for(const[x,z]of[[-1.0,.5],[1.0,.6],[.95,-1.15]])k.add(palmBarkMat,palmTrunkGeo.clone().scale(.55,.55,.55).translate(x,0,z)).add(frondMat,frondGeo.clone().scale(.55,.55,.55).translate(x,0,z));
       break}
   }
-  const g=k.build();g.scale.setScalar(type==='house'?1:1.25);   // plots are drawn at tile scale
+  const g=k.build();g.scale.setScalar(type==='house'||DEF[type]?.unit?1:1.25);   // plots are drawn at tile scale
   return g;
 }
 const bMeshes=new Map();
 function syncBuildings(t){
   const live=new Set();
   for(const b of S.buildings){live.add(b.id);let m=bMeshes.get(b.id);
-    if(!m){m=makeModel(b.type,b.id===S.capital,(hash2(b.x,b.y,2)*997)|0);const c=plotCentre(b);m.position.set(c.x,topY(S.h[idx(b.x,b.y)]),c.y);
+    if(!m){m=makeModel(b.type,b.id===S.capital,(hash2(b.x,b.y,2)*997)|0,Math.max(b.w,b.d),Math.min(b.w,b.d));const c=plotCentre(b);m.position.set(c.x,topY(S.h[idx(b.x,b.y)]),c.y);
       m.rotation.y=b.type==='house'?plotRot(b):(hash2(b.x,b.y,1)*4|0)*Math.PI/2;
       const pip=new THREE.Mesh(new THREE.SphereGeometry(.07,10,8),mat.pip);pip.position.y=1.05;pip.visible=false;m.add(pip);m.userData.pip=pip;scene.add(m);bMeshes.set(b.id,m)}
     if(b.type==='harbor'){const h=berthOf(b.x,b.y);const fx=h?h[0]-b.x:0,fz=h?h[1]-b.y:1;m.rotation.y=Math.atan2(fx,fz)}
@@ -1540,7 +1733,18 @@ const sailGeo=(()=>{const g=new THREE.PlaneGeometry(.38,.6,6,8);const p=g.attrib
 const boatMeshes=new Map();
 function makeBoat(){const k=kit();k.add(mat.wood,hullGeo.clone()).add(mat.plank,B(.5,.02,.2,-.04,.08,0,3)).add(mat.dark,C(.012,.015,.8,.02,.08,0,6));
   const g=k.build();const sail=new THREE.Mesh(sailGeo,mat.cloth.clone());sail.position.x=.03;sail.castShadow=true;g.add(sail);g.userData.sail=sail;g.scale.setScalar(1.3);return g}
+// a trading ship (odi): a long, deep hull, a deckhouse and two masts with ochre sails
+function makeShip(){const k=kit();k.add(mat.wood,hullGeo.clone().scale(2.3,1.7,1.7)).add(mat.plank,B(1.2,.03,.34,-.08,.13,0,3)).add(mat.wood,B(.3,.16,.26,-.42,.15,0,2)).add(mat.thatch,gable(.3,.26,.1,.04,2.5).translate(-.42,.31,0));
+  for(const x of[.12,.48])k.add(mat.dark,C(.016,.02,1.15,x,.13,0,6));for(let i=0;i<4;i++)k.add(mat.plank,B(.12,.1,.12,.25+(i%2)*.14,.15,((i/2)|0)*.14-.07,4));
+  const g=k.build();for(const[x,s]of[[.12,1.35],[.48,1.1]]){const sl=new THREE.Mesh(sailGeo,sailOchre);sl.scale.set(s,s,s);sl.position.set(x,.08,0);sl.castShadow=true;g.add(sl)}
+  g.scale.setScalar(1.3);return g}
+const sailOchre=M(0xd9a441,.9,{side:THREE.DoubleSide});let shipMesh=null;
+function syncShip(t){
+  if(!trader){if(shipMesh)shipMesh.visible=false;return}
+  if(!shipMesh){shipMesh=makeShip();scene.add(shipMesh)}
+  shipMesh.visible=true;shipMesh.position.set(trader.x+.5,WATER_Y+.05+Math.sin(t*1.4)*.04,trader.y+.5);shipMesh.rotation.y=-trader.ang;shipMesh.rotation.x=Math.sin(t*1.1)*.04}
 function syncBoats3D(t){
+  syncShip(t);
   const live=new Set();
   for(const bt of boats){live.add(bt.home);let m=boatMeshes.get(bt.home);if(!m){m=makeBoat();scene.add(m);boatMeshes.set(bt.home,m)}
     m.position.set(bt.x+.5,WATER_Y+.03+Math.sin(t*2+bt.home)*.03,bt.y+.5);m.rotation.y=-bt.ang;m.rotation.x=Math.sin(t*1.7+bt.home)*.05;
@@ -1549,29 +1753,32 @@ function syncBoats3D(t){
 }
 // cursor, range and placement ghost
 // the brush: a soft ring draped over the ground, with the tiles it will touch lightly tinted (no hard box)
+const badData=new Uint8Array(11*11);
 const CUR_N=40,cursorMat=new THREE.ShaderMaterial({transparent:true,depthTest:false,depthWrite:false,toneMapped:false,
-  uniforms:{uC:{value:new THREE.Vector2()},uR:{value:1},uCol:{value:new THREE.Color('#f3e6c4')},uT:G.uTime},
+  uniforms:{uC:{value:new THREE.Vector2()},uR:{value:1},uCol:{value:new THREE.Color('#f3e6c4')},uT:G.uTime,uBad:{value:null}},
   vertexShader:`varying vec2 vP;void main(){vP=position.xz;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-  fragmentShader:`uniform vec2 uC;uniform float uR;uniform vec3 uCol;uniform float uT;varying vec2 vP;
+  fragmentShader:`uniform vec2 uC;uniform float uR;uniform vec3 uCol;uniform float uT;uniform sampler2D uBad;varying vec2 vP;
     void main(){float d=length(vP-uC),w=fwidth(d);
       float ring=1.-smoothstep(.06,.06+w*1.5,abs(d-uR));                       // crisp ring at the brush edge
       float glow=(1.-smoothstep(0.,.55,abs(d-uR)))*.35*(.75+.25*sin(uT*3.));   // soft breathing halo around it
-      vec2 cell=floor(vP)+.5;float inside=step(length(cell-uC),uR-.01);       // tiles the brush will change
+      vec2 cell=floor(vP)+.5;float inside=step(length(cell-uC),uR+.005);      // tiles the brush will change
+      float bad=inside*texture2D(uBad,(cell-uC+5.5)/11.).r;                    // ...and the ones it would refuse
       vec2 f=abs(fract(vP)-.5);float grid=smoothstep(.47,.5,max(f.x,f.y))*inside;
-      float a=max(ring*.95,max(glow,inside*.10+grid*.22));if(a<.01)discard;
-      gl_FragColor=vec4(uCol*(1.+ring*.4),a);}`});
+      float a=max(ring*.95,max(glow,inside*.10+grid*.22+bad*.32));if(a<.01)discard;
+      gl_FragColor=vec4(mix(uCol*(1.+ring*.4),vec3(1.,.33,.28),bad*(1.-ring)),a);}`});
+const badTex=new THREE.DataTexture(badData,11,11,THREE.RedFormat);badTex.needsUpdate=true;cursorMat.uniforms.uBad.value=badTex;
 const cursor=new THREE.Mesh(new THREE.PlaneGeometry(1,1,CUR_N,CUR_N).rotateX(-Math.PI/2),cursorMat);
 cursor.renderOrder=10;cursor.frustumCulled=false;scene.add(cursor);cursor.visible=false;
 // height of the ground (or the sea surface) at any point, from the terrain's corner heights
 function groundY(fx,fy){const x0=Math.floor(fx),y0=Math.floor(fy),tx=fx-x0,ty=fy-y0;
   const a=cAt(x0,y0),b=cAt(x0+1,y0),c=cAt(x0,y0+1),d=cAt(x0+1,y0+1);return Math.max(WATER_Y,a+(b-a)*tx+(c-a)*ty+(a-b-c+d)*tx*ty)}
-function placeCursor(x,y,r,col){const R=r+.5,cx=x+.5,cy=y+.5,S0=2*R+1.4,p=cursor.geometry.attributes.position;
+function placeCursor(x,y,R,col){const cx=x+.5,cy=y+.5,S0=2*R+1.4,p=cursor.geometry.attributes.position;
   for(let j=0;j<=CUR_N;j++)for(let i=0;i<=CUR_N;i++){const v=j*(CUR_N+1)+i,px=cx+(i/CUR_N-.5)*S0,pz=cy+(j/CUR_N-.5)*S0;p.setXYZ(v,px,groundY(px,pz)+.06,pz)}
   p.needsUpdate=true;cursorMat.uniforms.uC.value.set(cx,cy);cursorMat.uniforms.uR.value=R;cursorMat.uniforms.uCol.value.set(col);cursor.visible=true}
 const rangeQuad=new THREE.Mesh(new THREE.PlaneGeometry(5,5).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({color:'#fff6d8',transparent:true,opacity:.16,depthWrite:false,depthTest:false,toneMapped:false}));
 rangeQuad.renderOrder=9;scene.add(rangeQuad);rangeQuad.visible=false;
 const ghostCache={};const ghostOk=new THREE.MeshBasicMaterial({color:'#7ef0d8',transparent:true,opacity:.55,depthWrite:false,toneMapped:false}),ghostBad=new THREE.MeshBasicMaterial({color:'#ff6b6b',transparent:true,opacity:.55,depthWrite:false,toneMapped:false});
-function ghost(type){if(!ghostCache[type]){const g=makeModel(type,false);g.traverse(o=>{if(o.isMesh)o.castShadow=false});g.visible=false;scene.add(g);ghostCache[type]=g}return ghostCache[type]}
+function ghost(type){const key=type==='house'?type+plot:type;if(!ghostCache[key]){const sz=DEF[type].sizes?.[plot]||[3,2];const g=makeModel(type,false,0,sz[0],sz[1]);g.traverse(o=>{if(o.isMesh)o.castShadow=false});g.visible=false;scene.add(g);ghostCache[key]=g}return ghostCache[key]}
 function hideGhosts(){for(const k in ghostCache)ghostCache[k].visible=false}
 
 // ---------- post-processing ----------
@@ -1644,35 +1851,43 @@ function renderFrame(){
 }
 
 // ---------- input ----------
-let tool='inspect',brush=0,stroke=null,drag=null;const pointers=new Map();let pinch=null,hover=null;
-const inBrush=(dx,dy)=>dx*dx+dy*dy<(brush+.5)**2-.01;   // round brush: tile centres inside the ring
+let tool='inspect',bsize=1,levelTo=1,stroke=null,drag=null;const pointers=new Map();let pinch=null,hover=null;
+// one round brush, 1–9 tiles across: the tiles whose centres sit within half the size of the hovered tile's centre
+const inBrush=(dx,dy)=>dx*dx+dy*dy<=(bsize/2)**2+.01;
+function forBrush(cx,cy,fn){const r=bsize>>1;for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++)if(inBrush(dx,dy)&&inb(cx+dx,cy+dy))fn(cx+dx,cy+dy)}
+const LEVELS=[[-3,'Deep'],[-2,'Channel'],[-1,'Reef'],[0,'Beach'],[1,'Land'],[2,'Ridge']];
+const TERRA_TOOLS=['raise','lower','flatten','smooth'];
 function applyAt(t,first){
   if(!t)return;
   if(tool in DEF){if(first)place(tool,t.x,t.y);return}
   if(tool==='demolish'){if(bAt(t.x,t.y)){if(first)demolish(t.x,t.y)}else removeRoad(t.x,t.y);return}
   if(tool==='inspect')return;
-  if(tool==='road'){let err=null;
-    for(let dy=-brush;dy<=brush;dy++)for(let dx=-brush;dx<=brush;dx++){if(!inBrush(dx,dy))continue;const r=buildRoad(t.x+dx,t.y+dy);if(!r.ok&&r.why)err=r.why}
-    if(err)refuse(err);return}
-  if(first&&tool==='flatten')stroke.target=S.h[idx(t.x,t.y)];
+  if(tool==='road'){let err=null;forBrush(t.x,t.y,(x,y)=>{const r=buildRoad(x,y);if(!r.ok&&r.why)err=r.why});if(err)refuse(err);return}
   let coast=false,err=null;
-  for(let dy=-brush;dy<=brush;dy++)for(let dx=-brush;dx<=brush;dx++){
-    if(!inBrush(dx,dy))continue;
-    const x=t.x+dx,y=t.y+dy,k=x+','+y;if(!inb(x,y)||stroke.done.has(k))continue;
-    const r=terraform(x,y,tool,stroke.target);
-    if(r.ok){stroke.done.add(k);if(r.coast)coast=true}else if(r.why)err=r.why;
-  }
+  const jobs=tool==='smooth'?smoothTargets(t.x,t.y):[];if(tool!=='smooth')forBrush(t.x,t.y,(x,y)=>jobs.push([x,y,levelTo]));
+  for(const[x,y,target]of jobs){const k=x+','+y;if(stroke.done.has(k))continue;
+    const r=terraform(x,y,tool,target);
+    if(r.ok){if(!r.noop)stroke.done.add(k);if(r.coast)coast=true}else if(r.why)err=r.why}
   if(err)refuse(err);
-  if(coast){const before=islands.length;computeIslands();if(islands.length!==before)toast(islands.length<before?'Islands joined by land. Their warehouses now share stock.':'Land split apart. Each piece needs its own harbor.',islands.length<before?'good':'')}
+  if(coast){const before=islands.length;computeIslands();if(islands.length!==before)toast(islands.length<before?'Islands joined by land. Their warehouses now share stock.':'Land split apart. Each piece needs its own jetty.',islands.length<before?'good':'')}
 }
+// holding the mouse still keeps raising, lowering or smoothing, a step every quarter second
+function repeatStroke(dt){if(!stroke||!hover||!['raise','lower','smooth'].includes(tool))return;stroke.hold+=dt;if(stroke.hold<.3)return;stroke.hold=0;stroke.done.clear();applyAt(hover,false)}
+function endStroke(){if(stroke?.undo?.size)undoStack.push({undo:stroke.undo,gold:stroke.gold,stone:stroke.stone,src:stroke.src,at:performance.now()});if(undoStack.length>20)undoStack.shift();stroke=null}
+// what one pass of the brush would cost here, and which tiles it would refuse (drawn red under the ring)
+let brushCost=null;
+function previewBrush(t){badData.fill(0);badTex.needsUpdate=true;brushCost=null;if(!t||!TERRA_TOOLS.includes(tool))return;let g=0,st=0,n=0;
+  const jobs=tool==='smooth'?smoothTargets(t.x,t.y):[];if(tool!=='smooth')forBrush(t.x,t.y,(x,y)=>jobs.push([x,y,levelTo]));
+  for(const[x,y,target]of jobs){const r=terraform(x,y,tool,target,true);if(r.noop)continue;if(r.ok){g+=r.gold;st+=r.stone;n++}else badData[(y-t.y+5)*11+(x-t.x+5)]=255}
+  brushCost={g,st,n};badTex.needsUpdate=true}
 cv.addEventListener('contextmenu',e=>e.preventDefault());
 cv.addEventListener('pointerdown',e=>{
   cv.setPointerCapture(e.pointerId);pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
-  if(pointers.size===2){stroke=null;drag=null;const[a,b]=[...pointers.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y),a:Math.atan2(b.y-a.y,b.x-a.x),cx:(a.x+b.x)/2,cy:(a.y+b.y)/2,dist:cam.dist,yaw:cam.yaw};return}
+  if(pointers.size===2){endStroke();drag=null;const[a,b]=[...pointers.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y),a:Math.atan2(b.y-a.y,b.x-a.x),cx:(a.x+b.x)/2,cy:(a.y+b.y)/2,dist:cam.dist,yaw:cam.yaw};return}
   // rotate: right or middle drag, or Shift/Alt/Ctrl + left drag (trackpads, one-button mice)
   if(e.button===2||e.button===1||(e.button===0&&(e.shiftKey||e.altKey||e.ctrlKey))){cam.goal=null;drag={mode:'rot',x:e.clientX,y:e.clientY,moved:0,btn:e.button};return}
   if(tool==='inspect'&&e.button===0){drag={mode:'pan',x:e.clientX,y:e.clientY,moved:0};return}
-  spend={g:0,s:0};stroke={done:new Set(),target:0,last:null};const t=pick(e.clientX,e.clientY);if(t){stroke.last=t.x+','+t.y;applyAt(t,true)}
+  spend={g:0,s:0};stroke={done:new Set(),last:null,hold:0,undo:TERRA_TOOLS.includes(tool)?new Map():null,gold:0,stone:0,src:null};const t=pick(e.clientX,e.clientY);if(t){stroke.last=t.x+','+t.y;applyAt(t,true)}
 });
 cv.addEventListener('pointermove',e=>{
   mouse.x=e.clientX;mouse.y=e.clientY;
@@ -1682,13 +1897,13 @@ cv.addEventListener('pointermove',e=>{
   if(drag){const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.x=e.clientX;drag.y=e.clientY;
     drag.moved+=Math.abs(dx)+Math.abs(dy);if(drag.mode==='rot'){cam.yaw-=dx*0.006;cam.pitch+=dy*0.005}else panBy(dx,dy);return}
   const t=pick(e.clientX,e.clientY);hover=t;
-  if(stroke&&t){const k=t.x+','+t.y;if(k!==stroke.last){stroke.last=k;applyAt(t,false)}}
+  if(stroke&&t){const k=t.x+','+t.y;if(k!==stroke.last){stroke.last=k;stroke.hold=0;applyAt(t,false)}}
 });
 function endPtr(e){
   // a click in Survey selects; a right-click without dragging drops the tool
   if(drag&&drag.mode==='pan'&&drag.moved<6&&tool==='inspect'){const t=pick(e.clientX,e.clientY);const b=t&&bAt(t.x,t.y);if(b)selectBuilding(b);else closeSel()}
   if(drag&&drag.mode==='rot'&&drag.btn===2&&drag.moved<6){if(tool!=='inspect')setTool('inspect');else closeSel()}
-  pointers.delete(e.pointerId);if(pointers.size<2)pinch=null;if(pointers.size===0){stroke=null;drag=null}}
+  pointers.delete(e.pointerId);if(pointers.size<2)pinch=null;if(pointers.size===0){endStroke();drag=null}}
 cv.addEventListener('pointerup',endPtr);cv.addEventListener('pointercancel',endPtr);
 cv.addEventListener('pointerleave',()=>{hover=null});
 cv.addEventListener('wheel',e=>{e.preventDefault();cam.dist*=Math.exp(e.deltaY*0.0012)},{passive:false});
@@ -1697,14 +1912,17 @@ window.addEventListener('keydown',e=>{
   if(e.key==='F1'){e.preventDefault();toggleHelp();return}
   if(e.target.matches?.('input,textarea'))return; // typing a name
   if(e.key==='Escape'){escape();return}
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'&&$('help').hidden){e.preventDefault();undoTerraform();return}
   if(!$('help').hidden||e.ctrlKey||e.metaKey||e.altKey)return;
   const onCtl=document.activeElement&&document.activeElement!==document.body&&document.activeElement!==cv;
   if(e.key==='Tab'){if(!onCtl){e.preventDefault();nextIsland(e.shiftKey?-1:1)}return}
   const k=e.key.toLowerCase();keys.add(k);
-  if(/^[1-6]$/.test(k)){const c=CATS[+k-1].id;setCat(openCat===c?null:c);return}
+  if(/^[1-7]$/.test(k)){const c=CATS[+k-1].id;setCat(openCat===c?null:c);return}
   for(const[id,d]of Object.entries(TERRA))if(d.key.toLowerCase()===k)setTool(id);
   for(const[id,d]of Object.entries(DEF))if(d.key&&d.key.toLowerCase()===k)setTool(id);
-  if(k==='b')setBrush((brush+1)%3);
+  if(k==='b')setBrush(bsize>=9?1:bsize>=5?9:bsize+2);
+  if(k==='['||k===']')setBrush(bsize+(k===']'?1:-1));
+  if(k==='p')setPlot(1-plot);
   if(k===' '&&!onCtl&&!S.over){e.preventDefault();setSpeed(speed?0:1)}
 });
 window.addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));
@@ -1719,8 +1937,17 @@ const ICON={
   wood:'M3 6.5h13.5a2.75 2.75 0 0 1 0 5.5H3zM17 7.9a1.35 1.35 0 1 0 0 2.7 1.35 1.35 0 0 0 0-2.7zM5 13h13.5a2.75 2.75 0 0 1 0 5.5H5zM19 14.4a1.35 1.35 0 1 0 0 2.7 1.35 1.35 0 0 0 0-2.7z',
   stone:'M4 8.5L8.5 4h7L20 8.5v7L15.5 20h-7L4 15.5zM8.5 8.5h2.2v2.2H8.5zM13 11.5h2.4v2.4H13zM9.5 14h1.8v1.8H9.5z',
   fish:'M1.5 12C4.5 7 10.5 6 15 9.2L21 6v12l-6-3.2C10.5 18 4.5 17 1.5 12zM7 10.8a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4z',
-  sugar:'M7.5 2h2.4v20H7.5zM14 2h2.4v20H14zM6.5 7.5h4.4v1.6H6.5zM13 12h4.4v1.6H13zM6.5 15.5h4.4v1.6H6.5zM13 5h4.4v1.6H13zM10 6c3-3 6-3.5 9-3-2.5 1-5 2.5-8 4.5zM4 11c1-2.5 2.5-3.5 4-3.5L7.5 9C6 9.5 5 10.5 4 11z',
-  rum:'M7 2.5h10c1.8 3.2 1.8 15.8 0 19H7C5.2 18.3 5.2 5.7 7 2.5zM6.2 7.5h11.6V9H6.2zM6.2 15h11.6v1.5H6.2zM11 10.5h2v3h-2z',
+  coconut:'M12 3a8.5 9 0 1 0 0 18 8.5 9 0 0 0 0-18zM9.2 8a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 0 0 0-2.8zM14.8 8a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 0 0 0-2.8zM12 11.6a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 0 0 0-2.8z',
+  toddy:'M9 2.5h6v2.5c3.5 1.5 5 4.5 5 8 0 5-3.6 8.5-8 8.5S4 18 4 13c0-3.5 1.5-6.5 5-8zM7 11h10v1.6H7z',
+  hikimas:'M1.5 12C4.5 7 10.5 6 15 9.2L21 6v12l-6-3.2C10.5 18 4.5 17 1.5 12zM8 7.8h1.6v8.4H8zM11.5 7.6h1.6v8.8h-1.6z',
+  rope:'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 5.5a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13zM12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 10.3a1.7 1.7 0 1 1 0 3.4 1.7 1.7 0 0 1 0-3.4z',
+  cowrie:'M12 2.5c4.4 0 7 4.3 7 9.5s-2.6 9.5-7 9.5-7-4.3-7-9.5 2.6-9.5 7-9.5zM11.2 5h1.6v14h-1.6zM8.5 8h2.2v1.2H8.5zM13.3 8h2.2v1.2h-2.2zM8.2 11.4h2.5v1.2H8.2zM13.3 11.4h2.5v1.2h-2.5zM8.5 14.8h2.2v1.2H8.5zM13.3 14.8h2.2v1.2h-2.2z',
+  rice:'M8 2.5h8l-1.5 3c4 1.5 6 5 6 9.5 0 4-2 6.5-8.5 6.5S3.5 19 3.5 15c0-4.5 2-8 6-9.5zM7.5 9.5h9V11h-9z',
+  palm:'M11 9h2l1 12.5h-4zM11.6 8.6C9 5.4 5.4 5 2 7c3.2-.4 6.2.2 9 2.4zM12.4 8.6c2.6-3.2 6.2-3.6 9.6-1.6-3.2-.4-6.2.2-9 2.4zM11.2 8C10.4 4.6 8 3 5 2.5c2.8 1.6 4.6 3.6 5.6 6zM12.8 8c.8-3.4 3.2-5 6.2-5.5-2.8 1.6-4.6 3.6-5.6 6z',
+  racks:'M3 4h2v17H3zM19 4h2v17h-2zM5 5h14v1.6H5zM5 12h14v1.6H5zM7.5 6.6H9v4H7.5zM11.25 6.6h1.5v4h-1.5zM15 6.6h1.5v4H15zM7.5 13.6H9v4H7.5zM11.25 13.6h1.5v4h-1.5zM15 13.6h1.5v4H15z',
+  mosque:'M11.2 1.5h1.6v2.6h-1.6zM12 4.2l9 6H3zM4.5 11.2h15v10.3h-15zM10 14.5h4v7h-4z',
+  palace:'M2 21.5V9l3 2V6l3 2V4l4 3 4-3v4l3-2v5l3-2v12.5zM10 15h4v6.5h-4z',
+  trade:'M2 15h20l-3 5.5H5zM6 3.5h1.6v11H6zM13 3.5h1.6v11H13zM7.6 4.5l4.4 8H7.6zM14.6 4.5l5.4 8h-5.4z',
   people:'M9 3.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7zM2 20.5c0-4 3.1-7.5 7-7.5s7 3.5 7 7.5zM17 5a3 3 0 1 1 0 6 3 3 0 0 1 0-6zM17.5 12.5c2.6.3 4.5 3.4 4.5 7h-4.5c0-2.6-.8-5-2.2-6.6.7-.3 1.4-.4 2.2-.4z',
   sun:'M12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10zM11 .5h2v4h-2zM11 19.5h2v4h-2zM.5 11h4v2h-4zM19.5 11h4v2h-4zM3.5 5L5 3.5l2.8 2.8-1.5 1.5zM16.2 17.7l1.5-1.5 2.8 2.8-1.5 1.5zM3.5 19l2.8-2.8 1.5 1.5L5 20.5zM16.2 6.3L19 3.5l1.5 1.5-2.8 2.8z',
   menu:'M3 5h18v2.4H3zM3 10.8h18v2.4H3zM3 16.6h18V19H3z',
@@ -1733,6 +1960,7 @@ const ICON={
   raise:'M12 2.5l6.5 7.5H14v6h-4v-6H5.5zM2 19.5h20V22H2z',
   lower:'M12 17L5.5 9.5H10v-6h4v6h4.5zM2 19.5h20V22H2z',
   level:'M2 16h20v6H2zM2 10.5h20v2.5H2zM6 5.5h12V8H6z',
+  smooth:'M1.5 17c3-6 6-9 10.5-9s7.5 3 10.5 9v5H1.5zM6.5 3.5h11V6h-11z',
   demolish:'M4.5 2.5L21.5 19.5 19.5 21.5 2.5 4.5zM19.5 2.5l2 2-17 17-2-2z',
   survey:'M10 2.5a7.5 7.5 0 1 1 0 15 7.5 7.5 0 0 1 0-15zM10 5a5 5 0 1 0 0 10 5 5 0 0 0 0-10zM15.2 17l1.8-1.8 5 5-1.8 1.8z',
   pause:'M6 4h4v16H6zM14 4h4v16h-4z',
@@ -1747,31 +1975,33 @@ ICON.gear=(()=>{let d='';const n=8,st=Math.PI*2/n;for(let k=0;k<n;k++){const c=k
   return d+'zM15.5 12a3.5 3.5 0 1 0-7 0 3.5 3.5 0 0 0 7 0z'})();
 const ico=n=>n==='needle'?'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.5l4 10.5H8z" fill="#e0533f"/><path d="M12 22.5L8 12h8z" fill="#f2ece0"/></svg>'
   :`<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICON[n]||''}"/></svg>`;
-const GOOD_ICO={gold:'gold',wood:'wood',stone:'stone',fish:'fish',sugar:'sugar',rum:'rum'};
-const TOOL_ICO={inspect:'survey',raise:'raise',lower:'lower',flatten:'level',road:'road',demolish:'demolish',harbor:'harbour',house:'homes',fishery:'fish',lumber:'wood',quarry:'stone',plantation:'sugar',distillery:'rum'};
+const GOOD_ICO={gold:'gold',wood:'wood',stone:'stone',fish:'fish',coconut:'coconut',toddy:'toddy',hikimas:'hikimas',rope:'rope',cowrie:'cowrie',rice:'rice'};
+const TOOL_ICO={inspect:'survey',raise:'raise',lower:'lower',flatten:'level',smooth:'smooth',road:'road',demolish:'demolish',harbor:'harbour',house:'homes',fishery:'fish',drying:'racks',grove:'palm',toddy:'toddy',lumber:'wood',quarry:'stone',coir:'rope',cowrie:'cowrie',mosque:'mosque',palace:'palace'};
 const CATS=[
-  {id:'terra',   name:'Terraform',ico:'terra',  tools:['raise','lower','flatten'],brush:true},
-  {id:'homes',   name:'Homes',    ico:'homes',  tools:['house']},
-  {id:'food',    name:'Food',     ico:'fish',   tools:['fishery']},
-  {id:'industry',name:'Industry', ico:'axe',    tools:['lumber','quarry','plantation','distillery']},
+  {id:'terra',   name:'Terraform',ico:'terra',  tools:['raise','lower','flatten','smooth'],brush:true,levels:true},
+  {id:'homes',   name:'Homes',    ico:'homes',  tools:['house'],plots:true},
+  {id:'food',    name:'Food',     ico:'fish',   tools:['fishery','grove','toddy','drying']},
+  {id:'industry',name:'Industry', ico:'axe',    tools:['lumber','quarry','coir','cowrie']},
+  {id:'civic',   name:'Civic',    ico:'mosque', tools:['mosque','palace']},
   {id:'harbour', name:'Harbour',  ico:'harbour',tools:['harbor']},
   {id:'roads',   name:'Roads',    ico:'road',   tools:['road'],brush:true},
 ];
-const TOOL_COST={raise:{gold:4,stone:1},lower:{gold:4},flatten:{gold:4},road:{gold:2}};
+const TOOL_COST={raise:{gold:4,stone:1},lower:{gold:4},flatten:{gold:4},smooth:{gold:4},road:{gold:2}};
 const TOOL_TIP={
   inspect:'Click a building or an island\'s name to see its details. Left-drag pans the view.',
-  raise:'Raises land one step. Each step costs 4 gold and 1 coral stone from the nearest harbor.',
-  lower:'Lowers land one step for 4 gold and returns half a coral stone. Lower shallows to let boats through.',
-  flatten:'Every tile you paint takes the height of the first one. 4 gold per step.',
+  raise:'Raises land one step; hold still to keep raising. Each step costs 4 gold and 1 coral stone from the nearest jetty.',
+  lower:'Lowers land one step for 4 gold and returns half a coral stone; hold still to keep lowering. Lower shallows to let boats through. The open ocean beyond the reef cannot be dredged.',
+  flatten:'Every tile you paint takes the height picked under Level to: deep lagoon, boat channel, reef, beach, land or ridge. 4 gold per step; raising uses coral stone.',
+  smooth:'Evens out bumps: each tile steps toward the average of its neighbours. Hold still to keep smoothing. 4 gold per step.',
   road:'A sand road between buildings. 2 gold per tile; clears trees, and nothing grows on it.',
   demolish:'Removes a building for half its gold back, or a road tile for 1 gold.',
 };
-const MAKES={house:'Tax gold',fishery:'Fish',lumber:'Wood',quarry:'Coral stone',plantation:'Sugar',distillery:'Rum',harbor:'A warehouse and a boat to the capital'};
-const NEEDS={house:'Fish; rum doubles the tax',distillery:'Sugar'};
+const MAKES={house:'Tax gold and workers',fishery:'Fish',drying:'Dried fish (hiki mas), an export',grove:'Coconuts',toddy:'Sweet toddy',lumber:'Timber',quarry:'Coral stone',coir:'Coir rope, the main export',cowrie:'Cowries, an export',harbor:'A warehouse and a dhoni to the capital; at the capital, the trade post',mosque:'The faith need for compounds within 10 tiles',palace:'The advance to the next age'};
+const NEEDS={house:'Fish or rice; then coconuts and a mosque nearby; sweet toddy raises tax',drying:'Fish, and timber for firewood',coir:'Coconuts, and water within 2 tiles',toddy:'Coconut palms within 3 tiles',palace:'The capital island; one per game'};
 const catOf=id=>CATS.find(c=>c.tools.includes(id))?.id||null;
 const toolName=id=>DEF[id]?.name||TERRA[id]?.name;
 const toolKey=id=>DEF[id]?.key||TERRA[id]?.key||'';
-const toolCost=id=>DEF[id]?.cost||TOOL_COST[id]||null;
+const toolCost=id=>DEF[id]?costOf(id):TOOL_COST[id]||null;
 const PORTRAIT='<svg viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" fill="#d9a441"/><path d="M5 40c1-9 7-13 15-13s14 4 15 13z" fill="#f2ece0"/><path d="M17 27h6l-3 5z" fill="#a3362a"/><circle cx="20" cy="18" r="8" fill="#8a5a3a"/><path d="M11.5 14.5c0-7 17-7 17 0z" fill="#f2ece0"/><path d="M11.5 14h17v1.8h-17z" fill="#a3362a"/><path d="M16.5 22.5c2 1.6 5 1.6 7 0" stroke="#3a2416" stroke-width="1.2" fill="none"/><circle cx="17" cy="18.5" r="1" fill="#2a1a10"/><circle cx="23" cy="18.5" r="1" fill="#2a1a10"/></svg>';
 
 let openCat=null,sel=null,uiIsl=null,mouse={x:0,y:0},tagErr=null,spend={g:0,s:0},unread=0;
@@ -1785,11 +2015,13 @@ function viewIsland(){const tx=Math.floor(cam.tx),tz=Math.floor(cam.tz);const is
 // what an island's buildings make and use, per second
 function flows(isl){const f={};for(const g of GOODS)f[g]={make:0,use:0};if(!isl)return f;
   for(const b of S.buildings){if(b.isl!==isl.id||b.off)continue;const r=b.rate||0;
-    switch(b.type){case'fishery':f.fish.make+=r;break;case'lumber':f.wood.make+=r;break;case'quarry':f.stone.make+=r;break;case'plantation':f.sugar.make+=r;break;
-      case'distillery':f.rum.make+=r;f.sugar.use+=r*2;break;
-      case'house':f.fish.use+=0.012*b.res;if(/rum/.test(b.status)&&/enjoying/.test(b.status))f.rum.use+=0.005*b.res;break}}
+    switch(b.type){case'fishery':f.fish.make+=r;break;case'lumber':f.wood.make+=r;break;case'quarry':f.stone.make+=r;break;case'grove':f.coconut.make+=r;break;
+      case'toddy':f.toddy.make+=r;break;case'cowrie':f.cowrie.make+=r;break;
+      case'drying':f.hikimas.make+=r;f.fish.use+=r*2;f.wood.use+=r*.4;break;
+      case'coir':f.rope.make+=r;f.coconut.use+=r/.4;break;
+      case'house':{const n=b.need||{};if(n.food)f[n.rice?'rice':'fish'].use+=0.012*b.res;else f.fish.use+=0.012*b.res;if(n.coco)f.coconut.use+=0.006*b.res;if(n.toddy)f.toddy.use+=0.004*b.res;break}}}
   return f}
-function chipsHTML(cost,st){return Object.entries(cost).map(([k,v])=>{const have=k==='gold'?S.gold:(st?st[k]:0);return`<span class="chip${have<v?' no':''}">${ico(GOOD_ICO[k])}${v}</span>`}).join('')}
+function chipsHTML(cost,st){return Object.entries(cost||{}).map(([k,v])=>{const have=k==='gold'?S.gold:(st?st[k]:0);return`<span class="chip${have<v?' no':''}">${ico(GOOD_ICO[k])}${v}</span>`}).join('')}
 function stockFor(id){return id==='harbor'?capitalIsland()?.harbor?.stock:stockOf(uiIsl)}
 
 // ----- build bar and cards -----
@@ -1802,19 +2034,26 @@ function setCat(id){if(openCat===id)return;openCat=id;renderCards()}
 function renderCards(){
   const c=CATS.find(c=>c.id===openCat);$('cards').hidden=!c;
   if(c){$('cards').innerHTML=c.tools.map(id=>`<button class="card" data-tool="${id}" aria-pressed="${tool===id}" data-tip="tool:${id}">${ico(TOOL_ICO[id])}<span class="nm">${toolName(id)}</span><span class="chips" data-chips="${id}"></span>${toolKey(id)?`<kbd>${toolKey(id)}</kbd>`:''}</button>`).join('')+
-      (c.brush?`<div class="brushes"><span class="lbl2">Brush <kbd>B</kbd></span><div class="segc" role="group" aria-label="Brush size">${[0,1,2].map(n=>`<button data-brush="${n}" aria-pressed="${brush===n}" title="${2*n+1} tiles across">${['S','M','L'][n]}</button>`).join('')}</div></div>`:'');
+      (c.brush?`<div class="brushes"><span class="lbl2">Brush size <kbd>[</kbd> <kbd>]</kbd></span><div class="bsz"><button data-bs="-1" aria-label="Smaller brush">−</button><input type="range" min="1" max="9" step="1" value="${bsize}" id="bsR" aria-label="Brush size, tiles across"><b id="bsV">${bsize}</b><button data-bs="1" aria-label="Bigger brush">+</button></div>${c.id==='terra'?'<span class="lbl2">Ctrl+Z undoes the last 10 s</span>':''}</div>`:'')+
+      (c.levels?`<div class="brushes" id="lvBox"><span class="lbl2">Level to</span><div class="segc lv" role="group" aria-label="Level to height">${LEVELS.map(([h,n])=>`<button data-lv="${h}" aria-pressed="${levelTo===h}" title="Height ${h}">${n}<small>${h}</small></button>`).join('')}</div></div>`:'')+
+      (c.plots?`<div class="brushes"><span class="lbl2">Plot size <kbd>P</kbd></span><div class="segc" role="group" aria-label="Compound plot size">${DEF.house.sizes.map(([w,d],n)=>`<button data-plot="${n}" aria-pressed="${plot===n}" title="${n?'A big family compound: two houses, a garden, room for twice the residents':'A small family compound'}">${w}×${d}</button>`).join('')}</div></div>`:'');
     $('cards').classList.remove('slide');void $('cards').offsetWidth;$('cards').classList.add('slide');updateChips()}
   syncPressed();
 }
 function syncPressed(){
   document.querySelectorAll('[data-tool]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.tool===tool));
   document.querySelectorAll('[data-cat]').forEach(b=>{b.setAttribute('aria-pressed',b.dataset.cat===openCat||(!openCat&&catOf(tool)===b.dataset.cat));b.setAttribute('aria-expanded',b.dataset.cat===openCat)});
-  document.querySelectorAll('[data-brush]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.brush===brush));
+  document.querySelectorAll('[data-lv]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.lv===levelTo));const lv=$('lvBox');if(lv)lv.hidden=tool!=='flatten';
+  $('cards').classList.toggle('compact',openCat==='terra');
+  document.querySelectorAll('[data-plot]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.plot===plot));
+  const r=$('bsR');if(r){r.value=bsize;$('bsV').textContent=bsize}
 }
 function updateChips(){document.querySelectorAll('[data-chips]').forEach(el=>{const id=el.dataset.chips;el.innerHTML=chipsHTML(toolCost(id),stockFor(id))})}
 function setTool(id){tool=id;cv.style.cursor=id==='inspect'?'grab':'crosshair';
   const c=catOf(id);if(c&&c!==openCat){openCat=c;renderCards()}else if(id==='inspect'&&openCat){openCat=null;renderCards()}else syncPressed()}
-function setBrush(n){brush=n;syncPressed()}
+function setBrush(n){bsize=Math.max(1,Math.min(9,n|0));syncPressed()}
+function setLevel(h){levelTo=h;if(tool!=='flatten')setTool('flatten');else syncPressed()}
+function setPlot(n){plot=n;if(tool!=='house')setTool('house');else syncPressed();updateChips()}
 let speed=1;function setSpeed(n){speed=n;document.querySelectorAll('[data-speed]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.speed===n))}
 const TERR_NAME=h=>h<=-3?'Open ocean':h===-2?'Deep water (boats sail)':h===-1?'Shallow reef (blocks boats, feeds fish)':h===0?'Beach':h===1?'Island ground':h===2?'Low coral ridge':'Raised mound';
 
@@ -1823,12 +2062,12 @@ function tipHTML(key){const[kind,id]=key.split(':');const isl=uiIsl;
   if(kind==='tool'){
     if(id in DEF){const d=DEF[id],sz=d.size?`${d.size[0]}×${d.size[1]}`:'1×1';
       return`<div class="t">${d.name}</div><div>${esc(d.info)}</div><hr><div><span class="k">Makes</span> ${MAKES[id]}</div>${NEEDS[id]?`<div><span class="k">Needs</span> ${NEEDS[id]}</div>`:''}<div class="k">Size ${sz} · height ${d.h[0]}–${d.h[1]} · ${d.jobs?d.jobs+' workers':'no workers'} · upkeep ${d.upkeep} gold/s</div>`}
-    return`<div class="t">${toolName(id)}</div><div>${TOOL_TIP[id]}</div>${toolKey(id)?`<div class="k">Key ${toolKey(id)}${TERRA[id]&&['raise','lower','flatten','road'].includes(id)?' · B changes the brush':''}</div>`:''}`}
+    return`<div class="t">${toolName(id)}</div><div>${TOOL_TIP[id]}</div>${toolKey(id)?`<div class="k">Key ${toolKey(id)}${TERRA[id]&&['raise','lower','flatten','smooth','road'].includes(id)?' · [ and ] change the brush':''}</div>`:''}`}
   if(kind==='good'){const st=stockOf(isl),f=flows(isl)[id];
     return`<div class="t">${GOOD_LABEL[id]} on ${esc(isl?.name||'no island')}</div><div class="num">${st?Math.floor(st[id]):0} in the warehouse</div><hr><div class="num"><span class="k">Made</span> ${rate1(f.make*60)} a minute</div><div class="num"><span class="k">Used</span> ${rate1(f.use*60)} a minute</div><div class="k">Boats also carry goods to and from the capital.</div>`}
-  if(kind==='gold'){let inc=0,up=0;for(const b of S.buildings){up+=DEF[b.type].upkeep;if(b.type==='house'&&/^Fed/.test(b.status))inc+=TAX*b.res*(/enjoying/.test(b.status)?2:1)}
-    return`<div class="t">Gold</div><div class="num"><span class="k">Tax</span> +${rate1(inc*60)} a minute</div><div class="num"><span class="k">Upkeep</span> −${rate1(up*60)} a minute</div><div class="k">Fed compounds pay tax; rum doubles it. Below ${DEBT_LIMIT} gold the sultan takes the atoll.</div>`}
-  if(kind==='pop')return`<div class="t">Residents</div>`+islands.filter(i=>i.harbor).map(i=>`<div class="num">${esc(i.name)}: ${Math.floor(i.res)} residents, ${i.jobs} jobs</div>`).join('')+'<div class="k">Each worked building needs 2 residents.</div>';
+  if(kind==='gold'){let inc=0,up=0;for(const b of S.buildings){up+=DEF[b.type].upkeep;if(b.type==='house')inc+=b.tax||0}
+    return`<div class="t">Gold</div><div class="num"><span class="k">Tax</span> +${rate1(inc*60)} a minute</div><div class="num"><span class="k">Upkeep</span> −${rate1(up*60)} a minute</div><div class="num"><span class="k">Trade</span> +${fmt(S.trade?.earned||0)} so far · next ship in ${tradeIn()} s</div><div class="k">Fed compounds pay tax; coconuts, a mosque and sweet toddy each raise it. Below ${DEBT_LIMIT} gold the sultan takes the atoll.</div>`}
+  if(kind==='pop')return`<div class="t">Residents</div>`+islands.filter(i=>i.harbor).map(i=>`<div class="num">${esc(i.name)}: ${Math.floor(i.res)} residents, ${i.jobs} jobs</div>`).join('')+'<div class="k">Each worked building needs 1 to 3 residents within walking distance.</div>';
   if(kind==='unrest')return`<div class="t">Unrest ${Math.round(S.unrest||0)}%</div><div>Unrest rises while more than 30% of residents are hungry and falls when they are fed. At 100% they depose you.</div>`;
   if(kind==='isl')return`<div class="t">${esc(isl?.name||'')}</div><div>The goods shown are in this island's warehouse. Pan to another island to see its stock, or press Tab.</div>`;
   if(kind==='day')return`<div class="t">Day ${1+Math.floor(S.t/30)}</div><div>A day lasts 30 seconds at normal speed.</div>`;
@@ -1852,11 +2091,12 @@ function setCtr(k,val,trend,out,keep){const el=document.querySelector(`.ctr[data
   el.classList.toggle('out',!!out);if(keep!=null&&k!=='gold'&&k!=='pop')el.classList.toggle('keep',keep)}
 
 // ----- charter -----
-const GOAL_PROG={grow:()=>[capitalIsland()?.res||0,30],rum:()=>[S.stats.rum,25],pop:()=>[totalPop(),200]};
+const GOAL_PROG={grow:()=>[capitalIsland()?.res||0,30],rope:()=>[S.stats.rope||0,40],fishers:()=>[contentFishers(),AGE1.fishers],advance:()=>{const r=ageReady();return[r.items.filter(i=>i.have>=i.need).length,r.items.length]}};
 function renderCharter(){
   const open=GOALS.find(g=>!S.goals[g.id]),done=GOALS.filter(g=>S.goals[g.id]).length;let f=1,prog='Done';
   if(open){const p=GOAL_PROG[open.id]?.();f=p?Math.min(1,p[0]/p[1]):0;prog=p?`${Math.floor(p[0])} / ${p[1]}`:'Not yet'}
-  $('cGoal').textContent=open?open.t:'Every charter goal met';$('cWhy').textContent=open?open.s:'The atoll thrives. Keep building.';
+  $('cAge').textContent=S.ageDone?'Age of Cowries ✓':'Age 1 · Age of Cowries';
+  $('cGoal').textContent=open?open.t:'The Age of Cowries is complete';$('cWhy').textContent=open?open.s:'The Age of Forts and Sail comes in the next update. Keep building.';
   $('cBar').firstChild.style.width=(f*100).toFixed(1)+'%';$('cProg').textContent=prog;$('cCount').textContent=`${done} of ${GOALS.length} met`;
   $('goals').innerHTML=GOALS.map(g=>`<li class="${S.goals[g.id]?'done':g===open?'now':''}">${esc(g.t)}</li>`).join('');
 }
@@ -1880,7 +2120,8 @@ function warnOnce(k,msg,at){if(alerted.has(k)&&S.t-alerted.get(k)<120)return;ale
 function checkAlerts(){
   for(const isl of islands){const hb=isl.harbor;if(!hb)continue;const st=hb.stock,f=flows(isl),at={x:hb.x,y:hb.y};
     if(f.fish.use>0&&st.fish<1)warnOnce(isl.name+':fish',`${isl.name} is out of fish. Its compounds go hungry and stop paying tax.`,at);
-    if(f.sugar.use>0&&st.sugar<1)warnOnce(isl.name+':sugar',`The distillery on ${isl.name} is waiting for sugar.`,at);
+    if(S.buildings.some(b=>b.isl===isl.id&&b.type==='coir'&&!b.off&&/Waiting/.test(b.status)))warnOnce(isl.name+':coco',`The rope yard on ${isl.name} is waiting for coconuts. Plant more coconut groves.`,at);
+    if(S.buildings.some(b=>b.isl===isl.id&&b.type==='house'&&b.need?.food&&!b.need.coco)&&st.coconut<1)warnOnce(isl.name+':cocoh',`Families on ${isl.name} have no coconuts. A coconut grove would let their compounds grow.`,at);
   }
   const cap=capitalHarbor(),cat=cap?{x:cap.x,y:cap.y}:null;
   if(S.gold<0)warnOnce('debt',`The treasury is empty. If the debt passes ${-DEBT_LIMIT} gold, the sultan takes the atoll from you.`,cat);
@@ -1912,29 +2153,44 @@ function buildingHTML(b){
   const status=b.off?'Paused':b.status||'';const cls=b.off?'warn':/Hungry|No |Waiting|stuck/.test(status)||b.eff<.5?'bad':b.eff<1&&b.type!=='house'?'warn':'';
   let flow='',rows='',extra='';
   const me=node(TOOL_ICO[b.type],null,d.name,true),arr='<span class="arr">→</span>';
+  const out=g=>me+arr+node(GOOD_ICO[g],per(b.rate||0),GOOD_LABEL[g].split(' (')[0].toLowerCase()+'/min');
+  const yes=(ok,ic,t)=>`<span class="${ok?'ok':'no'}">${ico(ic)}${t} ${ok?'✓':'✗'}</span>`;
   switch(b.type){
-    case'house':{const fed=/^Fed/.test(b.status),lux=/enjoying/.test(b.status),cap=lux?12:6;
-      flow=node('fish',per(0.012*b.res),'fish/min')+(lux?node('rum',per(0.005*b.res),'rum/min'):'')+arr+me+arr+node('gold',fed?per(TAX*b.res*(lux?2:1)):'0','tax/min');
+    case'house':{const n=b.need||{},cap=b.cap||plotFactor(b)*4;
+      flow=node(n.rice?'rice':'fish',per(0.012*b.res),(n.rice?'rice':'fish')+'/min')+(n.coco?node('coconut',per(0.006*b.res),'coconuts/min'):'')+(n.toddy?node('toddy',per(0.004*b.res),'toddy/min'):'')+arr+me+arr+node('gold',per(b.tax||0),'tax/min');
       rows=`<span class="k">Residents</span><div class="bar"><i style="width:${Math.min(100,b.res/cap*100)}%"></i></div><b class="num">${b.res.toFixed(1)} / ${cap}</b>`;
-      extra=`<div class="need"><span class="${fed?'ok':'no'}">${ico('fish')}Fish ${fed?'✓':'✗'}</span><span class="${lux?'ok':'no'}">${ico('rum')}Rum ${lux?'✓':'✗'}</span></div>`;break}
-    case'harbor':{const hb=isl?.harbor;extra=hb?stockHTML(isl):'';break}
-    case'distillery':flow=node('sugar',per((b.rate||0)*2),'sugar/min')+arr+me+arr+node('rum',per(b.rate||0),'rum/min');break;
-    default:{const g={fishery:'fish',lumber:'wood',quarry:'stone',plantation:'sugar'}[b.type];flow=me+arr+node(g,per(b.rate||0),GOOD_LABEL[g].toLowerCase()+'/min')}
+      extra=`<div class="need">${yes(n.food,n.rice?'rice':'fish',n.rice?'Rice':'Fish')}${yes(n.coco,'coconut','Coconuts')}${yes(n.faith,'mosque','Mosque nearby')}${yes(n.toddy,'toddy','Sweet toddy')}</div><div class="sub">${b.w}×${b.d} plot. Each need met makes room for ${2*plotFactor(b)} more residents and raises the tax.</div>`;break}
+    case'harbor':{const hb=isl?.harbor;extra=hb?stockHTML(isl):'';if(b.id===S.capital)extra+=tradeHTML();break}
+    case'drying':flow=node('fish',per((b.rate||0)*2),'fish/min')+node('wood',per((b.rate||0)*.4),'timber/min')+arr+out('hikimas');break;
+    case'coir':flow=node('coconut',per((b.rate||0)/.4),'coconuts/min')+arr+out('rope');break;
+    case'mosque':{let n=0,r=0;for(const h of S.buildings)if(h.type==='house'&&h.isl===b.isl){const c=plotCentre(h),q=plotCentre(b);if(Math.hypot(c.x-q.x,c.y-q.y)<=MOSQUE_WALK){n++;r+=h.res}}
+      extra=`<div class="sub">Serves ${n} compound${n===1?'':'s'} (${Math.floor(r)} residents) within ${MOSQUE_WALK} tiles.</div>`;break}
+    case'palace':extra=ageHTML();break;
+    default:{const g={fishery:'fish',lumber:'wood',quarry:'stone',grove:'coconut',toddy:'toddy',cowrie:'cowrie'}[b.type];if(g)flow=out(g)}
   }
   if(d.jobs){const filled=b.off?0:Math.round((b.staff??0)*d.jobs);
     rows+=`<span class="k">Workers</span><div class="bar${filled<d.jobs?' warn':''}"><i style="width:${filled/d.jobs*100}%"></i></div><b class="num">${filled} / ${d.jobs}</b>`+
       `<span class="k">Output</span><div class="bar${b.eff<.5?' bad':b.eff<1?' warn':''}"><i style="width:${(b.eff*100).toFixed(0)}%"></i></div><b class="num">${Math.round(b.eff*100)}%</b>`;
     extra+=`<div class="need"><span class="${b.road?'ok':'no'}">${ico('road')}${b.road?'Beside a road: +25% output':'No road beside it: build one for +25%'}</span></div>`}
-  const refund=Math.floor((d.cost.gold||0)/2);
+  const refund=Math.floor((costOfB(b).gold||0)/2);
   const acts=[];
   if(d.jobs)acts.push(`<button class="btn" data-act="pause">${ico(b.off?'play':'pause')}${b.off?'Resume':'Pause'}</button>`);
   if(b.type==='harbor')acts.push(`<button class="btn" data-act="island">${ico('harbour')}Island</button>`);
+  if(b.type==='palace'&&!S.ageDone)acts.unshift(`<button class="btn go" data-act="advance"${ageReady().ok?'':' disabled'}>${ico('palace')}Advance the age</button>`);
   if(b.id!==S.capital)acts.push(`<button class="btn red" data-act="demolish">${ico('demolish')}${sel.armed?'Click again to demolish':`Demolish (+${refund})`}</button>`);
-  return`<div class="hd">${ico(TOOL_ICO[b.type])}<div class="t"><h2>${d.name}${b.id===S.capital?' ★':''}</h2><small>${esc(isl?.name||'')}${b.id===S.capital?' · capital':''}</small></div><button class="x" data-act="close" aria-label="Close">×</button></div>`+
+  return`<div class="hd">${ico(TOOL_ICO[b.type])}<div class="t"><h2>${b.id===S.capital?'Jetty and trade post ★':d.name}</h2><small>${esc(isl?.name||'')}${b.id===S.capital?' · capital':''}</small></div><button class="x" data-act="close" aria-label="Close">×</button></div>`+
     `<div class="body"><div class="status ${cls}">${esc(status)}</div>${flow?`<div class="flow">${flow}</div>`:''}${extra}${rows?`<div class="kv">${rows}</div>`:''}${acts.length?`<div class="acts">${acts.join('')}</div>`:''}</div>`;
 }
+// the capital jetty's trade post: what ships may buy, and the rice they bring
+function tradeHTML(){const T=S.trade;
+  return`<div class="trade"><div class="t2">${ico('trade')}Trade post · next ship in ${tradeIn()} s</div>`+
+    Object.keys(PRICE).map(g=>`<button class="tg" data-act="sell" data-g="${g}" aria-pressed="${!!T.sell[g]}">${ico(GOOD_ICO[g])}<span>Sell ${GOOD_LABEL[g].split(' (')[0].toLowerCase()}</span><b>${PRICE[g]}g</b></button>`).join('')+
+    `<button class="tg" data-act="rice" aria-pressed="${!!T.rice}">${ico('rice')}<span>Buy rice up to ${RICE_KEEP}</span><b>${RICE_PRICE}g</b></button>`+
+    `<div class="sub">${!S.ageDone?`Keeps ${AGE1.rope} rope for the charter, and 20 fish and coconuts for the families. `:''}${T.last?`Day ${T.last.day}: sold ${esc(T.last.sold)}${T.last.rice?`, bought ${T.last.rice} rice`:''}.`:'No ship has called yet.'}</div></div>`}
+function ageHTML(){if(S.ageDone)return'<div class="sub">The Age of Cowries is complete. The Age of Forts and Sail comes in the next update.</div>';
+  const r=ageReady();return`<div class="t2">To end the Age of Cowries</div><ul class="age">${r.items.map(i=>`<li class="${i.have>=i.need?'ok':''}">${esc(i.t)}${i.need>1?` <span class="num">${fmt(Math.min(i.have,i.need))} / ${fmt(i.need)}</span>`:''}</li>`).join('')}</ul>`}
 function stockHTML(isl){const st=isl.harbor.stock,f=flows(isl);
-  return`<div class="stock">${GOODS.map(g=>{const net=(f[g].make-f[g].use)*60,a=Math.abs(net),out=st[g]<1&&f[g].use>0;
+  return`<div class="stock">${GOODS.filter(g=>st[g]>=1||f[g].make||f[g].use||['wood','stone','fish'].includes(g)).map(g=>{const net=(f[g].make-f[g].use)*60,a=Math.abs(net),out=st[g]<1&&f[g].use>0;
     return`<div class="g${out?' out':''}" data-tip="good:${g}">${ico(GOOD_ICO[g])}<b>${fmt(st[g])}</b><span class="tr${a>=.5?net>0?' up':' dn':''}">${a>=.5?(net>0?'▲':'▼')+rate1(a):'steady'}</span></div>`}).join('')}</div>`}
 function islandHTML(isl){
   const hb=isl.harbor,cap=hb&&hb.id===S.capital;
@@ -1942,10 +2198,10 @@ function islandHTML(isl){
     (isl.jobs?`<span class="k">Jobs filled</span><div class="bar${isl.eff<1?' warn':''}"><i style="width:${(isl.eff*100).toFixed(0)}%"></i></div><b class="num">${Math.round(isl.eff*100)}%</b>`:'')+`</div>`;
   if(hb){body+=stockHTML(isl);
     const bt=boats.find(b=>b.home===hb.id);
-    body+=cap?`<div class="boat">${ico('harbour')}${boats.length?`${boats.length} boat${boats.length>1?'s':''} trade with the capital`:'No other harbors yet, so no boats.'}</div>`
+    body+=cap?`<div class="boat">${ico('harbour')}${boats.length?`${boats.length} boat${boats.length>1?'s':''} trade with the capital`:'No other jetties yet, so no dhonis.'}</div>`
       :bt?`<div class="boat">${ico('harbour')}${bt.state==='blocked'?`<span style="color:#8c2a1f">${esc(bt.why)}</span>`:`Boat ${bt.dir==='out'?'sailing to the capital':'sailing home'} · ${bt.trips} trips`}</div>`
       :`<div class="boat">${ico('harbour')}Goods move overland to the capital.</div>`;
-  }else body+=`<div class="sub">No harbor yet. Build one on its coast to settle ${esc(isl.name)}.</div>`;
+  }else body+=`<div class="sub">No jetty yet. Build one on its coast to settle ${esc(isl.name)}.</div>`;
   const at=hb||{x:Math.round(isl.cx),y:Math.round(isl.cy)};
   body+=`<div class="acts"><button class="btn go" data-act="goto" data-x="${at.x}" data-y="${at.y}">${ico('pin')}Go there</button><button class="btn" data-act="rename">${ico('edit')}Rename</button></div>`;
   const title=sel.renaming?`<input id="renameIn" class="rename" maxlength="28" value="${esc(isl.name)}" aria-label="Island name" placeholder="${esc(isl.autoName)}" autocomplete="off" spellcheck="false">`
@@ -1958,6 +2214,9 @@ function selAction(act,btn){
   if(act==='rename'){sel.renaming=true;renderSel();const inp=$('renameIn');if(inp){inp.focus();inp.select()}return}
   const b=sel?.kind==='b'?byId(sel.id):null;if(!b)return;
   if(act==='pause'){b.off=!b.off;renderSel()}
+  else if(act==='sell'){S.trade.sell[btn.dataset.g]=!S.trade.sell[btn.dataset.g];renderSel()}
+  else if(act==='rice'){S.trade.rice=!S.trade.rice;renderSel()}
+  else if(act==='advance'){advanceAge();renderSel(true)}
   else if(act==='island')openIsland(islands[b.isl]);
   else if(act==='demolish'){if(!sel.armed){sel.armed=true;renderSel();return}demolish(b.x,b.y);closeSel()}
 }
@@ -2003,6 +2262,7 @@ function drawMini(){
   if(miniDirty)paintMiniBase();
   mctx.drawImage(miniBase,0,0);
   for(const bt of boats){mctx.fillStyle=bt.state==='blocked'?'#ff6b5a':'#ffffff';mctx.fillRect(bt.x-2,bt.y-2,5,5)}
+  if(trader){mctx.fillStyle='#d9a441';mctx.fillRect(trader.x-3,trader.y-3,7,7)}
   const q=[groundAt(-1,-1),groundAt(1,-1),groundAt(1,1),groundAt(-1,1)];
   mctx.beginPath();q.forEach((v,i)=>i?mctx.lineTo(v.x,v.z):mctx.moveTo(v.x,v.z));mctx.closePath();
   mctx.fillStyle='rgba(242,236,224,.16)';mctx.fill();mctx.strokeStyle='#f2ece0';mctx.lineWidth=2;mctx.stroke();
@@ -2022,10 +2282,11 @@ function updateTag(){
     if(d.jobs&&isl){const n=workersNear(hover.x,hover.y,isl.id);h+=`<div class="sub">${Math.floor(n)} residents within walking distance (needs ${d.jobs})</div>`}
     if(!r.ok&&r.why){bad=true;h+=`<div class="why">${esc(r.why)}</div>`}}
   else if(tool==='demolish'){const b=bAt(hover.x,hover.y);
-    if(b){h=`<div class="t">Demolish ${DEF[b.type].name}</div>`;if(b.id===S.capital){bad=true;h+='<div class="why">The capital harbor cannot be demolished</div>'}else h+=`<div>Refund ${Math.floor((DEF[b.type].cost.gold||0)/2)} gold</div>`}
+    if(b){h=`<div class="t">Demolish ${DEF[b.type].name}</div>`;if(b.id===S.capital){bad=true;h+='<div class="why">The capital jetty cannot be demolished</div>'}else h+=`<div>Refund ${Math.floor((costOfB(b).gold||0)/2)} gold</div>`}
     else if(S.road[i])h='<div class="t">Remove sand road</div><div>Refund 1 gold</div>';else h='<div class="t">Demolish</div><div class="sub">Nothing to remove here</div>'}
-  else{const hv=S.h[i];h=`<div class="t">${TERRA[tool].name}${brush?` · ${['small','medium','large'][brush]} brush`:''}</div><div class="sub">${S.gt[i]?GT_NAME[S.gt[i]]:TERR_NAME(hv)} · height ${hv}</div>`;
-    if(stroke&&(spend.g||spend.s))h+=`<div class="chips"><span class="chip">${ico('gold')}${Math.round(spend.g)}</span>${spend.s?`<span class="chip">${ico('stone')}${spend.s>0?'':'+'}${fmt(Math.abs(spend.s))}</span>`:''}</div>`;
+  else{const hv=S.h[i];h=`<div class="t">${TERRA[tool].name}${tool==='flatten'?` to ${LEVELS.find(l=>l[0]===levelTo)?.[1].toLowerCase()} (${levelTo})`:''} · brush ${bsize}</div><div class="sub">${S.gt[i]?GT_NAME[S.gt[i]]:TERR_NAME(hv)} · height ${hv}</div>`;
+    if(stroke&&(spend.g||spend.s))h+=`<div class="chips"><span class="chip">${ico('gold')}${Math.round(spend.g)}</span>${spend.s?`<span class="chip">${ico('stone')}${spend.s>0?'':'+'}${fmt(Math.abs(spend.s))}</span>`:''}<span class="sub">spent</span></div>`;
+    else if(brushCost)h+=brushCost.n?`<div class="chips"><span class="chip${S.gold<brushCost.g?' no':''}">${ico('gold')}${Math.round(brushCost.g)}</span>${brushCost.st?`<span class="chip">${ico('stone')}${brushCost.st>0?'':'+'}${fmt(Math.abs(brushCost.st))}</span>`:''}<span class="sub">${brushCost.n} tile${brushCost.n>1?'s':''}</span></div>`:'<div class="sub">Nothing to change here</div>';
     else h+=`<div class="chips">${chipsHTML(TOOL_COST[tool],stockOf(uiIsl))}<span class="sub">${tool==='road'?'per tile':'per step'}</span></div>`}
   if(tagErr&&tagErr.until>performance.now()){bad=true;h+=`<div class="why">${esc(tagErr.msg)}</div>`}
   if(h!==tagHTML){el.innerHTML=h;tagHTML=h}
@@ -2043,14 +2304,15 @@ function toggleHelp(force){const el=$('help');const show=force??el.hidden;if(!sh
     note('charter','Charter','Your current goal and how close you are. ▾ lists every goal.',r=>`right:${W0-r.right}px;top:${r.bottom+12}px`)+
     note('advisor','The katheeb','Your island chief reports here. Click a message to go to the place; the bell keeps the last 20.',r=>`left:${r.left}px;top:${Math.max(r.top,130)}px`)+
     note('mapbox','Minimap and compass','Click to jump, drag to pan. ⟲ ⟳ rotate, ⌂ returns to the capital, and the needle points north: click it to face north.',r=>`left:${r.right+12}px;bottom:${H0-r.bottom}px`)+
-    note('bar','Build bar','Pick a category (1–6), then a building card. Hover a card for what it needs and makes. Right-click or Esc drops the tool.',r=>`left:${Math.max(8,r.left+r.width/2-120)}px;bottom:${H0-r.top+(openCat?90:14)}px`)+
+    note('bar','Build bar','Pick a category (1–7), then a building card. Hover a card for what it needs and makes. Right-click or Esc drops the tool.',r=>`left:${Math.max(8,r.left+r.width/2-120)}px;bottom:${H0-r.top+(openCat?90:14)}px`)+
     `<div class="keys pnl"><div class="hd"><h2>How to play</h2></div><table>
       <tr><td>Click</td><td>A building or an island's name for details</td></tr>
       <tr><td>Right or middle drag</td><td>Rotate and tilt (also Shift + drag)</td></tr>
       <tr><td>Wheel · WASD</td><td>Zoom · pan</td></tr>
-      <tr><td>1–6</td><td>Open a build category</td></tr>
-      <tr><td>R / F / T · G</td><td>Raise / lower / level · sand road</td></tr>
-      <tr><td>B · X · V</td><td>Brush size · demolish · survey</td></tr>
+      <tr><td>1–7</td><td>Open a build category</td></tr>
+      <tr><td>R / F / T / Y · G</td><td>Raise / lower / level / smooth · sand road</td></tr>
+      <tr><td>[ ] · Ctrl+Z</td><td>Brush size 1–9 · undo reshaping (10 s)</td></tr>
+      <tr><td>P · X · V</td><td>Compound plot size · demolish · survey</td></tr>
       <tr><td>Q / E</td><td>Rotate the camera</td></tr>
       <tr><td>Tab</td><td>Next settled island</td></tr>
       <tr><td>Space</td><td>Pause</td></tr>
@@ -2083,14 +2345,14 @@ function saveTo(key){try{const meta={day:1+Math.floor(S.t/30),pop:Math.floor(tot
 function renderSaves(){const row=(lbl,key,i)=>{const m=slotMeta(key);
     return`<div class="slot"><span><b>${lbl}</b> · ${m?`day ${m.day}, ${m.pop} residents`:'empty'}</span>${i!=='auto'?`<button data-save="${i}">Save</button>`:''}<button data-load="${i}"${m?'':' disabled'}>Load</button></div>`};
   $('saves').innerHTML=SLOTS.map((k,i)=>row(`Slot ${i+1}`,k,i)).join('')+row('Autosave',AUTO,'auto')}
-function resetWorld(){for(const[,m]of bMeshes)scene.remove(m);bMeshes.clear();for(const[,m]of boatMeshes)scene.remove(m);boatMeshes.clear();boats=[];
+function resetWorld(){for(const[,m]of bMeshes)scene.remove(m);bMeshes.clear();for(const[,m]of boatMeshes)scene.remove(m);boatMeshes.clear();boats=[];trader=null;tradeRouteCache.ver=-1;
   sel=null;renderSel();$('over').hidden=true;alerted.clear()}
 function afterLoad(){dirtyTerrain=dirtyTrees=miniDirty=true;terrainVer++;setSpeed(1);updateUI()}
 function loadFrom(key){let d=null;try{d=JSON.parse(localStorage.getItem(key)||'null')}catch(e){}
   if(!d){toast('That save slot is empty.','bad');return false}
   const keep=S;try{resetWorld();restore(d)}catch(e){S=keep;computeIslands();afterLoad();toast('That save is from an older version and cannot be loaded.','bad');return false}
   afterLoad();toast(`Loaded day ${1+Math.floor(S.t/30)}.`,'good');return true}
-function restartGame(){resetWorld();newGame();homeCam();afterLoad();toast('A new atoll. Palm Isle is yours again.','good')}
+function restartGame(){resetWorld();newGame();homeCam();afterLoad();toast('A new atoll. Palm Isle is yours again, in the Age of Cowries.','good')}
 function gameOver(kind){S.over=kind;setSpeed(0);
   $('overT').textContent=kind==='bankrupt'?'The treasury is broken':'The islanders have deposed you';
   $('overWhy').textContent=kind==='bankrupt'?`Debts passed ${-DEBT_LIMIT} gold, so the sultan has handed the atoll to another governor.`:'Too many families went hungry for too long. The island chiefs have chosen a new governor.';
@@ -2104,7 +2366,9 @@ function initUI(){
     const t=e.target.closest('button');if(!t)return;
     if(t.dataset.cat)return setCat(openCat===t.dataset.cat?null:t.dataset.cat);
     if(t.dataset.tool)return setTool(t.dataset.tool);
-    if(t.dataset.brush)return setBrush(+t.dataset.brush);
+    if(t.dataset.bs)return setBrush(bsize+ +t.dataset.bs);
+    if(t.dataset.lv)return setLevel(+t.dataset.lv);
+    if(t.dataset.plot)return setPlot(+t.dataset.plot);
     if(t.dataset.speed)return setSpeed(+t.dataset.speed);
     if(t.dataset.q)return setQuality(t.dataset.q);
     if(t.dataset.ui)return setUI(t.dataset.ui);
@@ -2118,6 +2382,8 @@ function initUI(){
     if(t.dataset.load){closePops();return loadFrom(t.dataset.load==='auto'?AUTO:SLOTS[+t.dataset.load])}
     if(t.closest('#res'))return uiIsl&&openIsland(uiIsl);
   });
+  $('hud').addEventListener('input',e=>{if(e.target.id==='bsR')setBrush(+e.target.value)});
+  $('hud').addEventListener('change',e=>{if(e.target.id==='bsR')e.target.blur()});
   for(const[b,p]of POPS)$(b).addEventListener('click',()=>togglePop(p));
   document.addEventListener('pointerdown',e=>{if(!e.target.closest('.pop,.ib'))closePops()});
   $('help').addEventListener('click',()=>toggleHelp(false));
@@ -2150,11 +2416,12 @@ function initUI(){
 }
 function updateUI(){
   const vi=viewIsland();uiIsl=vi;
-  $('islName').textContent=vi?vi.name:'No harbor';
+  $('islName').textContent=vi?vi.name:'No jetty';
   setCtr('gold',fmt(S.gold),(S.rate||0)*60,S.gold<0);
   const st=stockOf(vi),fl=flows(vi);let scarce=null,best=1e9;
   for(const g of GOODS){if(fl[g].use>0){const c=(st?st[g]:0)/fl[g].use;if(c<best){best=c;scarce=g}}}
-  for(const g of GOODS)setCtr(g,st?fmt(st[g]):'–',(fl[g].make-fl[g].use)*60,st&&st[g]<1&&fl[g].use>0,g===scarce);
+  for(const g of GOODS){setCtr(g,st?fmt(st[g]):'–',(fl[g].make-fl[g].use)*60,st&&st[g]<1&&fl[g].use>0,g===scarce);
+    document.querySelector(`.ctr[data-k="${g}"]`)?.classList.toggle('idle',!['wood','stone','fish'].includes(g)&&!(st&&st[g]>=1)&&!fl[g].make&&!fl[g].use)}
   setCtr('pop',Math.floor(totalPop()));
   const un=S.unrest||0,ue=document.querySelector('.ctr[data-k="unrest"]');ue.hidden=un<5;setCtr('unrest',Math.round(un)+'%',0,un>=50);
   $('sDay').textContent=1+Math.floor(S.t/30);
@@ -2187,12 +2454,16 @@ function pack(a,off=0){const out=[];for(let i=0;i<a.length;){const v=(a[i]+off)&
   const u=new Uint8Array(out);let s='';for(let i=0;i<u.length;i+=8192)s+=String.fromCharCode.apply(null,u.subarray(i,i+8192));return btoa(s)}
 function unpack(str,T,len,off=0){const b=atob(str),a=new T(len);let k=0;for(let i=0;i<b.length;i+=2){const n=b.charCodeAt(i+1);a.fill(b.charCodeAt(i)-off,k,k+n);k+=n}
   if(k!==len)throw new Error('bad save');return a}
-function snapshot(){return{v:6,dims:[W,H],names:S.names,h:pack(S.h,128),tree:pack(S.tree),road:pack(S.road),gt:pack(S.gt),buildings:S.buildings.map(b=>({id:b.id,type:b.type,x:b.x,y:b.y,w:b.w,d:b.d,res:b.res,stock:b.stock,off:b.off})),gold:S.gold,t:S.t,nextId:S.nextId,stats:S.stats,goals:S.goals,capital:S.capital,unrest:S.unrest||0,origin:pack(origin),cam:{...cam}}}
+function snapshot(){return{v:7,dims:[W,H],names:S.names,age:S.age,ageDone:S.ageDone,trade:S.trade,h:pack(S.h,128),tree:pack(S.tree),road:pack(S.road),gt:pack(S.gt),buildings:S.buildings.map(b=>({id:b.id,type:b.type,x:b.x,y:b.y,w:b.w,d:b.d,res:b.res,stock:b.stock,off:b.off})),gold:S.gold,t:S.t,nextId:S.nextId,stats:S.stats,goals:S.goals,capital:S.capital,unrest:S.unrest||0,origin:pack(origin),cam:{...cam}}}
 function restore(d){
-  if(d.v!==6||!d.h||d.dims?.[0]!==W||d.dims?.[1]!==H)throw new Error('old save');
-  S={h:unpack(d.h,Int8Array,W*H,128),tree:unpack(d.tree,Uint8Array,W*H),road:unpack(d.road,Uint8Array,W*H),gt:unpack(d.gt,Uint8Array,W*H),bld:new Int32Array(W*H).fill(-1),buildings:[],gold:d.gold,t:d.t,nextId:d.nextId,stats:d.stats,goals:d.goals,capital:d.capital,unrest:d.unrest||0,names:d.names||{},over:null};
+  if((d.v!==6&&d.v!==7)||!d.h||d.dims?.[0]!==W||d.dims?.[1]!==H)throw new Error('old save');
+  S={h:unpack(d.h,Int8Array,W*H,128),tree:unpack(d.tree,Uint8Array,W*H),road:unpack(d.road,Uint8Array,W*H),gt:unpack(d.gt,Uint8Array,W*H),bld:new Int32Array(W*H).fill(-1),buildings:[],gold:d.gold,t:d.t,nextId:d.nextId,stats:d.stats,goals:d.goals,capital:d.capital,unrest:d.unrest||0,names:d.names||{},age:d.age||1,ageDone:!!d.ageDone,trade:{...newTrade(),...(d.trade||{})},over:null};
   origin=unpack(d.origin,Uint8Array,W*H);
-  for(const b of d.buildings){const nb={w:1,d:1,...b,eff:0,status:''};S.buildings.push(nb);for(let ty=nb.y;ty<nb.y+nb.d;ty++)for(let tx=nb.x;tx<nb.x+nb.w;tx++)S.bld[idx(tx,ty)]=b.id}
+  // saves from before Age 1: sugar fields become coconut groves, distilleries toddy tappers, and rum and sugar are gone
+  const OLD={plantation:'grove',distillery:'toddy'};
+  for(const b0 of d.buildings){const b={...b0,type:OLD[b0.type]||b0.type};if(!DEF[b.type])continue;
+    if(b.stock)b.stock={...noStock(),...Object.fromEntries(Object.entries(b.stock).filter(([g])=>GOODS.includes(g)))};
+    const nb={w:1,d:1,...b,eff:0,status:''};S.buildings.push(nb);for(let ty=nb.y;ty<nb.y+nb.d;ty++)for(let tx=nb.x;tx<nb.x+nb.w;tx++)S.bld[idx(tx,ty)]=b.id}
   if(d.cam)Object.assign(cam,d.cam);
   computeIslands();
 }
@@ -2215,6 +2486,7 @@ function frame(ts){
   alertT+=dt;if(alertT>3){alertT=0;checkAlerts()}
   autoT+=dt;if(autoT>60){autoT=0;if(!S.over)saveTo(AUTO)}
   goalT+=dt;if(goalT>.5){goalT=0;checkGoals()}
+  repeatStroke(dt);
   if(dirtyTerrain||tDirty)rebuildTerrain();
   if(dirtyTrees||vDirty)rebuildTrees();
   cullVeg();
@@ -2225,8 +2497,8 @@ function frame(ts){
     if(tool in DEF){const r=canPlace(tool,hover.x,hover.y),ok=r.ok;const g=ghost(tool);g.visible=true;
       const fp=r.fp||footprint(tool,hover.x,hover.y);g.position.set(fp.x+fp.w/2,gy,fp.y+fp.d/2);if(DEF[tool].size)g.rotation.y=fp.w>=fp.d?0:Math.PI/2;
       g.traverse(o=>{if(o.isMesh)o.material=ok?ghostOk:ghostBad});
-      if(['fishery','lumber','plantation'].includes(tool)){rangeQuad.visible=true;rangeQuad.position.set(hover.x+.5,gy+.05,hover.y+.5)}}
-    else placeCursor(hover.x,hover.y,(tool==='inspect'||tool==='demolish')?0:brush,tool==='raise'?'#ffcf5a':tool==='lower'?'#4fd1c5':tool==='demolish'?'#ff6b6b':'#f3e6c4');
+      const rr=DEF[tool].range;if(rr){rangeQuad.visible=true;rangeQuad.scale.set((2*rr+1)/5,1,(2*rr+1)/5);rangeQuad.position.set(hover.x+.5,gy+.05,hover.y+.5)}}
+    else{placeCursor(hover.x,hover.y,(tool==='inspect'||tool==='demolish')?.5:bsize/2,tool==='raise'?'#ffcf5a':tool==='lower'?'#4fd1c5':tool==='demolish'?'#ff6b6b':tool==='smooth'?'#c9b6ff':'#f3e6c4');previewBrush(hover)}
   }
   const sb=sel?.kind==='b'?byId(sel.id):null;selBox.visible=!!sb;
   if(sb){selBox.scale.set(sb.w||1,1,sb.d||1);const c=plotCentre(sb);selBox.position.set(c.x,topY(S.h[idx(sb.x,sb.y)])+.25,c.y)}
@@ -2249,8 +2521,8 @@ async function start(data){
   window.addEventListener('resize',resize);
   window.claude?.hot?.snapshot?.(snapshot);
   $('loading').hidden=true;
-  toast(auto?`Welcome back, governor. Your autosave from day ${1+Math.floor(S.t/30)} is loaded; the menu starts a new game.`:'Welcome, governor. Palm Isle is yours. Reshape the reef and lagoon to bind the atoll together; two more atolls and a lone island lie beyond the reef.','good');
-  window.__island={S:()=>S,drawMini,paintMiniBase,vChunks,saveTo,loadFrom,restartGame,gameOver,roadBeside,selectBuilding,openIsland,setCat,toggleHelp,byId,buildRoad,islands:()=>islands,boats:()=>boats,setTool,place,terraform,step,computeIslands,setSpeed,cam,setQuality,renderer,W,H,ATOLLS,ISL,ISL_C,GT,rebuildTerrain,markTerrain,markShore,computeShore,rebuildTrees,snapshot,restore,ready:true};
+  toast(auto?`Welcome back, governor. Your autosave from day ${1+Math.floor(S.t/30)} is loaded; the menu starts a new game.`:'Welcome, governor. It is the Age of Cowries, and Palm Isle is yours. Feed your fishing families, plant coconuts, and sell rope and dried fish to the ships that call at your jetty.','good');
+  window.__island={S:()=>S,canPlace,capitalHarbor,trader:()=>trader,doTrade,tradeRoute,ageReady,advanceAge,undoTerraform,setBrush,setPlot,setLevel,contentFishers,stepTrader,drawMini,paintMiniBase,vChunks,saveTo,loadFrom,restartGame,gameOver,roadBeside,selectBuilding,openIsland,setCat,toggleHelp,byId,buildRoad,islands:()=>islands,boats:()=>boats,setTool,place,terraform,step,computeIslands,setSpeed,cam,setQuality,renderer,W,H,ATOLLS,ISL,ISL_C,GT,rebuildTerrain,markTerrain,markShore,computeShore,rebuildTrees,snapshot,restore,ready:true};
   requestAnimationFrame(frame);
 }
 window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.hot?.data??{});
