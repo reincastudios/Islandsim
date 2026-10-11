@@ -4,6 +4,14 @@ Newest first. Each entry says what changed for the player and where the code liv
 
 ## 2026-10-11
 
+### A bigger world: three atolls and a lone island (PR #5)
+- **Six times the map:** the world is now 416×352 tiles instead of 144×144. The home atoll, **Maarandu Atoll**, is about twice as wide and holds 12 islands instead of 3. Two new atolls sit across open ocean: **Thoravi Atoll** in the north, long and curved with a waist like a double chain and full of faro ring reefs, and **Fenumaa Atoll** in the south, heart-shaped with fewer, bigger islands. **Huvamaru**, a single long island with two lakes and no lagoon, stands between them. All names are invented, Maldivian in flavour, as Ahmed asked.
+- **Every island type, each with its own look:** rim islands, long thin islands (a future airfield site), big wooded islands with dense forest, kulhi islands with mangroves around a brackish pond, vilu islands that ring a sheltered pool, white finolhu sandbanks, bird islands, and small islets sitting on ring reefs in the lagoons.
+- **Ground types that matter:** kulhi wetland and ponds can't be built on and block roads (raise the ground to fill them in), but every kulhi, pond or seagrass tile within 3 tiles adds to a fishery's catch. Taro fields grow beside the kulhi. Only a fishery or a harbor can stand on a finolhu. Bird islands are protected from building and terraforming. Survey and build tooltips name the ground.
+- **Getting around:** zoom out further (the camera reaches the whole world); atoll names replace island names when zoomed far out, and clicking one flies there. The island panel names the atoll. The minimap shows the whole world.
+- **Speed:** the ground and plants are drawn in 64×64-tile chunks, so an edit rebuilds only the chunks it touches (about 4 ms instead of half a second) and far plants are skipped; the coastline field is recomputed only around the edit. Saves are packed and stay around 40 KB.
+- Older saves can't be loaded into the new world; the game starts fresh with a notice. The design is in the "Island Sim: World Map and Ages" doc.
+
 ### Roadmap milestone 1: a real economy (PR #5)
 - **Tighter gold:** the game starts with 800 gold instead of 1,200, compounds pay 20% less tax, and every worked building and harbor costs a little more upkeep. Doing nothing now slowly loses money.
 - **Sand roads matter:** a fishery, lumber camp, quarry, sugar field or distillery with a road touching any side works 25% faster. Roads stay optional. The building panel says whether it has a road.

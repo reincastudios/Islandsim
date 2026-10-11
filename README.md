@@ -1,6 +1,6 @@
 # Island Sim
 
-A browser prototype of an Anno/Tropico-style city-builder set on one tropical atoll, where terraforming is the core mechanic.
+A browser prototype of an Anno/Tropico-style city-builder set in a fictional Maldives-like archipelago, where terraforming is the core mechanic.
 
 ## Play
 
@@ -10,7 +10,10 @@ Pick a graphics preset under the gear button at the top right: **Low** (phones),
 
 ## What's in it
 
-- Three flat, Maldives-style islands on one atoll ring: Palm Isle (start), Coral Isle (low coral ridges for stone) and Sugar Cay (farmland behind lagoon shallows).
+- A 416×352-tile world with three atolls and a lone island, each with its own outline: Maarandu Atoll (home, a rounded triangle with 12 islands), Thoravi Atoll (a long, curved double chain full of ring reefs), Fenumaa Atoll (heart-shaped, with big wooded and wetland islands) and Huvamaru (one long island with two lakes and no lagoon). Names are invented.
+- Every Maldivian island type: rim islands, long thin islands, big wooded islands, kulhi islands with mangrove wetland and a brackish pond, vilu islands ringing a pool, bare finolhu sandbanks, protected bird islands, lagoon islets on faro ring reefs, and channels through the rim.
+- Ground types: kulhi and ponds cannot be built on (raise them to fill them in) but act as fish nurseries, as does seagrass on the lagoon flats; taro grows beside the kulhi; only fisheries and harbors stand on a finolhu; bird islands are protected.
+- Palm Isle (start), Coral Isle (low coral ridges for stone) and Sugar Cay (farmland behind lagoon shallows) keep their roles in the home atoll.
 - Sand roads can be painted between buildings.
 - Raise, lower and level land. Raising costs stone from the nearest harbor; lowering returns some.
 - Deep water carries boats, shallow reef blocks them but feeds fisheries. Dredge channels, build land bridges, or split islands.
