@@ -119,8 +119,8 @@ kbd{font-family:var(--f-ui);font-size:11px;font-weight:700;color:var(--ink-2);bo
 #log .item.bad{color:#8c2a1f}
 
 /* minimap and compass */
-#mapbox{position:absolute;left:12px;bottom:12px;width:184px;padding:6px}
-#mini{display:block;width:204px;height:170px;border-radius:3px;background:var(--deep);cursor:pointer;touch-action:none;image-rendering:pixelated}
+#mapbox{position:absolute;left:12px;bottom:12px;width:230px;padding:6px}
+#mini{display:block;width:100%;aspect-ratio:576/400;height:auto;border-radius:3px;background:var(--deep);cursor:pointer;touch-action:none;image-rendering:pixelated}
 .compass{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-top:6px}
 .cb{width:36px;height:30px;border-radius:6px;border:1px solid #c9bca6;background:#fbf8f2;color:var(--ink);display:grid;place-items:center;font-size:17px;padding:0}
 .cb:hover{border-color:var(--teak)}
@@ -178,6 +178,7 @@ kbd{font-family:var(--f-ui);font-size:11px;font-weight:700;color:var(--ink-2);bo
 .need span.ok{background:color-mix(in srgb,var(--good) 25%,#fff)} .need span.no{background:color-mix(in srgb,var(--bad) 22%,#fff)}
 .need svg.i{width:15px;height:15px}
 .acts{display:flex;gap:8px}
+.rename{width:100%;box-sizing:border-box;font-family:var(--f-display);font-size:17px;color:var(--lacquer);padding:2px 6px;border:1.5px solid var(--teak);border-radius:5px;background:#fff}
 .btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:7px 10px;border-radius:6px;border:1.5px solid var(--teak);background:#fbf8f2;font-size:13.5px;font-weight:700}
 .btn:hover{background:#fff}
 .btn.red{border-color:var(--red);color:var(--red)} .btn.go{background:var(--lagoon);border-color:#1f8a7e;color:#fff}
@@ -251,6 +252,7 @@ kbd{font-family:var(--f-ui);font-size:11px;font-weight:700;color:var(--ink-2);bo
   .tab{min-width:56px}
   #cards{width:100%;border-radius:0;border-width:3px 0 0}
   #mapbox{bottom:84px;left:8px;width:auto;padding:4px}
+  #mapbox #mini{width:200px}
   #mapbox:not(.open) #mini{display:none}
   #mapbox:not(.open) .compass{margin-top:0}
   #mapToggle{display:grid}
@@ -329,7 +331,7 @@ kbd{font-family:var(--f-ui);font-size:11px;font-weight:700;color:var(--ink-2);bo
     <div id="advisor" aria-live="polite"></div>
 
     <div id="mapbox" class="pnl">
-      <canvas id="mini" width="384" height="320" aria-label="Minimap: click to jump, drag to pan"></canvas>
+      <canvas id="mini" width="576" height="400" aria-label="Minimap: click to jump, drag to pan"></canvas>
       <div class="compass">
         <button class="cb" id="rotL" title="Rotate left (Q). Hold to keep turning" aria-label="Rotate camera left">⟲</button>
         <button id="north" title="Face north" aria-label="Reset rotation to north"><span data-ico="needle"></span></button>
@@ -377,8 +379,8 @@ import {OutputPass} from 'three/addons/postprocessing/OutputPass.js';
 import {HorizontalTiltShiftShader} from 'three/addons/shaders/HorizontalTiltShiftShader.js';
 import {VerticalTiltShiftShader} from 'three/addons/shaders/VerticalTiltShiftShader.js';
 
-const W=416,H=352,MINH=-3,MAXH=3; // Maldives: islands sit about a metre above the sea
-// Three atolls and a lone island, each with its own outline (names are invented, Maldivian in flavour).
+const W=576,H=400,MINH=-3,MAXH=3; // Maldives: islands sit about a metre above the sea
+// Four atolls and a lone island, each with its own outline (names are invented, Maldivian in flavour).
 // x,y centre; R mean rim radius; rot (deg) and sx,sy stretch the ring; shape = [harmonic, amplitude, phase] wobbles;
 // bend curves a long atoll; dents pull the rim in (or push it out, if negative) around a bearing: [bearing, amount, width deg];
 // passes = channels (bearing, half-width deg);
@@ -386,8 +388,9 @@ const W=416,H=352,MINH=-3,MAXH=3; // Maldives: islands sit about a metre above t
 const ATOLLS=[
   {name:'Maarandu Atoll',x:126,y:222,R:70,rot:-18,sx:1,sy:1,shape:[[2,.06,.7],[3,.12,2.1],[5,.025,4]],passes:[[150,2.2],[28,2],[275,1.8]],faros:5,seed:1},
   {name:'Thoravi Atoll', x:292,y:82, R:46,rot:-10,sx:1.95,sy:1,shape:[[3,.05,1.2],[4,.03,2.6]],bend:.32,dents:[[90,.3,16],[270,.3,16]],passes:[[90,5],[270,5],[20,1.6],[200,1.6],[330,1.4]],faros:16,seed:2},
-  {name:'Fenumaa Atoll', x:318,y:274,R:44,rot:8,sx:1.15,sy:1,shape:[[3,.04,1],[5,.02,2]],dents:[[270,.46,20],[90,-.24,26]],passes:[[300,2],[345,1.6]],faros:2,seed:3},
+  {name:'Fenumaa Atoll', x:366,y:300,R:46,rot:-12,sx:2.15,sy:1,shape:[[3,.04,1],[5,.02,2]],dents:[[270,.3,24],[90,-.14,30]],passes:[[300,2],[345,1.6],[182,2],[77,1.6]],faros:5,seed:3},
   {name:'Huvamaru',      x:240,y:182,R:12,rot:-62,sx:2.3,sy:1,lone:true,seed:4},
+  {name:'Oivaru Atoll',  x:486,y:118,R:46,rot:34,sx:1.25,sy:1,shape:[[2,.05,1.9],[3,.08,.4]],dents:[[200,.36,22],[20,-.12,40]],passes:[[110,2],[250,1.8],[330,1.6]],faros:8,seed:5},
 ];
 // islands: atoll index, kind, bearing on the rim (deg), angular half-extent, radial half-width, inward offset from the rim
 // (large offsets put an islet in the lagoon), hills = threshold for low coral ridges (0 = none).
@@ -423,16 +426,34 @@ const ISL=[
   {name:'Saafu Isle',     at:1,kind:'rim',    ang:350,ext:4, rw:3.5,off:26, hills:0},
   {name:'Noddy Islet',    at:1,kind:'bird',   ang:80, ext:4, rw:3,  off:0,  hills:0},
   // south atoll: fewer, bigger islands close together on the rim; the long island takes an airfield one day
-  {name:'Great Wood Isle',at:2,kind:'wooded', ang:150,ext:22,rw:9,  off:2,  hills:.68},
-  {name:'Ironwood Isle',  at:2,kind:'wooded', ang:235,ext:16,rw:8,  off:2,  hills:0},
-  {name:'Raskulhi Isle',  at:2,kind:'kulhi',  ang:195,ext:14,rw:8,  off:2,  hills:0},
-  {name:'Fenkulhi Isle',  at:2,kind:'kulhi',  ang:100,ext:12,rw:7,  off:1.5,hills:0},
-  {name:'Dhiguvaa Isle',  at:2,kind:'long',   ang:35, ext:28,rw:3.4,off:0,  hills:0},
-  {name:'Tern Islet',     at:2,kind:'bird',   ang:72, ext:5, rw:3,  off:0,  hills:0},
+  {name:'Great Wood Isle',at:2,kind:'wooded', ang:145,ext:14,rw:10, off:2.5,hills:.68},
+  {name:'Ironwood Isle',  at:2,kind:'wooded', ang:238,ext:11,rw:8,  off:2,  hills:0},
+  {name:'Raskulhi Isle',  at:2,kind:'kulhi',  ang:194,ext:9, rw:8,  off:2,  hills:0},
+  {name:'Fenkulhi Isle',  at:2,kind:'kulhi',  ang:92, ext:11,rw:7,  off:1.5,hills:0},
+  {name:'Dhiguvaa Isle',  at:2,kind:'long',   ang:38, ext:22,rw:3.4,off:0,  hills:0},
+  {name:'Tern Islet',     at:2,kind:'bird',   ang:70, ext:4, rw:3,  off:0,  hills:0},
   {name:'Swell Islet',    at:2,kind:'rim',    ang:320,ext:6, rw:3.5,off:0,  hills:.6},
-  {name:'Gate Islet',     at:2,kind:'rim',    ang:285,ext:5, rw:3,  off:0,  hills:0},
+  {name:'Gate Islet',     at:2,kind:'rim',    ang:292,ext:4, rw:3,  off:0,  hills:0},
+  {name:'Breadfruit Isle',at:2,kind:'rim',    ang:0,  ext:7, rw:6,  off:1,  hills:0},
+  {name:'Kalhuvaa Isle',  at:2,kind:'long',   ang:266,ext:10,rw:3.2,off:0,  hills:0},
+  {name:'Ambu Vilu',      at:2,kind:'vilu',   ang:172,ext:6, rw:6,  off:1,  hills:0},
+  {name:'Saruvaa Isle',   at:2,kind:'rim',    ang:118,ext:7, rw:5,  off:1,  hills:0},
+  {name:'Keyo Isle',      at:2,kind:'wooded', ang:214,ext:5, rw:7,  off:2,  hills:0},
+  {name:'Hiri Finolhu',   at:2,kind:'finolhu',ang:60, ext:4, rw:2.8,off:24, hills:0},
+  {name:'Midhili Islet',  at:2,kind:'rim',    ang:200,ext:5, rw:4,  off:30, hills:0},
   // the lone island: no lagoon, two freshwater lakes
   {name:'Huvamaru',       at:3,kind:'lone',   ang:0,  ext:0, rw:0,  off:0,  hills:0},
+  // east atoll: a lopsided kidney of mid-sized islands, a kulhi and a bird islet
+  {name:'Faalu Isle',     at:4,kind:'rim',    ang:150,ext:12,rw:7,  off:1.5,hills:0},
+  {name:'Rasgiri Isle',   at:4,kind:'rim',    ang:300,ext:10,rw:6.5,off:1,  hills:.62},
+  {name:'Weaver Isle',    at:4,kind:'wooded', ang:60, ext:12,rw:8,  off:2,  hills:0},
+  {name:'Ruh Kulhi Isle', at:4,kind:'kulhi',  ang:235,ext:10,rw:7,  off:2,  hills:0},
+  {name:'Dhoshi Vilu',    at:4,kind:'vilu',   ang:15, ext:7, rw:6,  off:1,  hills:0},
+  {name:'Kanbili Isle',   at:4,kind:'long',   ang:95, ext:9, rw:3.2,off:0,  hills:0},
+  {name:'Moonrise Isle',  at:4,kind:'rim',    ang:340,ext:6, rw:4.5,off:0,  hills:0},
+  {name:'Fehi Finolhu',   at:4,kind:'finolhu',ang:270,ext:3, rw:2.6,off:0,  hills:0},
+  {name:'Booby Islet',    at:4,kind:'bird',   ang:185,ext:4, rw:3,  off:0,  hills:0},
+  {name:'Neru Islet',     at:4,kind:'rim',    ang:120,ext:4, rw:3.5,off:26, hills:0},
 ];
 // ground types laid over the height map
 const GT={none:0,kulhi:1,pond:2,taro:3,seagrass:4,finolhu:5,bird:6};
@@ -495,6 +516,7 @@ function islCentre(I){const A=ATOLLS[I.at];if(A.lone)return{x:A.x,y:A.y};return 
 const ISL_C=ISL.map(islCentre);
 // which atoll a point belongs to (the one whose rim it is furthest inside)
 function atollAt(x,y){let best=0,br=1e9;ATOLLS.forEach((A,k)=>{const l=atollLocal(A,x,y);const r=(l.d-(A.lone?A.R:rimR(A,l.a)))*l.sc;if(r<br){br=r;best=k}});return best}
+const LONE_ISL=ISL.findIndex(I=>I.kind==='lone');
 const ISL_BY_ATOLL=ATOLLS.map((A,ai)=>ISL.map((I,k)=>I.at===ai?k:-1).filter(k=>k>=0));
 const KIND_DENS={rim:.5,long:.55,wooded:.3,kulhi:.5,vilu:.5,finolhu:2,bird:.28,lone:.42};
 
@@ -518,7 +540,7 @@ function generate(){
     if(A.lone){
       // one island, its own narrow reef, then straight down into the ocean
       const rr=r+(fbm(x*.12,y*.12,90)-.5)*3;
-      if(rr<0){const t=Math.min(1,-rr/10);v=Math.min(1.3,-1+3.4*Math.pow(t,.5)+(fbm(x*.3,y*.3,91)-.5)*.4);owner=ISL.length-1;best=0}
+      if(rr<0){const t=Math.min(1,-rr/10);v=Math.min(1.3,-1+3.4*Math.pow(t,.5)+(fbm(x*.3,y*.3,91)-.5)*.4);owner=LONE_ISL;best=0}
       else if(rr<3)v=-1;else if(rr<4.5)v=-2;
       if(owner!==255)for(const c of lakes){const dd=Math.hypot(x-c.x,y-c.y)+(fbm(x*.3,y*.3,92)-.5)*1.2;
         if(dd<2.4){v=-1;g=GT.pond}else if(dd<4.2&&v>=0){v=0;g=GT.kulhi}}
@@ -553,7 +575,7 @@ function generate(){
       for(const[pa,hw]of A.passes)if(Math.abs(angDiff(a,pa))<hw&&v<=0&&r>inner-3&&r<outer+3) v=-2; // channels to the ocean
     }
     const hv=Math.max(MINH,Math.min(MAXH,Math.round(v)));
-    h[i]=hv;origin[i]=hv>=0?owner:255;gt[i]=hv>=0||g===GT.pond?g:0;
+    h[i]=hv;origin[i]=hv>=0?(owner===255?254:owner):255; // 254: reef sand that belongs to no named islandgt[i]=hv>=0||g===GT.pond?g:0;
     if(hv<0&&g!==GT.pond)gt[i]=0;
   }
   for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=idx(x,y);
@@ -562,7 +584,7 @@ function generate(){
     if(h[i]===-1&&!gt[i]&&(lagoon[i]||lagoonNear(lagoon,x,y))&&fbm(x*.09,y*.09,77)>.55)gt[i]=GT.seagrass;
   }
   for(let y=0;y<H;y++)for(let x=0;x<W;x++){
-    const i=idx(x,y),hv=h[i],f=fbm(x*.22,y*.22,99),o=origin[i],I=o<255?ISL[o]:null,g=gt[i];
+    const i=idx(x,y),hv=h[i],f=fbm(x*.22,y*.22,99),o=origin[i],I=o<ISL.length?ISL[o]:null,g=gt[i];
     if(g===GT.kulhi){if(rnd()<.75)tree[i]=3;continue}       // mangroves
     if(g===GT.taro||g===GT.pond)continue;
     const dens=I?(I.dens??KIND_DENS[I.kind]):.5;
@@ -576,7 +598,7 @@ function lagoonNear(lag,x,y){return countAround2(lag,x,y,3,1)}
 
 function newGame(){
   const g=generate();
-  S={h:g.h,tree:g.tree,gt:g.gt,road:new Uint8Array(W*H),bld:new Int32Array(W*H).fill(-1),buildings:[],gold:800,t:0,nextId:1,stats:{rum:0,sugarTrip:0},goals:{},capital:0,unrest:0,over:null};
+  S={h:g.h,tree:g.tree,gt:g.gt,road:new Uint8Array(W*H),bld:new Int32Array(W*H).fill(-1),buildings:[],gold:800,t:0,nextId:1,stats:{rum:0,sugarTrip:0},goals:{},capital:0,unrest:0,names:{},over:null};
   computeIslands();
   let best=null,bs=1e9;
   for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){
@@ -630,7 +652,7 @@ function computeIslands(){
     const id=islands.length;let qh=0,qt=0;q[qt++]=s;comp[s]=id;const cnt=new Int32Array(ISL.length);let n=0,sx=0,sy=0;
     while(qh<qt){const c=q[qh++];n++;const o=origin[c];if(o<ISL.length)cnt[o]++;const cx=c%W,cy=(c/W)|0;sx+=cx;sy+=cy;
       for(const[dx,dy]of N4){const nx=cx+dx,ny=cy+dy;if(!inb(nx,ny))continue;const ni=idx(nx,ny);if(S.h[ni]>=0&&comp[ni]<0){comp[ni]=id;q[qt++]=ni}}}
-    islands.push({id,n,cnt,harbor:null,res:0,jobs:0,eff:1,cx:sx/n,cy:sy/n,atoll:atollAt(sx/n,sy/n)});
+    islands.push({id,n,cnt,s,harbor:null,res:0,jobs:0,eff:1,cx:sx/n,cy:sy/n,atoll:atollAt(sx/n,sy/n)});
   }
   // a named island's name goes to the piece holding most of it; stray fragments are islets
   const owner=ISL.map((_,k)=>{let b=-1,bc=0;for(const isl of islands)if(isl.cnt[k]>bc){bc=isl.cnt[k];b=isl.id}return b});
@@ -639,7 +661,10 @@ function computeIslands(){
     let name=parts.length?parts.map(k=>ISL[k].name.split(' ')[0]).join('–'):'Islet';
     if(parts.length===1)name=ISL[parts[0]].name;
     if(n<12)name='Islet';
-    isl.name=name;isl.parts=parts;delete isl.cnt}
+    // a player's name sticks to the island's biggest named piece (or, for an islet, its first tile)
+    let main=-1;for(const k of parts)if(main<0||isl.cnt[k]>isl.cnt[main])main=k;
+    isl.key=main>=0?'k'+main:'t'+isl.s;isl.autoName=name;
+    isl.name=S.names?.[isl.key]||name;isl.parts=parts;delete isl.cnt;delete isl.s}
   // each named island's label sits on its land tile nearest the island's centre
   islAnchor=ISL.map(()=>null);const ad=new Float32Array(ISL.length).fill(1e9);
   for(let i=0;i<W*H;i++){const o=origin[i];if(o>=ISL.length||S.h[i]<0)continue;const x=i%W,y=(i/W)|0,c=ISL_C[o],d=Math.hypot(x-c.x,y-c.y);if(d<ad[o]){ad[o]=d;islAnchor[o]={x,y}}}
@@ -1540,14 +1565,14 @@ function applyQuality(){
 
 // ---------- camera rig ----------
 const cam={tx:W/2,tz:H/2,dist:120,yaw:rad(-28),pitch:rad(54),goal:null,spin:0};
-function homeCam(){const A=ATOLLS[0],c=S&&capitalHarbor();cam.goal=null;cam.tx=c?c.x*.6+A.x*.4:A.x;cam.tz=c?c.y*.6+A.y*.4:A.y;cam.dist=Math.min(420,150*Math.max(1,1.25/(vw/vh)));cam.yaw=rad(-28);cam.pitch=rad(vw<760?62:50)}
+function homeCam(){const A=ATOLLS[0],c=S&&capitalHarbor();cam.goal=null;cam.tx=c?c.x*.6+A.x*.4:A.x;cam.tz=c?c.y*.6+A.y*.4:A.y;cam.dist=Math.min(540,150*Math.max(1,1.25/(vw/vh)));cam.yaw=rad(-28);cam.pitch=rad(vw<760?62:50)}
 function applyCam(){
-  cam.pitch=Math.max(rad(18),Math.min(rad(84),cam.pitch));cam.dist=Math.max(6,Math.min(420,cam.dist));
+  cam.pitch=Math.max(rad(18),Math.min(rad(84),cam.pitch));cam.dist=Math.max(6,Math.min(540,cam.dist));
   cam.tx=Math.max(-10,Math.min(W+10,cam.tx));cam.tz=Math.max(-10,Math.min(H+10,cam.tz));
   const cp=Math.cos(cam.pitch);
   camera.position.set(cam.tx+Math.sin(cam.yaw)*cp*cam.dist,Math.sin(cam.pitch)*cam.dist,cam.tz+Math.cos(cam.yaw)*cp*cam.dist);
   camera.lookAt(cam.tx,0,cam.tz);
-  scene.fog.near=200+cam.dist*.8;scene.fog.far=700+cam.dist*1.4;   // the haze recedes as you zoom out, so the whole archipelago stays readable
+  scene.fog.near=200+cam.dist*.8;scene.fog.far=700+cam.dist*1.4;waterMat.uniforms.uFogR.value.set(scene.fog.near-40,scene.fog.far-80);   // the haze recedes as you zoom out, so the whole archipelago stays readable
   // tilt-shift focus follows zoom: strong when far out (miniature look), off in close-ups
   if(Q.tilt){const k=Math.min(1,Math.max(0,(cam.dist-30)/150));tiltH.uniforms.h.value=k*2.2/Math.max(1,vw);tiltV.uniforms.v.value=k*2.2/Math.max(1,vh)}
 }
@@ -1628,6 +1653,7 @@ cv.addEventListener('wheel',e=>{e.preventDefault();cam.dist*=Math.exp(e.deltaY*0
 const keys=new Set();
 window.addEventListener('keydown',e=>{
   if(e.key==='F1'){e.preventDefault();toggleHelp();return}
+  if(e.target.matches?.('input,textarea'))return; // typing a name
   if(e.key==='Escape'){escape();return}
   if(!$('help').hidden||e.ctrlKey||e.metaKey||e.altKey)return;
   const onCtl=document.activeElement&&document.activeElement!==document.body&&document.activeElement!==cv;
@@ -1670,6 +1696,7 @@ const ICON={
   pause:'M6 4h4v16H6zM14 4h4v16h-4z',
   play:'M7 4l13 8-13 8z',
   warn:'M12 2L23 21.5H1zM11 9h2v6.5h-2zM11 17h2v2h-2z',
+  edit:'M15.5 3l5.5 5.5L9 20.5H3.5V15zM13.8 6.8l3.4 3.4',
   pin:'M12 2a7 7 0 0 1 7 7c0 5-7 13-7 13S5 14 5 9a7 7 0 0 1 7-7zM12 6.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z',
   map:'M2 5l6-2.5 8 3 6-2.5v16l-6 2.5-8-3L2 21zM8 5v13.5M16 8v13',
 };
@@ -1822,12 +1849,13 @@ function checkAlerts(){
 
 // ----- selection and island panels -----
 function selectBuilding(b){sel=b?{kind:'b',id:b.id,armed:false}:null;renderSel(true)}
-function openIsland(isl){sel=isl?{kind:'isl',name:isl.name,hid:isl.harbor?.id}:null;renderSel(true)}
+function openIsland(isl){sel=isl?{kind:'isl',key:isl.key,name:isl.name,hid:isl.harbor?.id}:null;renderSel(true)}
 function closeSel(){sel=null;renderSel()}
-function selIsland(){return islands.find(i=>sel.hid&&i.harbor&&i.harbor.id===sel.hid)||islands.find(i=>i.name===sel.name)}
+function selIsland(){return islands.find(i=>sel.hid&&i.harbor&&i.harbor.id===sel.hid)||islands.find(i=>i.key===sel.key)||islands.find(i=>i.name===sel.name)}
 let selHTML='';
 function renderSel(fresh){
   const el=$('sel');let h='';
+  if(sel?.renaming&&document.activeElement?.id==='renameIn')return; // don't wipe what the player is typing
   if(sel?.kind==='b'){const b=byId(sel.id);if(b)h=buildingHTML(b);else sel=null}
   else if(sel?.kind==='isl'){const isl=selIsland();if(isl)h=islandHTML(isl);else sel=null}
   if(!h){el.hidden=true;selHTML='';return}
@@ -1877,17 +1905,33 @@ function islandHTML(isl){
       :`<div class="boat">${ico('harbour')}Goods move overland to the capital.</div>`;
   }else body+=`<div class="sub">No harbor yet. Build one on its coast to settle ${esc(isl.name)}.</div>`;
   const at=hb||{x:Math.round(isl.cx),y:Math.round(isl.cy)};
-  body+=`<div class="acts"><button class="btn go" data-act="goto" data-x="${at.x}" data-y="${at.y}">${ico('pin')}Go there</button></div>`;
-  return`<div class="hd">${ico('harbour')}<div class="t"><h2>${esc(isl.name)}${cap?' ★':''}</h2><small>${cap?'Capital island':hb?'Settled island':'Unsettled'}</small></div><button class="x" data-act="close" aria-label="Close">×</button></div><div class="body">${body}</div>`;
+  body+=`<div class="acts"><button class="btn go" data-act="goto" data-x="${at.x}" data-y="${at.y}">${ico('pin')}Go there</button><button class="btn" data-act="rename">${ico('edit')}Rename</button></div>`;
+  const title=sel.renaming?`<input id="renameIn" class="rename" maxlength="28" value="${esc(isl.name)}" aria-label="Island name" placeholder="${esc(isl.autoName)}" autocomplete="off" spellcheck="false">`
+    :`<h2>${esc(isl.name)}${cap?' ★':''}</h2>`;
+  return`<div class="hd">${ico('harbour')}<div class="t">${title}<small>${sel.renaming?'Enter to save, Esc to cancel, empty for the old name':cap?'Capital island':hb?'Settled island':'Unsettled'}${!sel.renaming&&isl.name!==isl.autoName?` · once ${esc(isl.autoName)}`:''}</small></div><button class="x" data-act="close" aria-label="Close">×</button></div><div class="body">${body}</div>`;
 }
 function selAction(act,btn){
   if(act==='close')return closeSel();
   if(act==='goto')return jumpTo(+btn.dataset.x,+btn.dataset.y);
+  if(act==='rename'){sel.renaming=true;renderSel();const inp=$('renameIn');if(inp){inp.focus();inp.select()}return}
   const b=sel?.kind==='b'?byId(sel.id):null;if(!b)return;
   if(act==='pause'){b.off=!b.off;renderSel()}
   else if(act==='island')openIsland(islands[b.isl]);
   else if(act==='demolish'){if(!sel.armed){sel.armed=true;renderSel();return}demolish(b.x,b.y);closeSel()}
 }
+// renaming an island: Enter or leaving the box saves, Esc cancels, an empty box restores the map's name
+function finishRename(save){
+  if(!sel?.renaming)return;sel.renaming=false;
+  const inp=$('renameIn'),isl=selIsland();
+  if(save&&inp&&isl){const v=inp.value.replace(/\s+/g,' ').trim().slice(0,28);
+    if(!v||v===isl.autoName)delete S.names[isl.key];else S.names[isl.key]=v;
+    isl.name=S.names[isl.key]||isl.autoName;sel.name=isl.name;selHTML='';updateUI()}
+  if(document.activeElement===inp)inp.blur();
+  renderSel(true);
+}
+$('sel').addEventListener('keydown',e=>{if(e.target.id!=='renameIn')return;
+  if(e.key==='Enter'){e.preventDefault();finishRename(true)}else if(e.key==='Escape'){e.preventDefault();e.stopPropagation();finishRename(false)}});
+$('sel').addEventListener('focusout',e=>{if(e.target.id==='renameIn')finishRename(true)});
 function jumpTo(x,y){cam.goal=cam.goal;cam.tx=x+.5;cam.tz=y+.5;cam.dist=Math.min(cam.dist,80)}
 function nextIsland(dir){const list=islands.filter(i=>i.harbor).sort((a,b)=>a.harbor.id-b.harbor.id);if(!list.length)return;
   const cur=sel?.kind==='isl'?selIsland():uiIsl;let k=list.indexOf(cur);k=k<0?0:(k+dir+list.length)%list.length;
@@ -2069,6 +2113,7 @@ function updateUI(){
   if(tipFor&&!tipFor.isConnected)hideTip();else if(tipFor)$('tip').innerHTML=tipHTML(tipFor.dataset.tip)||$('tip').innerHTML;
 }
 // floating island labels (click for the island panel); zoomed far out, atoll names replace them
+const labelName=k=>S.names?.['k'+k]||ISL[k].name;
 const labelEls=ISL.map((I,k)=>{const d=document.createElement('button');d.className='lbl';d.textContent=I.name;
   d.addEventListener('click',()=>{const a=islAnchor[k];if(a)openIsland(islandOf(a.x,a.y))});$('labels').appendChild(d);return d});
 const atollEls=ATOLLS.map(A=>{const d=document.createElement('button');d.className='lbl atl';d.textContent=A.name;
@@ -2080,6 +2125,7 @@ function placeLabel(el,x,y,hgt){v3.set(x,hgt,y).project(camera);
 function updateLabels(){
   const far=cam.dist>230,close=cam.dist<170;
   ISL.forEach((I,k)=>{const a=islAnchor[k],el=labelEls[k];if(far||!a){el.hidden=true;return}
+    const nm=labelName(k);if(el.textContent!==nm)el.textContent=nm;
     const isl=islandOf(a.x,a.y),mid=isl&&isl.parts.length===1&&I.kind!=='vilu'?{x:isl.cx,y:isl.cy}:ISL_C[k];placeLabel(el,mid.x+.5,mid.y+.5,topY(2)+2.2)});
   ATOLLS.forEach((A,k)=>{const el=atollEls[k];if(close){el.hidden=true;return}placeLabel(el,A.x,A.y-(A.lone?A.R+4:0),A.lone?6:2)});
 }
@@ -2087,15 +2133,15 @@ function updateLabels(){
 function setQuality(n){Q=QUALITY[n];qName=n;try{localStorage.setItem('islandsim.quality',n)}catch(e){}
   document.querySelectorAll('[data-q]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.q===n));applyQuality()}
 // ---------- persistence for live updates ----------
-// tile layers are run-length packed and base64'd: a 384×320 world would not fit browser storage as plain arrays
+// tile layers are run-length packed and base64'd: a 576×400 world would not fit browser storage as plain arrays
 function pack(a,off=0){const out=[];for(let i=0;i<a.length;){const v=(a[i]+off)&255;let n=1;while(i+n<a.length&&n<255&&((a[i+n]+off)&255)===v)n++;out.push(v,n);i+=n}
   const u=new Uint8Array(out);let s='';for(let i=0;i<u.length;i+=8192)s+=String.fromCharCode.apply(null,u.subarray(i,i+8192));return btoa(s)}
 function unpack(str,T,len,off=0){const b=atob(str),a=new T(len);let k=0;for(let i=0;i<b.length;i+=2){const n=b.charCodeAt(i+1);a.fill(b.charCodeAt(i)-off,k,k+n);k+=n}
   if(k!==len)throw new Error('bad save');return a}
-function snapshot(){return{v:5,h:pack(S.h,128),tree:pack(S.tree),road:pack(S.road),gt:pack(S.gt),buildings:S.buildings.map(b=>({id:b.id,type:b.type,x:b.x,y:b.y,w:b.w,d:b.d,res:b.res,stock:b.stock,off:b.off})),gold:S.gold,t:S.t,nextId:S.nextId,stats:S.stats,goals:S.goals,capital:S.capital,unrest:S.unrest||0,origin:pack(origin),cam:{...cam}}}
+function snapshot(){return{v:6,dims:[W,H],names:S.names,h:pack(S.h,128),tree:pack(S.tree),road:pack(S.road),gt:pack(S.gt),buildings:S.buildings.map(b=>({id:b.id,type:b.type,x:b.x,y:b.y,w:b.w,d:b.d,res:b.res,stock:b.stock,off:b.off})),gold:S.gold,t:S.t,nextId:S.nextId,stats:S.stats,goals:S.goals,capital:S.capital,unrest:S.unrest||0,origin:pack(origin),cam:{...cam}}}
 function restore(d){
-  if(d.v!==5||!d.h)throw new Error('old save');
-  S={h:unpack(d.h,Int8Array,W*H,128),tree:unpack(d.tree,Uint8Array,W*H),road:unpack(d.road,Uint8Array,W*H),gt:unpack(d.gt,Uint8Array,W*H),bld:new Int32Array(W*H).fill(-1),buildings:[],gold:d.gold,t:d.t,nextId:d.nextId,stats:d.stats,goals:d.goals,capital:d.capital,unrest:d.unrest||0,over:null};
+  if(d.v!==6||!d.h||d.dims?.[0]!==W||d.dims?.[1]!==H)throw new Error('old save');
+  S={h:unpack(d.h,Int8Array,W*H,128),tree:unpack(d.tree,Uint8Array,W*H),road:unpack(d.road,Uint8Array,W*H),gt:unpack(d.gt,Uint8Array,W*H),bld:new Int32Array(W*H).fill(-1),buildings:[],gold:d.gold,t:d.t,nextId:d.nextId,stats:d.stats,goals:d.goals,capital:d.capital,unrest:d.unrest||0,names:d.names||{},over:null};
   origin=unpack(d.origin,Uint8Array,W*H);
   for(const b of d.buildings){const nb={w:1,d:1,...b,eff:0,status:''};S.buildings.push(nb);for(let ty=nb.y;ty<nb.y+nb.d;ty++)for(let tx=nb.x;tx<nb.x+nb.w;tx++)S.bld[idx(tx,ty)]=b.id}
   if(d.cam)Object.assign(cam,d.cam);

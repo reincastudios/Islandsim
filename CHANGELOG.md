@@ -4,6 +4,14 @@ Newest first. Each entry says what changed for the player and where the code liv
 
 ## 2026-10-11
 
+### A longer Fenumaa, a fourth atoll and island renaming (PR #5)
+- **Fenumaa Atoll is longer and fuller:** it is now a long oval about 200 tiles from end to end (it was a 100-tile heart) and holds 15 islands instead of 8. New ones: Breadfruit Isle, Kalhuvaa Isle (a second long island), Ambu Vilu, Saruvaa Isle, Keyo Isle (wooded), Hiri Finolhu and Midhili Islet out in the lagoon. It has four channels through the rim instead of two.
+- **A fourth atoll, Oivaru Atoll,** sits east of Thoravi: a lopsided kidney with 10 islands (Faalu, Rasgiri with coral ridges, wooded Weaver Isle, Ruh Kulhi Isle with mangroves, Dhoshi Vilu, long Kanbili Isle, Moonrise Isle, Fehi Finolhu, Booby Islet for the birds, and Neru Islet on a lagoon ring reef). The world grew to 576×400 tiles to fit it, and the camera zooms out far enough to see all of it.
+- **Rename any island:** open an island (click its name on the map, the top bar chip, or Tab) and press **Rename**. Type a name and press Enter or click away to keep it; Esc cancels; an empty box brings back the map's name. The new name shows on the map, the panel, the top bar and building panels, and is saved with the game. The panel remembers the old name ("once Great Wood Isle"). Typing a name doesn't trigger hotkeys.
+- **Fix:** sandy reef patches along the rim no longer count towards the nearest island's name, which had merged names such as "Palm–Dhooni" for islands that weren't actually joined.
+- **Fix:** the sea's haze now recedes with zoom like the land's, so the far-out view isn't washed out. The minimap matches the wider world and fits its panel.
+- Saves from before this update can't be loaded (the world changed size); the game starts fresh.
+
 ### A bigger world: three atolls and a lone island (PR #5)
 - **Six times the map:** the world is now 416×352 tiles instead of 144×144. The home atoll, **Maarandu Atoll**, is about twice as wide and holds 12 islands instead of 3. Two new atolls sit across open ocean: **Thoravi Atoll** in the north, long and curved with a waist like a double chain and full of faro ring reefs, and **Fenumaa Atoll** in the south, heart-shaped with fewer, bigger islands. **Huvamaru**, a single long island with two lakes and no lagoon, stands between them. All names are invented, Maldivian in flavour, as Ahmed asked.
 - **Every island type, each with its own look:** rim islands, long thin islands (a future airfield site), big wooded islands with dense forest, kulhi islands with mangroves around a brackish pond, vilu islands that ring a sheltered pool, white finolhu sandbanks, bird islands, and small islets sitting on ring reefs in the lagoons.

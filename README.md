@@ -10,7 +10,8 @@ Pick a graphics preset under the gear button at the top right: **Low** (phones),
 
 ## What's in it
 
-- A 416×352-tile world with three atolls and a lone island, each with its own outline: Maarandu Atoll (home, a rounded triangle with 12 islands), Thoravi Atoll (a long, curved double chain full of ring reefs), Fenumaa Atoll (heart-shaped, with big wooded and wetland islands) and Huvamaru (one long island with two lakes and no lagoon). Names are invented.
+- A 576×400-tile world with four atolls and a lone island, each with its own outline: Maarandu Atoll (home, a rounded triangle with 12 islands), Thoravi Atoll (a long, curved double chain full of ring reefs), Fenumaa Atoll (a long oval with 15 islands, big wooded and wetland ones among them), Oivaru Atoll (a lopsided kidney with 10 islands) and Huvamaru (one long island with two lakes and no lagoon). Names are invented.
+- Any island can be renamed from its panel; names are saved with the game.
 - Every Maldivian island type: rim islands, long thin islands, big wooded islands, kulhi islands with mangrove wetland and a brackish pond, vilu islands ringing a pool, bare finolhu sandbanks, protected bird islands, lagoon islets on faro ring reefs, and channels through the rim.
 - Ground types: kulhi and ponds cannot be built on (raise them to fill them in) but act as fish nurseries, as does seagrass on the lagoon flats; taro grows beside the kulhi; only fisheries and harbors stand on a finolhu; bird islands are protected.
 - Palm Isle (start), Coral Isle (low coral ridges for stone) and Sugar Cay (farmland behind lagoon shallows) keep their roles in the home atoll.
