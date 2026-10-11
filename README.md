@@ -10,13 +10,13 @@ Pick a graphics preset under the gear button at the top right: **Low** (phones),
 
 ## What's in it
 
-- A 576×400-tile world with four atolls and a lone island, each with its own outline: Maarandu Atoll (home, a rounded triangle with 12 islands), Thoravi Atoll (a long, curved double chain full of ring reefs), Fenumaa Atoll (a long oval with 15 islands, big wooded and wetland ones among them), Oivaru Atoll (a lopsided kidney with 10 islands) and Huvamaru (one long island with two lakes and no lagoon). Names are invented.
+- A 720×500-tile world with four atolls and a lone island, each with its own outline: Maarandu Atoll (home, a rounded triangle with 12 islands), Thoravi Atoll (a long, curved double chain full of ring reefs), Fenumaa Atoll (a long oval with 15 islands, big wooded and wetland ones among them), Oivaru Atoll (a lopsided kidney with 10 islands) and Huvamaru (one long island with two lakes and no lagoon). Names are invented.
 - Any island can be renamed from its panel; names are saved with the game.
 - Every Maldivian island type: rim islands, long thin islands, big wooded islands, kulhi islands with mangrove wetland and a brackish pond, vilu islands ringing a pool, bare finolhu sandbanks, protected bird islands, lagoon islets on faro ring reefs, and channels through the rim.
 - Ground types: kulhi and ponds cannot be built on (raise them to fill them in) but act as fish nurseries, as does seagrass on the lagoon flats; taro grows beside the kulhi; only fisheries and harbors stand on a finolhu; bird islands are protected.
 - Palm Isle (start), Coral Isle (low coral ridges for stone) and Sugar Cay (farmland behind lagoon shallows) keep their roles in the home atoll.
 - Sand roads can be painted between buildings.
-- Raise, lower and level land. Raising costs stone from the nearest harbor; lowering returns some.
+- Raise, lower and level land, but not in the open ocean beyond the reefs. Raising costs stone from the nearest harbor; lowering returns some.
 - Deep water carries boats, shallow reef blocks them but feeds fisheries. Dredge channels, build land bridges, or split islands.
 - Each island has its own warehouse; boats shuttle goods to the capital. Land bridges merge warehouses.
 - Compounds (walled 3×2 family plots with an old coral house) eat fish and pay more tax with rum. Fishery, lumber camp, quarry, sugar field and distillery; worked buildings can be paused. Residents walk up to 10 tiles to work, and buildings beside a sand road work 25% faster.

@@ -4,6 +4,14 @@ Newest first. Each entry says what changed for the player and where the code liv
 
 ## 2026-10-11
 
+### Bigger islands, Huvamaru further out, no building in open ocean (PR #5)
+- **Everything is 1.25× bigger:** the world is now 720×500 tiles. Every atoll, island, reef and lagoon keeps its shape but covers more ground, so Palm Isle has about 1,680 tiles instead of 1,080. The camera zooms out further to fit it.
+- **Huvamaru moved** further from Thoravi and Maarandu, so there is open sea on every side of it.
+- **Open ocean is off limits:** deep water outside an atoll's outer reef edge can't be dredged, raised or lowered ("Open ocean: too deep to dredge or build out into"). Reef flats and lagoons can still be reshaped.
+- The starting fishery now has fewer reef tiles in reach, so the capital's fish run down if you build nothing.
+- Saves from before this update can't be loaded (the world changed size).
+- The "Island Sim: Terraform Menu and Brushes" doc proposes a simpler Cities: Skylines 2-style terraform panel and round brush, waiting on Ahmed's OK.
+
 ### A longer Fenumaa, a fourth atoll and island renaming (PR #5)
 - **Fenumaa Atoll is longer and fuller:** it is now a long oval about 200 tiles from end to end (it was a 100-tile heart) and holds 15 islands instead of 8. New ones: Breadfruit Isle, Kalhuvaa Isle (a second long island), Ambu Vilu, Saruvaa Isle, Keyo Isle (wooded), Hiri Finolhu and Midhili Islet out in the lagoon. It has four channels through the rim instead of two.
 - **A fourth atoll, Oivaru Atoll,** sits east of Thoravi: a lopsided kidney with 10 islands (Faalu, Rasgiri with coral ridges, wooded Weaver Isle, Ruh Kulhi Isle with mangroves, Dhoshi Vilu, long Kanbili Isle, Moonrise Isle, Fehi Finolhu, Booby Islet for the birds, and Neru Islet on a lagoon ring reef). The world grew to 576×400 tiles to fit it, and the camera zooms out far enough to see all of it.

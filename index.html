@@ -120,7 +120,7 @@ kbd{font-family:var(--f-ui);font-size:11px;font-weight:700;color:var(--ink-2);bo
 
 /* minimap and compass */
 #mapbox{position:absolute;left:12px;bottom:12px;width:230px;padding:6px}
-#mini{display:block;width:100%;aspect-ratio:576/400;height:auto;border-radius:3px;background:var(--deep);cursor:pointer;touch-action:none;image-rendering:pixelated}
+#mini{display:block;width:100%;aspect-ratio:720/500;height:auto;border-radius:3px;background:var(--deep);cursor:pointer;touch-action:none;image-rendering:pixelated}
 .compass{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-top:6px}
 .cb{width:36px;height:30px;border-radius:6px;border:1px solid #c9bca6;background:#fbf8f2;color:var(--ink);display:grid;place-items:center;font-size:17px;padding:0}
 .cb:hover{border-color:var(--teak)}
@@ -331,7 +331,7 @@ kbd{font-family:var(--f-ui);font-size:11px;font-weight:700;color:var(--ink-2);bo
     <div id="advisor" aria-live="polite"></div>
 
     <div id="mapbox" class="pnl">
-      <canvas id="mini" width="576" height="400" aria-label="Minimap: click to jump, drag to pan"></canvas>
+      <canvas id="mini" width="720" height="500" aria-label="Minimap: click to jump, drag to pan"></canvas>
       <div class="compass">
         <button class="cb" id="rotL" title="Rotate left (Q). Hold to keep turning" aria-label="Rotate camera left">⟲</button>
         <button id="north" title="Face north" aria-label="Reset rotation to north"><span data-ico="needle"></span></button>
@@ -379,7 +379,7 @@ import {OutputPass} from 'three/addons/postprocessing/OutputPass.js';
 import {HorizontalTiltShiftShader} from 'three/addons/shaders/HorizontalTiltShiftShader.js';
 import {VerticalTiltShiftShader} from 'three/addons/shaders/VerticalTiltShiftShader.js';
 
-const W=576,H=400,MINH=-3,MAXH=3; // Maldives: islands sit about a metre above the sea
+const W=720,H=500,MINH=-3,MAXH=3; // Maldives: islands sit about a metre above the sea
 // Four atolls and a lone island, each with its own outline (names are invented, Maldivian in flavour).
 // x,y centre; R mean rim radius; rot (deg) and sx,sy stretch the ring; shape = [harmonic, amplitude, phase] wobbles;
 // bend curves a long atoll; dents pull the rim in (or push it out, if negative) around a bearing: [bearing, amount, width deg];
@@ -389,7 +389,7 @@ const ATOLLS=[
   {name:'Maarandu Atoll',x:126,y:222,R:70,rot:-18,sx:1,sy:1,shape:[[2,.06,.7],[3,.12,2.1],[5,.025,4]],passes:[[150,2.2],[28,2],[275,1.8]],faros:5,seed:1},
   {name:'Thoravi Atoll', x:292,y:82, R:46,rot:-10,sx:1.95,sy:1,shape:[[3,.05,1.2],[4,.03,2.6]],bend:.32,dents:[[90,.3,16],[270,.3,16]],passes:[[90,5],[270,5],[20,1.6],[200,1.6],[330,1.4]],faros:16,seed:2},
   {name:'Fenumaa Atoll', x:366,y:300,R:46,rot:-12,sx:2.15,sy:1,shape:[[3,.04,1],[5,.02,2]],dents:[[270,.3,24],[90,-.14,30]],passes:[[300,2],[345,1.6],[182,2],[77,1.6]],faros:5,seed:3},
-  {name:'Huvamaru',      x:240,y:182,R:12,rot:-62,sx:2.3,sy:1,lone:true,seed:4},
+  {name:'Huvamaru',      x:264,y:204,R:12,rot:-62,sx:2.3,sy:1,lone:true,seed:4},
   {name:'Oivaru Atoll',  x:486,y:118,R:46,rot:34,sx:1.25,sy:1,shape:[[2,.05,1.9],[3,.08,.4]],dents:[[200,.36,22],[20,-.12,40]],passes:[[110,2],[250,1.8],[330,1.6]],faros:8,seed:5},
 ];
 // islands: atoll index, kind, bearing on the rim (deg), angular half-extent, radial half-width, inward offset from the rim
@@ -455,6 +455,10 @@ const ISL=[
   {name:'Booby Islet',    at:4,kind:'bird',   ang:185,ext:4, rw:3,  off:0,  hills:0},
   {name:'Neru Islet',     at:4,kind:'rim',    ang:120,ext:4, rw:3.5,off:26, hills:0},
 ];
+// the tables above are in design units; the map is drawn SC tiles per unit, so islands come out bigger
+const SC=1.25;
+for(const A of ATOLLS){A.x*=SC;A.y*=SC;A.R*=SC}
+for(const I of ISL){I.rw*=SC;I.off*=SC}
 // ground types laid over the height map
 const GT={none:0,kulhi:1,pond:2,taro:3,seagrass:4,finolhu:5,bird:6};
 const GT_NAME=['','Kulhi: mangrove wetland','Brackish pond','Taro field','Seagrass meadow','Finolhu: shifting sandbank','Bird island (protected)'];
@@ -526,53 +530,53 @@ function generate(){
   origin.fill(255);
   // ring reefs in the lagoons; lagoon islets sit on one of their own
   const faros=ATOLLS.map((A,ai)=>{if(A.lone)return[];const r=rng(A.seed*101),out=[];
-    for(let k=0;k<(A.faros||0);k++){const a=r()*360,fr=3+r()*3.5,c=atollWorld(A,a,rimR(A,a)*(.2+r()*.55));out.push({x:c.x,y:c.y,r:fr})}
-    for(const k of ISL_BY_ATOLL[ai]){const I=ISL[k];if(I.off>15){const c=islCentre(I);out.push({x:c.x,y:c.y,r:I.rw+3.5})}}
+    for(let k=0;k<(A.faros||0);k++){const a=r()*360,fr=(3+r()*3.5)*SC,c=atollWorld(A,a,rimR(A,a)*(.2+r()*.55));out.push({x:c.x,y:c.y,r:fr})}
+    for(const k of ISL_BY_ATOLL[ai]){const I=ISL[k];if(I.off>15*SC){const c=islCentre(I);out.push({x:c.x,y:c.y,r:I.rw+3.5*SC})}}
     return out});
   const lakes=[0,180].map(a=>atollWorld(ATOLLS[3],a,ATOLLS[3].R*.45));
   for(let y=0;y<H;y++)for(let x=0;x<W;x++){
     // domain-warp the coordinates so edges meander instead of tracing arcs
-    const wx=x+(fbm(x*.035,y*.035,40)-.5)*12, wy=y+(fbm(x*.035,y*.035,41)-.5)*12;
+    const wx=x+(fbm(x/SC*.035,y/SC*.035,40)-.5)*12*SC, wy=y+(fbm(x/SC*.035,y/SC*.035,41)-.5)*12*SC;
     let ai=-1,L=null,r=1e9;
     for(let k=0;k<ATOLLS.length;k++){const A=ATOLLS[k],l=atollLocal(A,wx,wy);const rr=(l.d-(A.lone?A.R:rimR(A,l.a)))*l.sc;if(rr<r){r=rr;ai=k;L=l}}
     const A=ATOLLS[ai],a=L.a,i=idx(x,y);
     let v=-3,owner=255,g=0,best=1e9;
     if(A.lone){
       // one island, its own narrow reef, then straight down into the ocean
-      const rr=r+(fbm(x*.12,y*.12,90)-.5)*3;
-      if(rr<0){const t=Math.min(1,-rr/10);v=Math.min(1.3,-1+3.4*Math.pow(t,.5)+(fbm(x*.3,y*.3,91)-.5)*.4);owner=LONE_ISL;best=0}
-      else if(rr<3)v=-1;else if(rr<4.5)v=-2;
-      if(owner!==255)for(const c of lakes){const dd=Math.hypot(x-c.x,y-c.y)+(fbm(x*.3,y*.3,92)-.5)*1.2;
-        if(dd<2.4){v=-1;g=GT.pond}else if(dd<4.2&&v>=0){v=0;g=GT.kulhi}}
+      const rr=r+(fbm(x/SC*.12,y/SC*.12,90)-.5)*3*SC;
+      if(rr<0){const t=Math.min(1,-rr/(10*SC));v=Math.min(1.3,-1+3.4*Math.pow(t,.5)+(fbm(x/SC*.3,y/SC*.3,91)-.5)*.4);owner=LONE_ISL;best=0}
+      else if(rr<3*SC)v=-1;else if(rr<4.5*SC)v=-2;
+      if(owner!==255)for(const c of lakes){const dd=Math.hypot(x-c.x,y-c.y)+(fbm(x/SC*.3,y/SC*.3,92)-.5)*1.2*SC;
+        if(dd<2.4*SC){v=-1;g=GT.pond}else if(dd<4.2*SC&&v>=0){v=0;g=GT.kulhi}}
     }else{
-      const inner=-2.5-fbm(a*.05,ai,42)*4, outer=6+fbm(a*.05,ai+2,43)*6; // reef flat width varies around the ring
-      if(r>outer+2.5) v=-3;
+      const inner=(-2.5-fbm(a*.05,ai,42)*4)*SC, outer=(6+fbm(a*.05,ai+2,43)*6)*SC; // reef flat width varies around the ring
+      if(r>outer+2.5*SC) v=-3;
       else if(r>outer) v=-2;
       else if(r>inner) v=-1;                               // reef flat on the rim
-      else{v=-2-(fbm(x*.08,y*.08,6)>.62?1:0);lagoon[i]=1}  // deep lagoon
-      if(v<=-2&&r<inner-5&&fbm(x*.21,y*.21,8)>.74) v=-1;   // scattered coral heads (giri)
-      if(r<inner-3)for(const f of faros[ai]){const dd=Math.hypot(x-f.x,y-f.y)+(fbm(x*.25,y*.25,9)-.5)*1.6;
-        if(dd<f.r){v=dd>f.r-1.8?-1:Math.max(v,f.r<4.5?-1:-2);break}}
-      if(v===-1&&Math.abs(r)<2.4&&vnoise(a*.11,3+ai*5,50)>.74) v=0; // sandy motus along the rim
+      else{v=-2-(fbm(x/SC*.08,y/SC*.08,6)>.62?1:0);lagoon[i]=1}  // deep lagoon
+      if(v<=-2&&r<inner-5*SC&&fbm(x/SC*.21,y/SC*.21,8)>.74) v=-1;   // scattered coral heads (giri)
+      if(r<inner-3*SC)for(const f of faros[ai]){const dd=Math.hypot(x-f.x,y-f.y)+(fbm(x/SC*.25,y/SC*.25,9)-.5)*1.6*SC;
+        if(dd<f.r){v=dd>f.r-1.8*SC?-1:Math.max(v,f.r<4.5*SC?-1:-2);break}}
+      if(v===-1&&Math.abs(r)<2.4*SC&&vnoise(a*.11,3+ai*5,50)>.74) v=0; // sandy motus along the rim
       for(const k of ISL_BY_ATOLL[ai]){const I=ISL[k];
         const da=angDiff(a,I.ang);if(Math.abs(da)>I.ext*1.4+6)continue;
         const rw=I.rw*(.8+.45*fbm(a*.06,k*3,44));
         const u=(r+I.off)/rw;if(Math.abs(u)>1.6)continue;
-        const e=Math.hypot(u,da/I.ext)+(fbm(x*.16,y*.16,11+k)-.5)*.5;
-        if(I.flats&&r<1&&r>-20&&Math.abs(da)<I.ext+10&&v<-1) v=-1;   // Sugar Cay sits behind broad lagoon flats: too shallow for boats
+        const e=Math.hypot(u,da/I.ext)+(fbm(x/SC*.16,y/SC*.16,11+k)-.5)*.5;
+        if(I.flats&&r<1&&r>-20*SC&&Math.abs(da)<I.ext+10&&v<-1) v=-1;   // Sugar Cay sits behind broad lagoon flats: too shallow for boats
         if(e>=1.15)continue;
-        const t=Math.max(0,1-e),nz=(fbm(x*.3,y*.3,21+k)-.5)*.4;
+        const t=Math.max(0,1-e),nz=(fbm(x/SC*.3,y/SC*.3,21+k)-.5)*.4;
         // a white beach ring, then flat ground at height 1; only a few ridges reach height 2
         let hv=Math.min(1.3,-1+3.4*Math.pow(t,.5)+nz),kg=0;
         if(I.kind==='vilu'){hv=e<.5?-1.6:Math.min(1.3,-1+3.4*Math.pow(Math.max(0,1-Math.abs(e-.82)/.33),.5)+nz);if(e<.5){if(e<best){best=e;v=e<.32?-2:-1;owner=255}continue}}
         if(I.kind==='finolhu'){hv=Math.min(hv,.4);kg=GT.finolhu}
         if(I.kind==='bird')kg=GT.bird;
-        if(I.kind==='kulhi'&&t>.4){const n=fbm(x*.22,y*.22,70+k);if(t>.6&&n>.47){hv=-1;kg=GT.pond}else if(n>.4){hv=0;kg=GT.kulhi}}
-        if(I.hills&&t>.35&&fbm(x*.11,y*.11,60+k)>I.hills)hv=2;
+        if(I.kind==='kulhi'&&t>.4){const n=fbm(x/SC*.22,y/SC*.22,70+k);if(t>.6&&n>.47){hv=-1;kg=GT.pond}else if(n>.4){hv=0;kg=GT.kulhi}}
+        if(I.hills&&t>.35&&fbm(x/SC*.11,y/SC*.11,60+k)>I.hills)hv=2;
         if(kg===GT.pond){if(v<0||owner===k){v=-1;g=kg;owner=255;best=e}continue}
         if(hv>-0.5&&(hv>v||e<best)){v=Math.max(v,hv);if(e<best){best=e;owner=k;g=kg}}  // islands rise straight out of the lagoon
       }
-      for(const[pa,hw]of A.passes)if(Math.abs(angDiff(a,pa))<hw&&v<=0&&r>inner-3&&r<outer+3) v=-2; // channels to the ocean
+      for(const[pa,hw]of A.passes)if(Math.abs(angDiff(a,pa))<hw&&v<=0&&r>inner-3*SC&&r<outer+3*SC) v=-2; // channels to the ocean
     }
     const hv=Math.max(MINH,Math.min(MAXH,Math.round(v)));
     h[i]=hv;origin[i]=hv>=0?(owner===255?254:owner):255; // 254: reef sand that belongs to no named islandgt[i]=hv>=0||g===GT.pond?g:0;
@@ -581,10 +585,10 @@ function generate(){
   for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=idx(x,y);
     // taro in wet ground beside a kulhi; seagrass on the lagoon's shallow flats
     if(h[i]===1&&!gt[i]&&countAround2(gt,x,y,2,GT.kulhi)&&hash2(x,y,71)<.6)gt[i]=GT.taro;
-    if(h[i]===-1&&!gt[i]&&(lagoon[i]||lagoonNear(lagoon,x,y))&&fbm(x*.09,y*.09,77)>.55)gt[i]=GT.seagrass;
+    if(h[i]===-1&&!gt[i]&&(lagoon[i]||lagoonNear(lagoon,x,y))&&fbm(x/SC*.09,y/SC*.09,77)>.55)gt[i]=GT.seagrass;
   }
   for(let y=0;y<H;y++)for(let x=0;x<W;x++){
-    const i=idx(x,y),hv=h[i],f=fbm(x*.22,y*.22,99),o=origin[i],I=o<ISL.length?ISL[o]:null,g=gt[i];
+    const i=idx(x,y),hv=h[i],f=fbm(x/SC*.22,y/SC*.22,99),o=origin[i],I=o<ISL.length?ISL[o]:null,g=gt[i];
     if(g===GT.kulhi){if(rnd()<.75)tree[i]=3;continue}       // mangroves
     if(g===GT.taro||g===GT.pond)continue;
     const dens=I?(I.dens??KIND_DENS[I.kind]):.5;
@@ -592,6 +596,13 @@ function generate(){
     else if(hv===0&&rnd()<(g===GT.finolhu?.015:.12)) tree[i]=2;
   }
   return{h,tree,gt};
+}
+// open ocean: beyond an atoll's outer reef edge (same warp and reef width as generate), where nothing can be built out
+function seaAt(x,y){
+  const wx=x+(fbm(x/SC*.035,y/SC*.035,40)-.5)*12*SC, wy=y+(fbm(x/SC*.035,y/SC*.035,41)-.5)*12*SC;
+  let ai=0,r=1e9,a=0;
+  for(let k=0;k<ATOLLS.length;k++){const A=ATOLLS[k],l=atollLocal(A,wx,wy);const rr=(l.d-(A.lone?A.R:rimR(A,l.a)))*l.sc;if(rr<r){r=rr;ai=k;a=l.a}}
+  return ATOLLS[ai].lone?r>3.5*SC:r>(6+fbm(a*.05,ai+2,43)*6)*SC;
 }
 function countAround2(arr,x,y,r,val){for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){const nx=x+dx,ny=y+dy;if(inb(nx,ny)&&arr[idx(nx,ny)]===val)return true}return false}
 function lagoonNear(lag,x,y){return countAround2(lag,x,y,3,1)}
@@ -827,6 +838,7 @@ function terraform(x,y,mode,target){
   if(to===cur)return{ok:true,noop:true};
   const b=bAt(x,y);if(b)return{ok:false,why:`Demolish the ${DEF[b.type].name} before reshaping its tile`};
   if(S.gt[i]===GT.bird)return{ok:false,why:'Birds nest here. The island is protected.'};
+  if(cur<=-2&&seaAt(x,y))return{ok:false,why:'Open ocean: too deep to dredge or build out into'};
   const steps=Math.abs(to-cur),up=to>cur;
   const src=nearestHarborIsland(x,y),st=src?.harbor?.stock,gold=4*steps;
   if(S.gold<gold)return{ok:false,why:'Not enough gold to move earth'};
@@ -1565,9 +1577,9 @@ function applyQuality(){
 
 // ---------- camera rig ----------
 const cam={tx:W/2,tz:H/2,dist:120,yaw:rad(-28),pitch:rad(54),goal:null,spin:0};
-function homeCam(){const A=ATOLLS[0],c=S&&capitalHarbor();cam.goal=null;cam.tx=c?c.x*.6+A.x*.4:A.x;cam.tz=c?c.y*.6+A.y*.4:A.y;cam.dist=Math.min(540,150*Math.max(1,1.25/(vw/vh)));cam.yaw=rad(-28);cam.pitch=rad(vw<760?62:50)}
+function homeCam(){const A=ATOLLS[0],c=S&&capitalHarbor();cam.goal=null;cam.tx=c?c.x*.6+A.x*.4:A.x;cam.tz=c?c.y*.6+A.y*.4:A.y;cam.dist=Math.min(680,150*Math.max(1,1.25/(vw/vh)));cam.yaw=rad(-28);cam.pitch=rad(vw<760?62:50)}
 function applyCam(){
-  cam.pitch=Math.max(rad(18),Math.min(rad(84),cam.pitch));cam.dist=Math.max(6,Math.min(540,cam.dist));
+  cam.pitch=Math.max(rad(18),Math.min(rad(84),cam.pitch));cam.dist=Math.max(6,Math.min(680,cam.dist));
   cam.tx=Math.max(-10,Math.min(W+10,cam.tx));cam.tz=Math.max(-10,Math.min(H+10,cam.tz));
   const cp=Math.cos(cam.pitch);
   camera.position.set(cam.tx+Math.sin(cam.yaw)*cp*cam.dist,Math.sin(cam.pitch)*cam.dist,cam.tz+Math.cos(cam.yaw)*cp*cam.dist);
@@ -2123,7 +2135,7 @@ function placeLabel(el,x,y,hgt){v3.set(x,hgt,y).project(camera);
   if(v3.z>1||Math.abs(v3.x)>1.1||Math.abs(v3.y)>1.1){el.hidden=true;return}
   el.hidden=false;el.style.left=((v3.x+1)/2*vw)+'px';el.style.top=((1-v3.y)/2*vh)+'px'}
 function updateLabels(){
-  const far=cam.dist>230,close=cam.dist<170;
+  const far=cam.dist>280,close=cam.dist<210;
   ISL.forEach((I,k)=>{const a=islAnchor[k],el=labelEls[k];if(far||!a){el.hidden=true;return}
     const nm=labelName(k);if(el.textContent!==nm)el.textContent=nm;
     const isl=islandOf(a.x,a.y),mid=isl&&isl.parts.length===1&&I.kind!=='vilu'?{x:isl.cx,y:isl.cy}:ISL_C[k];placeLabel(el,mid.x+.5,mid.y+.5,topY(2)+2.2)});
@@ -2133,7 +2145,7 @@ function updateLabels(){
 function setQuality(n){Q=QUALITY[n];qName=n;try{localStorage.setItem('islandsim.quality',n)}catch(e){}
   document.querySelectorAll('[data-q]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.q===n));applyQuality()}
 // ---------- persistence for live updates ----------
-// tile layers are run-length packed and base64'd: a 576×400 world would not fit browser storage as plain arrays
+// tile layers are run-length packed and base64'd: a 720×500 world would not fit browser storage as plain arrays
 function pack(a,off=0){const out=[];for(let i=0;i<a.length;){const v=(a[i]+off)&255;let n=1;while(i+n<a.length&&n<255&&((a[i+n]+off)&255)===v)n++;out.push(v,n);i+=n}
   const u=new Uint8Array(out);let s='';for(let i=0;i<u.length;i+=8192)s+=String.fromCharCode.apply(null,u.subarray(i,i+8192));return btoa(s)}
 function unpack(str,T,len,off=0){const b=atob(str),a=new T(len);let k=0;for(let i=0;i<b.length;i+=2){const n=b.charCodeAt(i+1);a.fill(b.charCodeAt(i)-off,k,k+n);k+=n}
