@@ -4,6 +4,19 @@ Newest first. Each entry says what changed for the player and where the code liv
 
 ## 2026-10-11
 
+### New Anno/Tropico-style interface (PR #5)
+- The whole screen was redesigned from the UI design doc: panels look like carved teak boxes with a whitewashed coral face and a red-black-ochre lacquer band, and an in-house icon set replaces text labels.
+- **Top bar:** gold with its change per minute, then wood, coral stone, fish, sugar and rum for the island you are looking at, each with a trend arrow; residents; day and game speed. Hover a counter to see how much is made and used. A counter turns red and pulses when a good runs out.
+- **Build bar:** six categories (Terraform, Homes, Food, Industry, Harbour, Roads, keys 1–6) open a row of build cards showing cost chips (red when you can't afford them) and a tooltip with what each building needs and makes. Survey and Demolish sit at the ends. The old left tool panel is gone.
+- **Selection panel:** click a building to see its status, inputs → building → outputs per minute, workers and output, with Pause/Resume and a two-click Demolish. Compounds show residents and whether they have fish and rum.
+- **Island panel:** click an island's floating name, the island name in the top bar, or press Tab, to see its warehouse with trends, residents, jobs and its boat. The old right-hand island table is gone.
+- **Charter card:** the current goal with a progress bar; ▾ lists all goals; a met goal flashes the card.
+- **The katheeb:** the island chief's messages replace toasts on the left, with a portrait. They fade after 6 seconds; click one to go to the place. The bell keeps the last 20. He now also warns when an island runs out of fish or sugar, has more jobs than residents, or a boat is stuck.
+- **Minimap and compass:** a live map of the atoll with the camera's view and boats; click or drag to move. ⟲ ⟳ rotate, ⌂ returns to the capital, and the compass needle points north (click to face north).
+- **At the cursor:** placing shows the cost and, when a tile is refused, the reason ("The 3×2 plot must be level"). Roads and terraforming show a running total while you drag. Right-click without dragging drops the tool.
+- **Also:** F1 opens a help overlay that labels the screen; a settings panel holds graphics quality and a UI size from 90% to 150%; narrower screens get icon-only cards, and phones a short top bar and a scrolling bottom build bar.
+- Keys changed: 1–6 now open build categories, and the compound moved to C. Saves keep paused buildings.
+
 ### Compounds, one continuous wave, clear roads (PR #5)
 - Houses are now **compounds** (goathi): a 3×2-tile family plot (six old house tiles) inside a low coral wall with a gate. Inside is an old-style coral-stone house with lime-washed walls and a hipped thatch roof, a kitchen hut, a well, two joali seats, a coconut palm and a swept white-sand yard. The plot needs level ground and turns 90° by itself to fit. Compounds cost 60 gold and 6 wood and hold up to 6 residents on fish, 12 with rum. Larger plot sizes can come later.
 - The game starts with three compounds instead of four houses, so it still opens with 12 residents.

@@ -7,93 +7,246 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Familjen+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap">
 <style>
-/* Layout: full-bleed 3D atoll; resource bar on top, tool rail on the left (bottom strip on phones), logbook on the right. Single deliberate look: a navigator's chart table at dusk. */
+/* Layout (docs: "Island Sim UI Design"): the atoll fills the screen; a lacquer top bar, the charter card top right,
+   advisor feed on the left, minimap bottom left, build bar bottom centre, selection panel bottom right.
+   Look: lacquered teak and whitewashed coral, trimmed with liyelaa jehun lacquer bands. */
 :root{
-  --ink:#0c1f2a; --ink-2:#132d3b; --line:#24495a;
-  --sand:#f3e6c4; --sand-dim:#b7ab8c;
-  --coral:#ff8a5c; --reef:#4fd1c5; --warn:#ffcf5a; --bad:#ff6b6b;
+  --lacquer:#1c1714; --teak:#5a3a24; --ochre:#d9a441; --red:#a3362a; --coral:#f2ece0; --coral-2:#e6dccb;
+  --lagoon:#2fb7a8; --deep:#134a5e; --good:#5fae5a; --warn:#e0a33a; --bad:#d0533f;
+  --ink:var(--lacquer); --ink-2:#4a3d33;
+  --band:linear-gradient(var(--red) 0 34%,var(--lacquer) 34% 66%,var(--ochre) 66%);
   --f-display:"Young Serif", Georgia, "Times New Roman", serif;
   --f-ui:"Familjen Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --f-num:"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
-  color-scheme:dark;
+  --ui:1;
+  color-scheme:light;
 }
 [hidden]{display:none!important}
-html,body{height:100%;margin:0;background:var(--ink);color:var(--sand);font-family:var(--f-ui);overflow:hidden}
+html,body{height:100%;margin:0;background:var(--deep);color:var(--ink);font-family:var(--f-ui);overflow:hidden}
 #app{position:relative;height:100%;width:100%;overflow:hidden}
 #cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:crosshair;background:#8fc9dc}
-.panel{background:color-mix(in srgb,var(--ink) 90%,transparent);border:1px solid var(--line);border-radius:10px;backdrop-filter:blur(6px)}
-button{font:inherit;color:inherit}
-button:focus-visible{outline:2px solid var(--coral);outline-offset:2px}
-#bar{position:absolute;top:10px;left:10px;right:10px;display:flex;align-items:center;gap:14px;padding:8px 12px;flex-wrap:wrap}
-#bar h1{font-family:var(--f-display);font-weight:400;font-size:20px;margin:0;white-space:nowrap}
-#bar h1 small{font-family:var(--f-ui);font-size:11px;color:var(--sand-dim);letter-spacing:.12em;text-transform:uppercase;margin-left:8px}
-.stats{display:flex;gap:16px;flex-wrap:wrap;align-items:baseline;font-variant-numeric:tabular-nums}
-.stat{display:flex;gap:6px;align-items:baseline}
-.stat b{font-family:var(--f-num);font-weight:500;font-size:15px}
-.stat span{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--sand-dim)}
-.pos{color:var(--reef)} .neg{color:var(--bad)}
-.ctrls{margin-left:auto;display:flex;gap:10px;flex-wrap:wrap}
-.seg{display:flex;gap:4px}
-.seg button{background:transparent;border:1px solid var(--line);border-radius:6px;padding:3px 9px;cursor:pointer;font-family:var(--f-num);font-size:12px;min-width:30px}
-.seg button[aria-pressed="true"]{background:var(--coral);color:var(--ink);border-color:var(--coral)}
-.seg button:hover{border-color:var(--sand-dim)}
-#tools{position:absolute;left:10px;top:70px;bottom:10px;width:188px;padding:10px;display:flex;flex-direction:column;gap:10px;overflow-y:auto}
-.grp-title{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--sand-dim);margin:2px 2px 4px}
-.tgrid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
-.tool{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:6px 7px;background:var(--ink-2);border:1px solid var(--line);border-radius:7px;cursor:pointer;text-align:left;min-width:0}
-.tool:hover{border-color:var(--sand-dim)}
-.tool[aria-pressed="true"]{border-color:var(--coral);box-shadow:inset 0 0 0 1px var(--coral)}
-.tool .nm{font-weight:700;font-size:13px;display:flex;justify-content:space-between;width:100%;gap:4px}
-.tool .nm kbd{font-family:var(--f-num);font-size:10px;color:var(--sand-dim);font-weight:500}
-.tool .cs{font-family:var(--f-num);font-size:10px;color:var(--sand-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-.tool.wide{grid-column:span 2}
-.brush{display:flex;gap:5px;margin-top:6px}
-.brush button{flex:1;background:var(--ink-2);border:1px solid var(--line);border-radius:6px;padding:4px;cursor:pointer;font-family:var(--f-num);font-size:12px}
-.brush button[aria-pressed="true"]{border-color:var(--coral);color:var(--coral)}
-.hint{font-size:11.5px;line-height:1.45;color:var(--sand-dim);margin:0}
-#side{position:absolute;right:10px;top:70px;width:292px;max-height:calc(100% - 80px);padding:12px;display:flex;flex-direction:column;gap:12px;overflow-y:auto}
-#side h2{font-family:var(--f-display);font-weight:400;font-size:16px;margin:0 0 6px}
-.goals{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
-.goals li{display:grid;grid-template-columns:18px 1fr;gap:6px;font-size:12.5px;line-height:1.35}
-.goals li .ck{width:14px;height:14px;border:1.5px solid var(--sand-dim);border-radius:50%;margin-top:1px}
-.goals li.done{color:var(--sand-dim);text-decoration:line-through}
-.goals li.done .ck{background:var(--reef);border-color:var(--reef)}
-.goals li.now .ck{border-color:var(--coral)}
-.goals li .sub{display:block;font-size:11px;color:var(--sand-dim)}
-table.isl{width:100%;border-collapse:collapse;font-family:var(--f-num);font-size:11px;font-variant-numeric:tabular-nums}
-table.isl th{font-family:var(--f-ui);font-weight:500;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--sand-dim);text-align:right;padding:2px 3px;border-bottom:1px solid var(--line)}
-table.isl th:first-child,table.isl td:first-child{text-align:left;font-family:var(--f-ui);font-size:12px}
-table.isl td{text-align:right;padding:4px 3px;border-bottom:1px solid color-mix(in srgb,var(--line) 50%,transparent)}
-.boats{font-size:12px;display:flex;flex-direction:column;gap:4px;margin:0;padding:0;list-style:none}
-.boats li{display:flex;gap:6px;align-items:baseline}
-.dot{width:8px;height:8px;border-radius:50%;flex:none;display:inline-block}
-#insp{font-size:12.5px;line-height:1.45;min-height:56px}
-#insp .k{color:var(--sand-dim)} #insp .ttl{font-weight:700}
-.toggle{display:none}
-#vignette{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 45%,transparent 55%,rgba(4,22,34,.38))}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--ochre);outline-offset:2px}
+svg.i{width:20px;height:20px;flex:none;fill:currentColor;fill-rule:evenodd}
+.num{font-variant-numeric:tabular-nums}
+#hud{position:absolute;inset:0;pointer-events:none;zoom:var(--ui)}
+#hud > *{pointer-events:auto}
+
+/* panels: coral-white face, teak frame, lacquer band under the heading */
+.pnl{background:var(--coral);color:var(--ink);border:3px solid var(--teak);border-radius:6px;box-shadow:0 6px 18px rgba(28,16,6,.32)}
+.pnl > h2,.pnl .hd h2{font-family:var(--f-display);font-weight:400;font-size:18px;margin:0;color:var(--lacquer)}
+.hd{display:flex;align-items:center;gap:8px;padding:8px 10px 7px;position:relative}
+.hd::after{content:"";position:absolute;left:0;right:0;bottom:-3px;height:6px;background:var(--band)}
+.hd .x{margin-left:auto;background:none;border:0;font-size:20px;line-height:1;padding:0 4px;color:var(--ink-2)}
+.sub{color:var(--deep);font-size:13px}
+.slide{animation:slide .16s ease-out}
+@keyframes slide{from{transform:translateY(10px);opacity:0}to{transform:none;opacity:1}}
+
+/* top resource bar */
+#top{position:absolute;top:0;left:0;right:0;height:46px;display:flex;align-items:center;gap:14px;padding:0 10px;background:var(--lacquer);color:var(--coral);box-shadow:0 2px 10px rgba(0,0,0,.35)}
+#top::after{content:"";position:absolute;left:0;right:0;bottom:-6px;height:6px;background:var(--band)}
+#top .grp{display:flex;align-items:center;gap:10px}
+.ib{display:grid;place-items:center;width:34px;height:34px;border-radius:6px;border:1px solid transparent;background:none;color:var(--ochre);position:relative}
+.ib:hover{border-color:var(--ochre)}
+.ib[aria-expanded="true"]{background:color-mix(in srgb,var(--ochre) 22%,transparent)}
+.badge{position:absolute;top:1px;right:0;min-width:16px;height:16px;padding:0 4px;box-sizing:border-box;border-radius:999px;background:var(--bad);color:#fff;font-size:11px;font-weight:700;line-height:16px}
+.day{display:flex;align-items:center;gap:6px;font-size:14px;white-space:nowrap}
+.day svg{color:var(--ochre)}
+.speed{display:flex;gap:2px;background:rgba(255,255,255,.06);border-radius:999px;padding:2px}
+.speed button{border:0;background:none;border-radius:999px;padding:3px 9px;font-size:13px;color:var(--coral);min-width:32px}
+.speed button[aria-pressed="true"]{background:var(--ochre);color:var(--lacquer);font-weight:700}
+#res{flex:1;display:flex;align-items:center;justify-content:center;gap:4px;min-width:0;overflow:hidden}
+.ctr{display:flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;font-size:15px;white-space:nowrap;border:0;background:none;color:var(--coral)}
+.ctr svg{color:var(--ochre)}
+.ctr b{font-weight:500;font-variant-numeric:tabular-nums;min-width:2ch}
+.ctr .tr{font-size:12px;font-style:normal;font-variant-numeric:tabular-nums;color:#b9ad9a}
+.ctr .tr.up{color:#8fd48a} .ctr .tr.dn{color:#f08a76}
+.ctr:hover{background:rgba(255,255,255,.08)}
+.ctr.out{background:color-mix(in srgb,var(--bad) 35%,transparent);animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{background:color-mix(in srgb,var(--bad) 10%,transparent)}}
+.isl-chip{display:flex;align-items:center;gap:6px;padding:4px 10px;margin-right:4px;border-radius:999px;border:1px solid color-mix(in srgb,var(--ochre) 60%,transparent);background:none;color:var(--coral);font-family:var(--f-display);font-size:15px;white-space:nowrap}
+.sep{width:1px;height:22px;background:rgba(242,236,224,.18);margin:0 4px}
+
+/* popovers from the top bar */
+.pop{position:absolute;top:56px;width:250px;padding:0 0 10px;z-index:4}
+.pop .row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px 0;font-size:14px}
+.pop .mi{display:flex;width:100%;align-items:center;gap:10px;background:none;border:0;padding:8px 12px;text-align:left;font-size:14px}
+.pop .mi:hover{background:var(--coral-2)}
+.pop .mi kbd{margin-left:auto}
+.segc{display:flex;gap:2px;background:var(--coral-2);border-radius:999px;padding:2px}
+.segc button{border:0;background:none;border-radius:999px;padding:3px 9px;font-size:13px}
+.segc button[aria-pressed="true"]{background:var(--teak);color:var(--coral)}
+kbd{font-family:var(--f-ui);font-size:11px;font-weight:700;color:var(--ink-2);border:1px solid #c9bca6;border-bottom-width:2px;border-radius:4px;padding:0 4px;background:#fbf8f2}
+#menu{left:8px} #settings{right:8px} #log{right:48px;width:320px;max-height:60vh;overflow:auto}
+
+/* charter card */
+#charter{position:absolute;top:60px;right:12px;width:270px}
+#charter .body{padding:10px 12px 12px}
+#charter .goal{font-weight:700;font-size:14px;line-height:1.3}
+#charter .why{font-size:12.5px;color:var(--deep);margin-top:3px;line-height:1.35}
+.bar{height:8px;border-radius:999px;background:var(--coral-2);overflow:hidden;margin-top:8px;box-shadow:inset 0 1px 2px rgba(0,0,0,.15)}
+.bar > i{display:block;height:100%;background:var(--lagoon);border-radius:999px;transition:width .3s}
+.bar.warn > i{background:var(--warn)} .bar.bad > i{background:var(--bad)}
+.barlbl{display:flex;justify-content:space-between;font-size:12px;color:var(--deep);margin-top:3px}
+#charter ol{list-style:none;margin:8px 0 0;padding:8px 0 0;border-top:1px solid var(--coral-2);display:flex;flex-direction:column;gap:5px;font-size:12.5px}
+#charter li{display:flex;gap:6px;align-items:flex-start}
+#charter li::before{content:"";flex:none;width:12px;height:12px;margin-top:2px;border-radius:50%;border:1.5px solid var(--ink-2)}
+#charter li.done{color:#7b6f62;text-decoration:line-through} #charter li.done::before{background:var(--lagoon);border-color:var(--lagoon)}
+#charter li.now::before{border-color:var(--ochre);background:color-mix(in srgb,var(--ochre) 40%,transparent)}
+#charter.won{animation:won .9s ease-out}
+@keyframes won{30%{box-shadow:0 0 0 6px var(--ochre),0 6px 18px rgba(28,16,6,.32)}}
+
+/* advisor feed */
+#advisor{position:absolute;top:60px;left:12px;width:310px;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.msg{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;pointer-events:auto;text-align:left;width:100%;box-sizing:border-box;font-size:13.5px;line-height:1.35;transition:opacity .6s}
+.msg.fade{opacity:0}
+.msg.bad{border-color:var(--red)} .msg.good{border-color:#3c7d5f}
+.msg .who{font-family:var(--f-display);font-size:12px;color:var(--deep);display:block}
+.msg.go{cursor:pointer}
+.portrait{flex:none;width:38px;height:38px;border-radius:50%;background:var(--ochre);border:2px solid var(--teak);overflow:hidden}
+.portrait svg{width:100%;height:100%;display:block}
+#log .item{display:flex;gap:8px;padding:7px 12px;font-size:13px;line-height:1.35;border-bottom:1px solid var(--coral-2);background:none;border-left:0;border-right:0;border-top:0;width:100%;text-align:left}
+#log .item .d{flex:none;color:var(--deep);font-size:12px;min-width:44px}
+#log .item.bad{color:#8c2a1f}
+
+/* minimap and compass */
+#mapbox{position:absolute;left:12px;bottom:12px;width:184px;padding:6px}
+#mini{display:block;width:172px;height:172px;border-radius:3px;background:var(--deep);cursor:pointer;touch-action:none;image-rendering:pixelated}
+.compass{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-top:6px}
+.cb{width:36px;height:30px;border-radius:6px;border:1px solid #c9bca6;background:#fbf8f2;color:var(--ink);display:grid;place-items:center;font-size:17px;padding:0}
+.cb:hover{border-color:var(--teak)}
+#north{width:44px;height:44px;border-radius:50%;border:2px solid var(--teak);background:var(--lacquer);color:var(--coral);position:relative}
+#north span{position:absolute;inset:0;display:grid;place-items:center;transition:transform .05s linear}
+#north svg{width:30px;height:30px}
+#mapToggle{display:none}
+
+/* build bar and build cards */
+#build{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;max-width:calc(100% - 24px - 2*210px)}
+#bar{display:flex;align-items:stretch;gap:2px;padding:4px;background:var(--lacquer);border-color:var(--teak)}
+.tab{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:62px;padding:5px 6px 4px;border:0;border-radius:4px;background:none;color:var(--coral);font-size:11.5px;position:relative}
+.tab svg{width:26px;height:26px;color:var(--ochre)}
+.tab kbd{position:absolute;top:2px;right:3px;background:none;border:0;color:#9d907e;padding:0;font-size:10px}
+.tab:hover{background:rgba(255,255,255,.08)}
+.tab[aria-pressed="true"]{background:var(--ochre);color:var(--lacquer)}
+.tab[aria-pressed="true"] svg{color:var(--lacquer)}
+.tab.danger svg{color:#f08a76}
+.tab.danger[aria-pressed="true"]{background:var(--red);color:var(--coral)} .tab.danger[aria-pressed="true"] svg{color:var(--coral)}
+.bsep{width:1px;background:rgba(242,236,224,.16);margin:4px 3px}
+#cards{display:flex;gap:6px;padding:6px;align-items:stretch;overflow-x:auto;max-width:100%;box-sizing:border-box}
+.card{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:8px;row-gap:3px;align-items:center;min-width:150px;padding:7px 10px 7px 8px;border:1.5px solid #d3c6b0;border-radius:6px;background:#fbf8f2;text-align:left;position:relative}
+.card svg.i{width:32px;height:32px;grid-row:span 2;color:var(--teak)}
+.card .nm{font-weight:700;font-size:14px;white-space:nowrap;padding-right:16px}
+.card kbd{position:absolute;top:5px;right:6px}
+.card:hover{border-color:var(--teak)}
+.card[aria-pressed="true"]{border-color:var(--ochre);box-shadow:inset 0 0 0 2px var(--ochre);background:#fff6e2}
+.chips{display:flex;gap:4px;flex-wrap:nowrap}
+.chip{display:inline-flex;align-items:center;gap:3px;border-radius:999px;padding:1px 7px 1px 4px;background:var(--coral-2);font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.chip svg.i{width:13px;height:13px;color:var(--teak);grid-row:auto}
+.chip.no{background:color-mix(in srgb,var(--bad) 22%,#fff);color:#8c2a1f}
+.brushes{display:flex;flex-direction:column;justify-content:center;gap:4px;padding:0 4px 0 8px;border-left:1px solid var(--coral-2)}
+.brushes .lbl2{font-size:11px;color:var(--deep)}
+
+/* selection and island panels */
+#sel{position:absolute;right:12px;bottom:12px;width:330px;max-height:calc(100% - 140px);overflow:auto}
+#sel .body{padding:10px 12px 12px;display:flex;flex-direction:column;gap:10px}
+#sel .hd svg.i{width:30px;height:30px;color:var(--teak)}
+#sel .hd .t{display:flex;flex-direction:column}
+#sel .hd .t small{font-size:12px;color:var(--deep)}
+.status{font-size:13.5px;display:flex;gap:6px;align-items:center}
+.status::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--good);flex:none}
+.status.warn::before{background:var(--warn)} .status.bad::before{background:var(--bad)}
+.flow{display:flex;align-items:center;justify-content:center;gap:8px;padding:8px;background:#fbf8f2;border:1px solid var(--coral-2);border-radius:6px}
+.flow .node{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px;min-width:54px;text-align:center}
+.flow .node svg.i{width:26px;height:26px;color:var(--teak)}
+.flow .node b{font-size:13px;font-variant-numeric:tabular-nums}
+.flow .node.me svg.i{width:34px;height:34px;color:var(--lacquer)}
+.flow .arr{color:#a4977f;font-size:18px}
+.kv{display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center;font-size:13px}
+.kv .k{color:var(--deep)}
+.kv .bar{margin:0}
+.need{display:flex;gap:6px;flex-wrap:wrap}
+.need span{display:inline-flex;align-items:center;gap:4px;padding:2px 8px 2px 5px;border-radius:999px;font-size:12.5px;background:var(--coral-2)}
+.need span.ok{background:color-mix(in srgb,var(--good) 25%,#fff)} .need span.no{background:color-mix(in srgb,var(--bad) 22%,#fff)}
+.need svg.i{width:15px;height:15px}
+.acts{display:flex;gap:8px}
+.btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:7px 10px;border-radius:6px;border:1.5px solid var(--teak);background:#fbf8f2;font-size:13.5px;font-weight:700}
+.btn:hover{background:#fff}
+.btn.red{border-color:var(--red);color:var(--red)} .btn.go{background:var(--lagoon);border-color:#1f8a7e;color:#fff}
+.btn svg.i{width:16px;height:16px}
+.stock{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.stock .g{display:flex;flex-direction:column;align-items:center;gap:1px;padding:6px 2px;background:#fbf8f2;border:1px solid var(--coral-2);border-radius:6px;font-size:12px}
+.stock .g svg.i{color:var(--teak)}
+.stock .g b{font-size:15px;font-variant-numeric:tabular-nums}
+.stock .g .tr{font-size:11.5px;color:#7b6f62} .stock .g .tr.up{color:#3c7d3a} .stock .g .tr.dn{color:#b33a2a}
+.stock .g.out{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 12%,#fff)}
+.boat{font-size:13px;display:flex;gap:6px;align-items:center}
+
+/* floating island names: click for the island panel */
 #labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
-.lbl{position:absolute;transform:translate(-50%,-50%);font-family:var(--f-display);font-size:15px;color:#fffaf0;text-shadow:0 1px 3px rgba(0,30,50,.8),0 0 12px rgba(0,30,50,.5);white-space:nowrap;letter-spacing:.03em}
-#toasts{position:absolute;left:210px;bottom:14px;display:flex;flex-direction:column;gap:6px;pointer-events:none;max-width:min(460px,calc(100% - 230px))}
-.toast{padding:7px 11px;font-size:13px;border-left:3px solid var(--coral);animation:tin .25s ease-out}
-.toast.good{border-left-color:var(--reef)} .toast.bad{border-left-color:var(--bad)}
-@keyframes tin{from{transform:translateY(6px);opacity:.3}to{transform:none;opacity:1}}
-@media (prefers-reduced-motion:reduce){.toast{animation:none}}
-#loading{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--f-display);font-size:18px;background:var(--ink)}
-@media (max-width:760px){
-  #bar{top:6px;left:6px;right:6px;gap:8px;padding:6px 10px}
-  #bar h1 small{display:none}
-  .stats{gap:10px}
-  .ctrls{margin-left:0}
-  #tools{top:auto;left:6px;right:6px;bottom:6px;width:auto;max-height:46%;flex-direction:row;overflow-x:auto;overflow-y:hidden;padding:8px;gap:12px}
-  #tools section{flex:none}
-  .tgrid{grid-template-columns:repeat(4,92px)}
-  #tools .hint{display:none}
-  #side{top:120px;right:6px;width:min(292px,calc(100% - 12px));max-height:calc(100% - 330px);padding:8px}
-  #side.closed{width:auto}
-  #side.closed > :not(.toggle){display:none}
-  .toggle{display:block;background:var(--ink-2);border:1px solid var(--line);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px}
-  #toasts{left:10px;bottom:auto;top:160px;max-width:calc(100% - 120px)}
-  .lbl{font-size:12px}
+.lbl{position:absolute;transform:translate(-50%,-50%);font-family:var(--f-display);font-size:16px;color:#fffaf0;text-shadow:0 1px 3px rgba(0,30,50,.8),0 0 12px rgba(0,30,50,.5);white-space:nowrap;letter-spacing:.03em;pointer-events:auto;cursor:pointer;background:none;border:0;padding:2px 6px}
+.lbl:hover{text-decoration:underline;text-underline-offset:4px}
+
+/* cursor tag and tooltips */
+#tag{position:absolute;pointer-events:none;transform:translate(16px,14px);padding:5px 9px;font-size:13px;line-height:1.35;max-width:260px;background:var(--coral);border:2px solid var(--teak);border-radius:6px;box-shadow:0 3px 10px rgba(0,0,0,.3);z-index:5}
+#tag .t{font-weight:700}
+#tag.bad{border-color:var(--red)} #tag .why{color:#8c2a1f}
+#tag .chips{margin-top:3px}
+#tip{position:absolute;pointer-events:none;width:270px;padding:9px 11px;font-size:13px;line-height:1.4;z-index:6;background:var(--coral);border:2px solid var(--teak);border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.3)}
+#tip .t{font-family:var(--f-display);font-size:16px}
+#tip .k{color:var(--deep)}
+#tip hr{border:0;border-top:1px solid var(--coral-2);margin:6px 0}
+
+/* help overlay (F1) */
+#help{position:absolute;inset:0;background:rgba(12,8,4,.62);z-index:8;color:var(--coral)}
+#help .note{position:absolute;max-width:240px;font-size:13.5px;line-height:1.4;padding:8px 10px;background:var(--lacquer);border:2px solid var(--ochre);border-radius:6px}
+#help .note b{font-family:var(--f-display);font-weight:400;font-size:15px;color:var(--ochre);display:block}
+#help .keys{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(440px,calc(100% - 32px));background:var(--coral);color:var(--ink);padding:0 0 12px}
+#help table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:6px}
+#help td{padding:4px 12px;border-bottom:1px solid var(--coral-2)}
+#help td:first-child{white-space:nowrap;width:1%}
+#help .close{display:block;margin:10px auto 0;font-size:13px;color:var(--deep);text-align:center}
+
+#vignette{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 45%,transparent 60%,rgba(4,22,34,.3))}
+#loading{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--f-display);font-size:18px;background:var(--lacquer);color:var(--coral);z-index:9}
+@media (prefers-reduced-motion:reduce){.slide,#charter.won,.ctr.out{animation:none}.msg{transition:none}}
+
+/* 768–1279: icon-only cards, narrower selection panel, charter on one line */
+@media (max-width:1279px){
+  .card{grid-template-columns:auto;min-width:0;justify-items:center;padding:6px 8px}
+  .card .nm{display:none}
+  .card svg.i{grid-row:auto}
+  #sel{width:290px}
+  #charter{width:230px}
+  #charter .why,#charter ol{display:none}
+  #build{max-width:calc(100% - 24px - 2*196px)}
+  .tab{min-width:52px;font-size:10.5px}
+  .ctr{padding:4px 6px;font-size:14px}
+  .ctr .tr{display:none}
+  .isl-chip{font-size:14px}
+}
+@media (max-width:1000px){ .day span.dl{display:none} #advisor{width:250px} }
+/* phones: gold, residents and the scarcest good; build bar is a bottom sheet; minimap behind a button */
+@media (max-width:767px){
+  #top{gap:4px;padding:0 4px}
+  #top .grp{gap:4px}
+  .day{display:none}
+  .ib{width:30px}
+  .speed button{padding:3px 6px;min-width:26px}
+  .speed button[data-speed="3"],.speed button[data-speed="6"]{display:none}
+  #res{justify-content:flex-start}
+  .ctr:not(.keep){display:none}
+  .isl-chip,.sep{display:none}
+  #build{left:0;right:0;bottom:0;transform:none;max-width:none;gap:0}
+  #bar{width:100%;box-sizing:border-box;border-radius:0;border-width:3px 0 0;overflow-x:auto;justify-content:flex-start}
+  .tab{min-width:56px}
+  #cards{width:100%;border-radius:0;border-width:3px 0 0}
+  #mapbox{bottom:84px;left:8px;width:auto;padding:4px}
+  #mapbox:not(.open) #mini{display:none}
+  #mapbox:not(.open) .compass{margin-top:0}
+  #mapToggle{display:grid}
+  #sel{left:8px;right:8px;width:auto;bottom:84px;max-height:50%}
+  #charter{top:56px;right:8px;width:190px}
+  #advisor{top:120px;left:8px;width:calc(100% - 16px)}
+  .lbl{font-size:13px}
 }
 </style>
 </head>
@@ -103,56 +256,85 @@ table.isl td{text-align:right;padding:4px 3px;border-bottom:1px solid color-mix(
   <canvas id="cv" aria-label="3D view of the atoll"></canvas>
   <div id="vignette"></div>
   <div id="labels"></div>
-  <header id="bar" class="panel">
-    <h1>Island Sim<small>Atoll</small></h1>
-    <div class="stats">
-      <div class="stat"><span>Gold</span><b id="sGold">0</b><b id="sRate" class="pos" style="font-size:12px">+0/s</b></div>
-      <div class="stat"><span>Residents</span><b id="sPop">0</b></div>
-      <div class="stat"><span>Day</span><b id="sDay">1</b></div>
+  <div id="hud">
+    <header id="top">
+      <div class="grp">
+        <button class="ib" id="menuBtn" aria-label="Menu" aria-expanded="false" aria-controls="menu" data-ico="menu"></button>
+        <div class="day" data-tip="day"><span data-ico="sun"></span><span class="dl">Day</span><b id="sDay" class="num">1</b></div>
+        <div class="speed" role="group" aria-label="Game speed">
+          <button data-speed="0" aria-pressed="false" aria-label="Pause" title="Pause (Space)">II</button>
+          <button data-speed="1" aria-pressed="true" title="Normal speed">1×</button>
+          <button data-speed="3" aria-pressed="false" title="Fast">3×</button>
+          <button data-speed="6" aria-pressed="false" title="Fastest">6×</button>
+        </div>
+      </div>
+      <div id="res" aria-label="Resources"></div>
+      <div class="grp">
+        <button class="ib" id="logBtn" aria-label="Advisor messages" aria-expanded="false" aria-controls="log" data-ico="bell"></button>
+        <button class="ib" id="setBtn" aria-label="Settings" aria-expanded="false" aria-controls="settings" data-ico="gear"></button>
+      </div>
+    </header>
+
+    <div id="menu" class="pnl pop" hidden>
+      <div class="hd"><h2>Island Sim</h2></div>
+      <div style="padding-top:6px">
+        <button class="mi" data-act="help"><span data-ico="survey"></span>How to play<kbd>F1</kbd></button>
+        <button class="mi" data-act="home"><span data-ico="harbour"></span>Back to the capital</button>
+        <button class="mi" data-act="settings"><span data-ico="gear"></span>Settings</button>
+      </div>
     </div>
-    <div class="ctrls">
-      <div class="seg" role="group" aria-label="Camera">
-        <button id="rotL" title="Rotate left (Q). Hold to keep turning" aria-label="Rotate camera left">⟲</button>
-        <button id="rotR" title="Rotate right (E). Hold to keep turning" aria-label="Rotate camera right">⟳</button>
-        <button id="home" title="Reset view" aria-label="Reset camera">⌂</button>
-      </div>
-      <div class="seg" role="group" aria-label="Graphics quality">
-        <button data-q="low" aria-pressed="false" title="Low: fast, for phones">Lo</button>
-        <button data-q="high" aria-pressed="true" title="High: refraction, bloom, grass">Hi</button>
-        <button data-q="ultra" aria-pressed="false" title="Ultra: adds ambient occlusion and tilt-shift">Ul</button>
-      </div>
-      <div class="seg" role="group" aria-label="Game speed">
-        <button data-speed="0" aria-pressed="false">II</button>
-        <button data-speed="1" aria-pressed="true">1×</button>
-        <button data-speed="3" aria-pressed="false">3×</button>
-        <button data-speed="6" aria-pressed="false">6×</button>
-      </div>
+    <div id="settings" class="pnl pop" hidden>
+      <div class="hd"><h2>Settings</h2></div>
+      <div class="row"><span>Graphics</span>
+        <div class="segc" role="group" aria-label="Graphics quality">
+          <button data-q="low" aria-pressed="false" title="Low: fast, for phones">Low</button>
+          <button data-q="high" aria-pressed="true" title="High: refraction, bloom, grass">High</button>
+          <button data-q="ultra" aria-pressed="false" title="Ultra: adds ambient occlusion and tilt-shift">Ultra</button>
+        </div></div>
+      <div class="row"><span>UI size</span>
+        <div class="segc" role="group" aria-label="UI size">
+          <button data-ui="0.9">90%</button><button data-ui="1">100%</button><button data-ui="1.15">115%</button><button data-ui="1.3">130%</button><button data-ui="1.5">150%</button>
+        </div></div>
     </div>
-  </header>
-  <nav id="tools" class="panel" aria-label="Tools">
-    <section>
-      <p class="grp-title">Terraform</p>
-      <div class="tgrid" id="tTerra"></div>
-      <div class="brush" role="group" aria-label="Brush size">
-        <button data-brush="0" aria-pressed="true">1×1</button>
-        <button data-brush="1" aria-pressed="false">3×3</button>
-        <button data-brush="2" aria-pressed="false">5×5</button>
+    <div id="log" class="pnl pop" hidden>
+      <div class="hd"><h2>Katheeb's log</h2></div>
+      <div id="logList"></div>
+    </div>
+
+    <section id="charter" class="pnl" aria-label="Charter">
+      <div class="hd"><h2>Charter</h2><button class="x" id="charterToggle" aria-expanded="false" aria-label="Show all charter goals">▾</button></div>
+      <div class="body">
+        <div class="goal" id="cGoal"></div>
+        <div class="why" id="cWhy"></div>
+        <div class="bar" id="cBar"><i></i></div>
+        <div class="barlbl"><span id="cProg"></span><span id="cCount"></span></div>
+        <ol id="goals" hidden></ol>
       </div>
     </section>
-    <section>
-      <p class="grp-title">Build</p>
-      <div class="tgrid" id="tBuild"></div>
-    </section>
-    <p class="hint">Left-drag paints the tool (in Survey it pans). Right-drag, Shift+drag, Q/E or the ⟲ ⟳ buttons rotate and tilt (two-finger twist on touch), wheel or pinch zooms, WASD pans. Raising land costs stone from the nearest harbor; lowering returns some.</p>
-  </nav>
-  <aside id="side" class="panel">
-    <button class="toggle" id="sideToggle" aria-expanded="true">Logbook ▾</button>
-    <section><h2>Charter</h2><ul class="goals" id="goals"></ul></section>
-    <section><h2>Islands</h2><table class="isl" id="islTable"></table></section>
-    <section><h2>Boats</h2><ul class="boats" id="boats"></ul></section>
-    <section><h2>Survey</h2><div id="insp"></div></section>
-  </aside>
-  <div id="toasts" aria-live="polite"></div>
+
+    <div id="advisor" aria-live="polite"></div>
+
+    <div id="mapbox" class="pnl">
+      <canvas id="mini" width="144" height="144" aria-label="Minimap: click to jump, drag to pan"></canvas>
+      <div class="compass">
+        <button class="cb" id="rotL" title="Rotate left (Q). Hold to keep turning" aria-label="Rotate camera left">⟲</button>
+        <button id="north" title="Face north" aria-label="Reset rotation to north"><span data-ico="needle"></span></button>
+        <button class="cb" id="rotR" title="Rotate right (E). Hold to keep turning" aria-label="Rotate camera right">⟳</button>
+        <button class="cb" id="home" title="Back to the capital" aria-label="Back to the capital">⌂</button>
+        <button class="cb" id="mapToggle" aria-label="Show minimap" aria-expanded="false" data-ico="map"></button>
+      </div>
+    </div>
+
+    <div id="build">
+      <div id="cards" class="pnl" hidden></div>
+      <nav id="bar" class="pnl" aria-label="Build"></nav>
+    </div>
+
+    <section id="sel" class="pnl" hidden aria-live="polite"></section>
+  </div>
+  <div id="tag" hidden></div>
+  <div id="tip" hidden></div>
+  <div id="help" hidden></div>
   <div id="loading">Charting the atoll…</div>
 </div>
 
@@ -186,15 +368,15 @@ const ISL=[ // islands on the atoll rim: angle (deg), angular half-extent, radia
 ];
 const PASS_ANG=150;
 const GOODS=['wood','stone','fish','sugar','rum'];
-const GOOD_LABEL={wood:'Wood',stone:'Stone',fish:'Fish',sugar:'Sugar',rum:'Rum'};
+const GOOD_LABEL={wood:'Wood',stone:'Coral stone',fish:'Fish',sugar:'Sugar',rum:'Rum'};
 const DEF={
   harbor:    {name:'Harbor',     key:'H', cost:{gold:300,wood:10}, upkeep:0.4, h:[0,1], jobs:0, info:'Island warehouse and boat berth. Needs a coastal tile; boats need deep water beside it.'},
-  house:     {name:'Compound',   key:'1', cost:{gold:60,wood:6},   upkeep:0,   h:[0,2], jobs:0, size:[3,2], info:'A goathi: a family plot inside a low coral wall, with an old coral-stone house. Needs 3×2 tiles of level ground. Up to 6 residents on fish, 12 with rum. Pays tax when fed.'},
-  fishery:   {name:'Fishery',    key:'2', cost:{gold:60,wood:5},   upkeep:0.15,h:[0,1], jobs:2, info:'Coast only. Catch grows with shallow reef tiles within 2.'},
-  lumber:    {name:'Lumber camp',key:'3', cost:{gold:50},          upkeep:0.1, h:[1,3], jobs:2, info:'Cuts wood from trees within 2 tiles. Terraforming clears trees.'},
-  quarry:    {name:'Quarry',     key:'4', cost:{gold:80,wood:5},   upkeep:0.25,h:[2,3], jobs:2, info:'Cuts coral stone from low ridges (height 2+). Coral Isle has the most. Higher ground yields more.'},
-  plantation:{name:'Sugar field',key:'5', cost:{gold:60,wood:4},   upkeep:0.15,h:[1,2], jobs:2, info:'Lowland (height 1–2). +50% within 2 tiles of water.'},
-  distillery:{name:'Distillery', key:'6', cost:{gold:150,wood:8,stone:6}, upkeep:0.4, h:[0,3], jobs:2, info:'Turns sugar into rum.'},
+  house:     {name:'Compound',   key:'C', cost:{gold:60,wood:6},   upkeep:0,   h:[0,2], jobs:0, size:[3,2], info:'A goathi: a family plot inside a low coral wall, with an old coral-stone house. Needs 3×2 tiles of level ground. Up to 6 residents on fish, 12 with rum. Pays tax when fed.'},
+  fishery:   {name:'Fishery',    key:'', cost:{gold:60,wood:5},   upkeep:0.15,h:[0,1], jobs:2, info:'Coast only. Catch grows with shallow reef tiles within 2.'},
+  lumber:    {name:'Lumber camp',key:'', cost:{gold:50},          upkeep:0.1, h:[1,3], jobs:2, info:'Cuts wood from trees within 2 tiles. Terraforming clears trees.'},
+  quarry:    {name:'Quarry',     key:'', cost:{gold:80,wood:5},   upkeep:0.25,h:[2,3], jobs:2, info:'Cuts coral stone from low ridges (height 2+). Coral Isle has the most. Higher ground yields more.'},
+  plantation:{name:'Sugar field',key:'', cost:{gold:60,wood:4},   upkeep:0.15,h:[1,2], jobs:2, info:'Lowland (height 1–2). +50% within 2 tiles of water.'},
+  distillery:{name:'Distillery', key:'', cost:{gold:150,wood:8,stone:6}, upkeep:0.4, h:[0,3], jobs:2, info:'Turns sugar into rum.'},
 };
 const TERRA={
   inspect:{name:'Survey',key:'V',cs:'look & pan'},
@@ -376,7 +558,7 @@ function planBoat(bt){
   if(!capB){bt.state='blocked';bt.why='No deep water beside the capital harbor';bt.path=null;return}
   let sx=Math.round(bt.x),sy=Math.round(bt.y);
   if(!inb(sx,sy)||S.h[idx(sx,sy)]>-2){
-    if(bt.state==='sail'){toast(`The ${islandName(hb)} boat ran aground and lost its cargo.`,'bad');bt.cargo={}}
+    if(bt.state==='sail'){toast(`The ${islandName(hb)} boat ran aground and lost its cargo.`,'bad',{x:sx,y:sy});bt.cargo={}}
     sx=hbB[0];sy=hbB[1];bt.x=sx;bt.y=sy;bt.dir='out';
   }
   const tgt=bt.dir==='out'?capB:hbB;
@@ -442,26 +624,25 @@ function canPlaceAt(type,fp,free){
   return{ok:true,fp};
 }
 function place(type,x,y){
-  const r=canPlace(type,x,y);if(!r.ok){if(r.why)toast(r.why,'bad');return false}
+  const r=canPlace(type,x,y);if(!r.ok){if(r.why)refuse(r.why);return false}
   const isl=islandOf(x,y),d=DEF[type];
   const st=type==='harbor'?capitalIsland().harbor.stock:stockOf(isl);
   for(const k in d.cost){if(k==='gold')S.gold-=d.cost.gold;else st[k]-=d.cost[k]}
   const b=addBuilding(type,r.fp.x,r.fp.y,r.fp.w,r.fp.d);
   if(type==='harbor'){computeIslands();
-    if(!berthOf(x,y))toast('Harbor built, but no deep water touches it. Lower a neighbouring shallow so boats can dock.','bad');
-    else toast(`Harbor founded on ${isl.name}. Its boat will try to sail for the capital.`,'good');
+    if(!berthOf(x,y))toast('Harbor built, but no deep water touches it. Lower a neighbouring shallow so boats can dock.','bad',{x,y});
+    else toast(`Harbor founded on ${isl.name}. Its boat will try to sail for the capital.`,'good',{x,y});
   }else b.isl=comp[idx(x,y)];
   return true;
 }
 function demolish(x,y){
   const b=bAt(x,y);if(!b)return;
-  if(b.id===S.capital){toast('The capital harbor cannot be demolished','bad');return}
+  if(b.id===S.capital){refuse('The capital harbor cannot be demolished');return}
   S.gold+=Math.floor((DEF[b.type].cost.gold||0)/2);
   if(b.type==='harbor'&&!b.merged){const other=S.buildings.find(o=>o!==b&&o.type==='harbor'&&o.isl===b.isl);if(other)for(const g of GOODS)other.stock[g]+=b.stock[g]}
   S.buildings=S.buildings.filter(o=>o!==b);
   for(let ty=b.y;ty<b.y+(b.d||1);ty++)for(let tx=b.x;tx<b.x+(b.w||1);tx++)S.bld[idx(tx,ty)]=-1;dirtyTrees=true;dirtyTerrain=true;
   if(b.type==='harbor')computeIslands();
-  toast(`${DEF[b.type].name} demolished`);
 }
 
 // ---------- sand roads ----------
@@ -471,7 +652,7 @@ function buildRoad(x,y){
   if(S.h[i]<0)return{ok:false,why:'Roads need land'};
   if(S.bld[i]>=0)return{ok:true};                    // roads simply run up to a building
   if(S.gold<2)return{ok:false,why:'Need 2 gold per road tile'};
-  S.gold-=2;S.road[i]=1;if(S.tree[i]){S.tree[i]=0;dirtyTrees=true}dirtyTerrain=true;return{ok:true};
+  S.gold-=2;spend.g+=2;S.road[i]=1;if(S.tree[i]){S.tree[i]=0;dirtyTrees=true}dirtyTerrain=true;return{ok:true};
 }
 function removeRoad(x,y){if(!inb(x,y))return;const i=idx(x,y);if(!S.road[i])return;S.road[i]=0;S.gold+=1;dirtyTerrain=true}
 
@@ -488,7 +669,7 @@ function terraform(x,y,mode,target){
   const src=nearestHarborIsland(x,y),st=src?.harbor?.stock,gold=4*steps;
   if(S.gold<gold)return{ok:false,why:'Not enough gold to move earth'};
   if(up&&(!st||st.stone<steps))return{ok:false,why:`Need ${steps} stone at ${src?src.name:'a harbor'} to raise land`};
-  S.gold-=gold;if(up)st.stone-=steps;else if(st)st.stone+=steps*0.5;
+  S.gold-=gold;spend.g+=gold;if(up){st.stone-=steps;spend.s+=steps}else if(st){st.stone+=steps*0.5;spend.s-=steps*0.5}
   const wasLand=cur>=0,isLand=to>=0;
   S.h[i]=to;if(S.tree[i]){S.tree[i]=0;dirtyTrees=true}if(to<0)S.road[i]=0;
   if(wasLand!==isLand)origin[i]=255;
@@ -500,7 +681,7 @@ function terraform(x,y,mode,target){
 function step(dt){
   S.t+=dt;
   for(const isl of islands){isl.res=0;isl.jobs=0}
-  for(const b of S.buildings){const isl=islands[b.isl];if(!isl)continue;if(b.type==='house')isl.res+=b.res;else isl.jobs+=DEF[b.type].jobs}
+  for(const b of S.buildings){const isl=islands[b.isl];if(!isl)continue;if(b.type==='house')isl.res+=b.res;else if(!b.off)isl.jobs+=DEF[b.type].jobs}
   for(const isl of islands)isl.eff=isl.jobs?Math.min(1,isl.res/isl.jobs):1;
   let income=0,upkeep=0;
   for(const b of S.buildings){
@@ -508,6 +689,7 @@ function step(dt){
     const isl=islands[b.isl],st=stockOf(isl);
     if(b.type==='harbor'){b.status=b.merged?`Merged into the ${isl?.name} warehouse`:(berthOf(b.x,b.y)?'Berth open':'No deep-water berth');continue}
     if(!st){b.eff=0;b.status='No harbor on this island';continue}
+    if(b.off){b.eff=0;b.rate=0;b.status='Paused';continue}
     const e=isl.eff;b.eff=e;
     switch(b.type){
       case'house':{
@@ -542,7 +724,7 @@ const GOALS=[
   {id:'pop',   t:'Reach 200 residents across the atoll',    s:'', ok:()=>totalPop()>=200},
 ];
 const totalPop=()=>S.buildings.reduce((a,b)=>a+(b.type==='house'?b.res:0),0);
-function checkGoals(){for(const g of GOALS){if(!S.goals[g.id]&&g.ok()){S.goals[g.id]=true;toast(`Charter goal met: ${g.t}`,'good');if(GOALS.every(x=>S.goals[x.id]))toast('Every charter goal met. The atoll thrives.','good')}}}
+function checkGoals(){for(const g of GOALS){if(!S.goals[g.id]&&g.ok()){S.goals[g.id]=true;toast(`Charter goal met: ${g.t}`,'good');const c=$('charter');c.classList.remove('won');void c.offsetWidth;c.classList.add('won');if(GOALS.every(x=>S.goals[x.id]))toast('Every charter goal met. The atoll thrives.','good')}}}
 // =====================================================================
 // 3D: physically based renderer, sky + image-based light, splat-mapped terrain,
 // refracting ocean, textured foliage and buildings, post-processing
@@ -1056,7 +1238,7 @@ function syncBuildings(t){
       m.rotation.y=b.type==='house'?plotRot(b):(hash2(b.x,b.y,1)*4|0)*Math.PI/2;
       const pip=new THREE.Mesh(new THREE.SphereGeometry(.07,10,8),mat.pip);pip.position.y=1.05;pip.visible=false;m.add(pip);m.userData.pip=pip;scene.add(m);bMeshes.set(b.id,m)}
     if(b.type==='harbor'){const h=berthOf(b.x,b.y);const fx=h?h[0]-b.x:0,fz=h?h[1]-b.y:1;m.rotation.y=Math.atan2(fx,fz)}
-    const bad=b.type==='harbor'?(!b.merged&&!berthOf(b.x,b.y)):(b.eff<0.5||/Hungry|No /.test(b.status));
+    const bad=b.type==='harbor'?(!b.merged&&!berthOf(b.x,b.y)):!b.off&&(b.eff<0.5||/Hungry|No /.test(b.status));
     m.userData.pip.visible=bad;if(bad)m.userData.pip.position.y=1.05+Math.sin(t*3)*.05;
   }
   for(const[id,m]of bMeshes)if(!live.has(id)){scene.remove(m);bMeshes.delete(id)}
@@ -1159,7 +1341,7 @@ function applyAt(t,first){
   if(tool==='inspect')return;
   if(tool==='road'){let err=null;
     for(let dy=-brush;dy<=brush;dy++)for(let dx=-brush;dx<=brush;dx++){const r=buildRoad(t.x+dx,t.y+dy);if(!r.ok&&r.why)err=r.why}
-    if(err)toast(err,'bad');return}
+    if(err)refuse(err);return}
   if(first&&tool==='flatten')stroke.target=S.h[idx(t.x,t.y)];
   let coast=false,err=null;
   for(let dy=-brush;dy<=brush;dy++)for(let dx=-brush;dx<=brush;dx++){
@@ -1167,7 +1349,7 @@ function applyAt(t,first){
     const r=terraform(x,y,tool,stroke.target);
     if(r.ok){stroke.done.add(k);if(r.coast)coast=true}else if(r.why)err=r.why;
   }
-  if(err)toast(err,'bad');
+  if(err)refuse(err);
   if(coast){const before=islands.length;computeIslands();if(islands.length!==before)toast(islands.length<before?'Islands joined by land. Their warehouses now share stock.':'Land split apart. Each piece needs its own harbor.',islands.length<before?'good':'')}
 }
 cv.addEventListener('contextmenu',e=>e.preventDefault());
@@ -1175,105 +1357,446 @@ cv.addEventListener('pointerdown',e=>{
   cv.setPointerCapture(e.pointerId);pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(pointers.size===2){stroke=null;drag=null;const[a,b]=[...pointers.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y),a:Math.atan2(b.y-a.y,b.x-a.x),cx:(a.x+b.x)/2,cy:(a.y+b.y)/2,dist:cam.dist,yaw:cam.yaw};return}
   // rotate: right or middle drag, or Shift/Alt/Ctrl + left drag (trackpads, one-button mice)
-  if(e.button===2||e.button===1||(e.button===0&&(e.shiftKey||e.altKey||e.ctrlKey))){cam.goal=null;drag={mode:'rot',x:e.clientX,y:e.clientY};return}
+  if(e.button===2||e.button===1||(e.button===0&&(e.shiftKey||e.altKey||e.ctrlKey))){cam.goal=null;drag={mode:'rot',x:e.clientX,y:e.clientY,moved:0,btn:e.button};return}
   if(tool==='inspect'&&e.button===0){drag={mode:'pan',x:e.clientX,y:e.clientY,moved:0};return}
-  stroke={done:new Set(),target:0,last:null};const t=pick(e.clientX,e.clientY);if(t){stroke.last=t.x+','+t.y;applyAt(t,true)}
+  spend={g:0,s:0};stroke={done:new Set(),target:0,last:null};const t=pick(e.clientX,e.clientY);if(t){stroke.last=t.x+','+t.y;applyAt(t,true)}
 });
 cv.addEventListener('pointermove',e=>{
+  mouse.x=e.clientX;mouse.y=e.clientY;
   if(pointers.has(e.pointerId))pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(pinch&&pointers.size===2){const[a,b]=[...pointers.values()];const d=Math.hypot(a.x-b.x,a.y-b.y),an=Math.atan2(b.y-a.y,b.x-a.x);
     cam.goal=null;cam.dist=pinch.dist*pinch.d/Math.max(20,d);cam.yaw=pinch.yaw+(an-pinch.a);const cx=(a.x+b.x)/2,cy=(a.y+b.y)/2;panBy(cx-pinch.cx,cy-pinch.cy);pinch.cx=cx;pinch.cy=cy;return}
   if(drag){const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.x=e.clientX;drag.y=e.clientY;
-    if(drag.mode==='rot'){cam.yaw-=dx*0.006;cam.pitch+=dy*0.005}else{panBy(dx,dy);drag.moved+=Math.abs(dx)+Math.abs(dy)}return}
+    drag.moved+=Math.abs(dx)+Math.abs(dy);if(drag.mode==='rot'){cam.yaw-=dx*0.006;cam.pitch+=dy*0.005}else panBy(dx,dy);return}
   const t=pick(e.clientX,e.clientY);hover=t;
   if(stroke&&t){const k=t.x+','+t.y;if(k!==stroke.last){stroke.last=k;applyAt(t,false)}}
-  else if(t)inspect(t);
 });
 function endPtr(e){
-  if(drag&&drag.mode==='pan'&&drag.moved<6&&tool==='inspect'){const t=pick(e.clientX,e.clientY);if(t){selected=t;inspect(t)}}
+  // a click in Survey selects; a right-click without dragging drops the tool
+  if(drag&&drag.mode==='pan'&&drag.moved<6&&tool==='inspect'){const t=pick(e.clientX,e.clientY);const b=t&&bAt(t.x,t.y);if(b)selectBuilding(b);else closeSel()}
+  if(drag&&drag.mode==='rot'&&drag.btn===2&&drag.moved<6){if(tool!=='inspect')setTool('inspect');else closeSel()}
   pointers.delete(e.pointerId);if(pointers.size<2)pinch=null;if(pointers.size===0){stroke=null;drag=null}}
 cv.addEventListener('pointerup',endPtr);cv.addEventListener('pointercancel',endPtr);
 cv.addEventListener('pointerleave',()=>{hover=null});
 cv.addEventListener('wheel',e=>{e.preventDefault();cam.dist*=Math.exp(e.deltaY*0.0012)},{passive:false});
 const keys=new Set();
 window.addEventListener('keydown',e=>{
+  if(e.key==='F1'){e.preventDefault();toggleHelp();return}
+  if(e.key==='Escape'){escape();return}
+  if(!$('help').hidden||e.ctrlKey||e.metaKey||e.altKey)return;
+  const onCtl=document.activeElement&&document.activeElement!==document.body&&document.activeElement!==cv;
+  if(e.key==='Tab'){if(!onCtl){e.preventDefault();nextIsland(e.shiftKey?-1:1)}return}
   const k=e.key.toLowerCase();keys.add(k);
+  if(/^[1-6]$/.test(k)){const c=CATS[+k-1].id;setCat(openCat===c?null:c);return}
   for(const[id,d]of Object.entries(TERRA))if(d.key.toLowerCase()===k)setTool(id);
-  for(const[id,d]of Object.entries(DEF))if(d.key.toLowerCase()===k)setTool(id);
+  for(const[id,d]of Object.entries(DEF))if(d.key&&d.key.toLowerCase()===k)setTool(id);
   if(k==='b')setBrush((brush+1)%3);
-  if(k===' '){e.preventDefault();setSpeed(speed?0:1)}
+  if(k===' '&&!onCtl){e.preventDefault();setSpeed(speed?0:1)}
 });
 window.addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));
 window.addEventListener('blur',()=>keys.clear());
 
-// ---------- UI ----------
+// ---------- UI (layout and rules: the "Island Sim UI Design" doc) ----------
 const $=id=>document.getElementById(id);
-let selected=null;
-function costText(c){return Object.entries(c).map(([k,v])=>k==='gold'?`${v}g`:`${v} ${k}`).join(' · ')}
-function buildToolbar(){
-  $('tTerra').innerHTML=Object.entries(TERRA).map(([id,d])=>`<button class="tool${id==='demolish'?' wide':''}" data-tool="${id}" aria-pressed="false"><span class="nm">${d.name}<kbd>${d.key}</kbd></span><span class="cs">${d.cs}</span></button>`).join('');
-  $('tBuild').innerHTML=Object.entries(DEF).map(([id,d])=>`<button class="tool" data-tool="${id}" aria-pressed="false" title="${d.info}"><span class="nm">${d.name}<kbd>${d.key}</kbd></span><span class="cs">${costText(d.cost)}</span></button>`).join('');
-  document.querySelectorAll('[data-tool]').forEach(b=>b.addEventListener('click',()=>setTool(b.dataset.tool)));
-  document.querySelectorAll('[data-brush]').forEach(b=>b.addEventListener('click',()=>setBrush(+b.dataset.brush)));
-  document.querySelectorAll('[data-speed]').forEach(b=>b.addEventListener('click',()=>setSpeed(+b.dataset.speed)));
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+// one in-house icon set: filled silhouettes on a 24-unit grid
+const ICON={
+  gold:'M12 2.5a9.5 9.5 0 1 0 0 19 9.5 9.5 0 0 0 0-19zM9.6 9.6h4.8v4.8H9.6z',
+  wood:'M3 6.5h13.5a2.75 2.75 0 0 1 0 5.5H3zM17 7.9a1.35 1.35 0 1 0 0 2.7 1.35 1.35 0 0 0 0-2.7zM5 13h13.5a2.75 2.75 0 0 1 0 5.5H5zM19 14.4a1.35 1.35 0 1 0 0 2.7 1.35 1.35 0 0 0 0-2.7z',
+  stone:'M4 8.5L8.5 4h7L20 8.5v7L15.5 20h-7L4 15.5zM8.5 8.5h2.2v2.2H8.5zM13 11.5h2.4v2.4H13zM9.5 14h1.8v1.8H9.5z',
+  fish:'M1.5 12C4.5 7 10.5 6 15 9.2L21 6v12l-6-3.2C10.5 18 4.5 17 1.5 12zM7 10.8a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4z',
+  sugar:'M7.5 2h2.4v20H7.5zM14 2h2.4v20H14zM6.5 7.5h4.4v1.6H6.5zM13 12h4.4v1.6H13zM6.5 15.5h4.4v1.6H6.5zM13 5h4.4v1.6H13zM10 6c3-3 6-3.5 9-3-2.5 1-5 2.5-8 4.5zM4 11c1-2.5 2.5-3.5 4-3.5L7.5 9C6 9.5 5 10.5 4 11z',
+  rum:'M7 2.5h10c1.8 3.2 1.8 15.8 0 19H7C5.2 18.3 5.2 5.7 7 2.5zM6.2 7.5h11.6V9H6.2zM6.2 15h11.6v1.5H6.2zM11 10.5h2v3h-2z',
+  people:'M9 3.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7zM2 20.5c0-4 3.1-7.5 7-7.5s7 3.5 7 7.5zM17 5a3 3 0 1 1 0 6 3 3 0 0 1 0-6zM17.5 12.5c2.6.3 4.5 3.4 4.5 7h-4.5c0-2.6-.8-5-2.2-6.6.7-.3 1.4-.4 2.2-.4z',
+  sun:'M12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10zM11 .5h2v4h-2zM11 19.5h2v4h-2zM.5 11h4v2h-4zM19.5 11h4v2h-4zM3.5 5L5 3.5l2.8 2.8-1.5 1.5zM16.2 17.7l1.5-1.5 2.8 2.8-1.5 1.5zM3.5 19l2.8-2.8 1.5 1.5L5 20.5zM16.2 6.3L19 3.5l1.5 1.5-2.8 2.8z',
+  menu:'M3 5h18v2.4H3zM3 10.8h18v2.4H3zM3 16.6h18V19H3z',
+  bell:'M12 2a6 6 0 0 1 6 6v5l2 3v1.5H4V16l2-3V8a6 6 0 0 1 6-6zM9.5 19h5a2.5 2.5 0 0 1-5 0z',
+  terra:'M11 2h2v8h-2zM7.5 9.5h9v4.5a4.5 4.5 0 0 1-9 0zM1 20.5c2-1.8 4-1.8 5.5 0s3.5 1.8 5.5 0 3.5-1.8 5.5 0 3.5 1.8 5.5 0V23c-2 1.3-3.8 1-5.5-.5-1.7 1.5-3.8 1.5-5.5 0-1.7 1.5-3.8 1.5-5.5 0C4.8 24 3 24.3 1 23z',
+  homes:'M1.5 21.5v-10l3-2v12zM22.5 21.5v-10l-3-2v12zM6 21.5V12l6-5.5 6 5.5v9.5h-4v-5h-4v5z',
+  axe:'M13.5 2.5c3.5.5 6.5 3 7.5 6.5l-4.5 1.5-1.2-1.2L5.5 21 3 18.5 14.8 8.7l-1.3-1.3z',
+  harbour:'M1.5 14.5h21l-3.2 5.5H5zM11 2.5v11H4.5zM13 4.5l7 9h-7z',
+  road:'M9 2h2.2L9 22H4.5zM12.8 2H15l4.5 20H15zM11.3 5.5h1.4v3.5h-1.4zM11.2 12h1.6v4.5h-1.6z',
+  raise:'M12 2.5l6.5 7.5H14v6h-4v-6H5.5zM2 19.5h20V22H2z',
+  lower:'M12 17L5.5 9.5H10v-6h4v6h4.5zM2 19.5h20V22H2z',
+  level:'M2 16h20v6H2zM2 10.5h20v2.5H2zM6 5.5h12V8H6z',
+  demolish:'M4.5 2.5L21.5 19.5 19.5 21.5 2.5 4.5zM19.5 2.5l2 2-17 17-2-2z',
+  survey:'M10 2.5a7.5 7.5 0 1 1 0 15 7.5 7.5 0 0 1 0-15zM10 5a5 5 0 1 0 0 10 5 5 0 0 0 0-10zM15.2 17l1.8-1.8 5 5-1.8 1.8z',
+  pause:'M6 4h4v16H6zM14 4h4v16h-4z',
+  play:'M7 4l13 8-13 8z',
+  pin:'M12 2a7 7 0 0 1 7 7c0 5-7 13-7 13S5 14 5 9a7 7 0 0 1 7-7zM12 6.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z',
+  map:'M2 5l6-2.5 8 3 6-2.5v16l-6 2.5-8-3L2 21zM8 5v13.5M16 8v13',
+};
+ICON.map='M2 5.5L8 3l8 3 6-2.5v15L16 21l-8-3-6 2.5zM9 5.6v10.8l6 2.2V7.8z';
+ICON.gear=(()=>{let d='';const n=8,st=Math.PI*2/n;for(let k=0;k<n;k++){const c=k*st;for(const[r,a]of[[8.4,c-.24],[11,c-.15],[11,c+.15],[8.4,c+.24]])d+=(d?'L':'M')+(12+r*Math.sin(a)).toFixed(2)+' '+(12-r*Math.cos(a)).toFixed(2)}
+  return d+'zM15.5 12a3.5 3.5 0 1 0-7 0 3.5 3.5 0 0 0 7 0z'})();
+const ico=n=>n==='needle'?'<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.5l4 10.5H8z" fill="#e0533f"/><path d="M12 22.5L8 12h8z" fill="#f2ece0"/></svg>'
+  :`<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICON[n]||''}"/></svg>`;
+const GOOD_ICO={gold:'gold',wood:'wood',stone:'stone',fish:'fish',sugar:'sugar',rum:'rum'};
+const TOOL_ICO={inspect:'survey',raise:'raise',lower:'lower',flatten:'level',road:'road',demolish:'demolish',harbor:'harbour',house:'homes',fishery:'fish',lumber:'wood',quarry:'stone',plantation:'sugar',distillery:'rum'};
+const CATS=[
+  {id:'terra',   name:'Terraform',ico:'terra',  tools:['raise','lower','flatten'],brush:true},
+  {id:'homes',   name:'Homes',    ico:'homes',  tools:['house']},
+  {id:'food',    name:'Food',     ico:'fish',   tools:['fishery']},
+  {id:'industry',name:'Industry', ico:'axe',    tools:['lumber','quarry','plantation','distillery']},
+  {id:'harbour', name:'Harbour',  ico:'harbour',tools:['harbor']},
+  {id:'roads',   name:'Roads',    ico:'road',   tools:['road'],brush:true},
+];
+const TOOL_COST={raise:{gold:4,stone:1},lower:{gold:4},flatten:{gold:4},road:{gold:2}};
+const TOOL_TIP={
+  inspect:'Click a building or an island\'s name to see its details. Left-drag pans the view.',
+  raise:'Raises land one step. Each step costs 4 gold and 1 coral stone from the nearest harbor.',
+  lower:'Lowers land one step for 4 gold and returns half a coral stone. Lower shallows to let boats through.',
+  flatten:'Every tile you paint takes the height of the first one. 4 gold per step.',
+  road:'A sand road between buildings. 2 gold per tile; clears trees, and nothing grows on it.',
+  demolish:'Removes a building for half its gold back, or a road tile for 1 gold.',
+};
+const MAKES={house:'Tax gold',fishery:'Fish',lumber:'Wood',quarry:'Coral stone',plantation:'Sugar',distillery:'Rum',harbor:'A warehouse and a boat to the capital'};
+const NEEDS={house:'Fish; rum doubles the tax',distillery:'Sugar'};
+const catOf=id=>CATS.find(c=>c.tools.includes(id))?.id||null;
+const toolName=id=>DEF[id]?.name||TERRA[id]?.name;
+const toolKey=id=>DEF[id]?.key||TERRA[id]?.key||'';
+const toolCost=id=>DEF[id]?.cost||TOOL_COST[id]||null;
+const PORTRAIT='<svg viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" fill="#d9a441"/><path d="M5 40c1-9 7-13 15-13s14 4 15 13z" fill="#f2ece0"/><path d="M17 27h6l-3 5z" fill="#a3362a"/><circle cx="20" cy="18" r="8" fill="#8a5a3a"/><path d="M11.5 14.5c0-7 17-7 17 0z" fill="#f2ece0"/><path d="M11.5 14h17v1.8h-17z" fill="#a3362a"/><path d="M16.5 22.5c2 1.6 5 1.6 7 0" stroke="#3a2416" stroke-width="1.2" fill="none"/><circle cx="17" cy="18.5" r="1" fill="#2a1a10"/><circle cx="23" cy="18.5" r="1" fill="#2a1a10"/></svg>';
+
+let openCat=null,sel=null,uiIsl=null,mouse={x:0,y:0},tagErr=null,spend={g:0,s:0},unread=0;
+const LOG=[];
+function fmt(n){const a=Math.abs(n);return a>=10000?(n/1000).toFixed(0)+'k':a>=1000?(n/1000).toFixed(1)+'k':Math.floor(n).toString()}
+const rate1=v=>v>=10?Math.round(v).toString():v.toFixed(1);
+
+// the island whose warehouse the top bar shows: the one under the camera, else the nearest settled one
+function viewIsland(){const tx=Math.floor(cam.tx),tz=Math.floor(cam.tz);const isl=inb(tx,tz)?islandOf(tx,tz):null;
+  return isl&&isl.harbor?isl:(nearestHarborIsland(cam.tx,cam.tz)||capitalIsland())}
+// what an island's buildings make and use, per second
+function flows(isl){const f={};for(const g of GOODS)f[g]={make:0,use:0};if(!isl)return f;
+  for(const b of S.buildings){if(b.isl!==isl.id||b.off)continue;const r=b.rate||0;
+    switch(b.type){case'fishery':f.fish.make+=r;break;case'lumber':f.wood.make+=r;break;case'quarry':f.stone.make+=r;break;case'plantation':f.sugar.make+=r;break;
+      case'distillery':f.rum.make+=r;f.sugar.use+=r*2;break;
+      case'house':f.fish.use+=0.012*b.res;if(/rum/.test(b.status)&&/enjoying/.test(b.status))f.rum.use+=0.005*b.res;break}}
+  return f}
+function chipsHTML(cost,st){return Object.entries(cost).map(([k,v])=>{const have=k==='gold'?S.gold:(st?st[k]:0);return`<span class="chip${have<v?' no':''}">${ico(GOOD_ICO[k])}${v}</span>`}).join('')}
+function stockFor(id){return id==='harbor'?capitalIsland()?.harbor?.stock:stockOf(uiIsl)}
+
+// ----- build bar and cards -----
+function renderBar(){
+  $('bar').innerHTML=`<button class="tab" data-tool="inspect" aria-pressed="true" data-tip="tool:inspect">${ico('survey')}Survey<kbd>V</kbd></button><span class="bsep"></span>`+
+    CATS.map((c,i)=>`<button class="tab" data-cat="${c.id}" aria-pressed="false" aria-expanded="false" aria-controls="cards">${ico(c.ico)}${c.name}<kbd>${i+1}</kbd></button>`).join('')+
+    `<span class="bsep"></span><button class="tab danger" data-tool="demolish" aria-pressed="false" data-tip="tool:demolish">${ico('demolish')}Demolish<kbd>X</kbd></button>`;
+}
+function setCat(id){if(openCat===id)return;openCat=id;renderCards()}
+function renderCards(){
+  const c=CATS.find(c=>c.id===openCat);$('cards').hidden=!c;
+  if(c){$('cards').innerHTML=c.tools.map(id=>`<button class="card" data-tool="${id}" aria-pressed="${tool===id}" data-tip="tool:${id}">${ico(TOOL_ICO[id])}<span class="nm">${toolName(id)}</span><span class="chips" data-chips="${id}"></span>${toolKey(id)?`<kbd>${toolKey(id)}</kbd>`:''}</button>`).join('')+
+      (c.brush?`<div class="brushes"><span class="lbl2">Brush <kbd>B</kbd></span><div class="segc" role="group" aria-label="Brush size">${[0,1,2].map(n=>`<button data-brush="${n}" aria-pressed="${brush===n}">${2*n+1}×${2*n+1}</button>`).join('')}</div></div>`:'');
+    $('cards').classList.remove('slide');void $('cards').offsetWidth;$('cards').classList.add('slide');updateChips()}
+  syncPressed();
+}
+function syncPressed(){
+  document.querySelectorAll('[data-tool]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.tool===tool));
+  document.querySelectorAll('[data-cat]').forEach(b=>{b.setAttribute('aria-pressed',b.dataset.cat===openCat||(!openCat&&catOf(tool)===b.dataset.cat));b.setAttribute('aria-expanded',b.dataset.cat===openCat)});
+  document.querySelectorAll('[data-brush]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.brush===brush));
+}
+function updateChips(){document.querySelectorAll('[data-chips]').forEach(el=>{const id=el.dataset.chips;el.innerHTML=chipsHTML(toolCost(id),stockFor(id))})}
+function setTool(id){tool=id;cv.style.cursor=id==='inspect'?'grab':'crosshair';
+  const c=catOf(id);if(c&&c!==openCat){openCat=c;renderCards()}else if(id==='inspect'&&openCat){openCat=null;renderCards()}else syncPressed()}
+function setBrush(n){brush=n;syncPressed()}
+let speed=1;function setSpeed(n){speed=n;document.querySelectorAll('[data-speed]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.speed===n))}
+const TERR_NAME=h=>h<=-3?'Open ocean':h===-2?'Deep water (boats sail)':h===-1?'Shallow reef (blocks boats, feeds fish)':h===0?'Beach':h===1?'Island ground':h===2?'Low coral ridge':'Raised mound';
+
+// ----- tooltips: hover, keyboard focus, or a long press -----
+function tipHTML(key){const[kind,id]=key.split(':');const isl=uiIsl;
+  if(kind==='tool'){
+    if(id in DEF){const d=DEF[id],sz=d.size?`${d.size[0]}×${d.size[1]}`:'1×1';
+      return`<div class="t">${d.name}</div><div>${esc(d.info)}</div><hr><div><span class="k">Makes</span> ${MAKES[id]}</div>${NEEDS[id]?`<div><span class="k">Needs</span> ${NEEDS[id]}</div>`:''}<div class="k">Size ${sz} · height ${d.h[0]}–${d.h[1]} · ${d.jobs?d.jobs+' workers':'no workers'} · upkeep ${d.upkeep} gold/s</div>`}
+    return`<div class="t">${toolName(id)}</div><div>${TOOL_TIP[id]}</div>${toolKey(id)?`<div class="k">Key ${toolKey(id)}${TERRA[id]&&['raise','lower','flatten','road'].includes(id)?' · B changes the brush':''}</div>`:''}`}
+  if(kind==='good'){const st=stockOf(isl),f=flows(isl)[id];
+    return`<div class="t">${GOOD_LABEL[id]} on ${esc(isl?.name||'no island')}</div><div class="num">${st?Math.floor(st[id]):0} in the warehouse</div><hr><div class="num"><span class="k">Made</span> ${rate1(f.make*60)} a minute</div><div class="num"><span class="k">Used</span> ${rate1(f.use*60)} a minute</div><div class="k">Boats also carry goods to and from the capital.</div>`}
+  if(kind==='gold'){let inc=0,up=0;for(const b of S.buildings){up+=DEF[b.type].upkeep;if(b.type==='house'&&/^Fed/.test(b.status))inc+=0.1*b.res*(/enjoying/.test(b.status)?2:1)}
+    return`<div class="t">Gold</div><div class="num"><span class="k">Tax</span> +${rate1(inc*60)} a minute</div><div class="num"><span class="k">Upkeep</span> −${rate1(up*60)} a minute</div><div class="k">Fed compounds pay tax; rum doubles it.</div>`}
+  if(kind==='pop')return`<div class="t">Residents</div>`+islands.filter(i=>i.harbor).map(i=>`<div class="num">${esc(i.name)}: ${Math.floor(i.res)} residents, ${i.jobs} jobs</div>`).join('')+'<div class="k">Each worked building needs 2 residents.</div>';
+  if(kind==='isl')return`<div class="t">${esc(isl?.name||'')}</div><div>The goods shown are in this island's warehouse. Pan to another island to see its stock, or press Tab.</div>`;
+  if(kind==='day')return`<div class="t">Day ${1+Math.floor(S.t/30)}</div><div>A day lasts 30 seconds at normal speed.</div>`;
+  return''}
+let tipFor=null,tipTimer=0;
+function showTip(el){const h=tipHTML(el.dataset.tip);if(!h)return;tipFor=el;const t=$('tip');t.innerHTML=h;t.hidden=false;
+  const r=el.getBoundingClientRect(),tw=t.offsetWidth,th=t.offsetHeight,W0=innerWidth,H0=innerHeight;
+  let x=Math.max(8,Math.min(W0-tw-8,r.left+r.width/2-tw/2)),y=r.top>H0/2?r.top-th-10:r.bottom+10;t.style.left=x+'px';t.style.top=Math.max(8,y)+'px'}
+function hideTip(){tipFor=null;$('tip').hidden=true;clearTimeout(tipTimer)}
+
+// ----- top bar -----
+function renderRes(){
+  $('res').innerHTML=`<button class="isl-chip" id="islChip" data-tip="isl">${ico('harbour')}<span id="islName"></span></button>`+
+    `<button class="ctr keep" data-k="gold" data-tip="gold" aria-label="Gold">${ico('gold')}<b></b><i class="tr"></i></button><span class="sep"></span>`+
+    GOODS.map(g=>`<button class="ctr" data-k="${g}" data-tip="good:${g}" aria-label="${GOOD_LABEL[g]}">${ico(GOOD_ICO[g])}<b></b><i class="tr"></i></button>`).join('')+
+    `<span class="sep"></span><button class="ctr keep" data-k="pop" data-tip="pop" aria-label="Residents">${ico('people')}<b></b></button>`;
+}
+function setCtr(k,val,trend,out,keep){const el=document.querySelector(`.ctr[data-k="${k}"]`);if(!el)return;el.querySelector('b').textContent=val;
+  const tr=el.querySelector('.tr');if(tr){const a=Math.abs(trend||0),show=a>=0.5;tr.textContent=show?(trend>0?'▲':'▼')+fmt(Math.round(a)):'';tr.className='tr'+(show?trend>0?' up':' dn':'')}
+  el.classList.toggle('out',!!out);if(keep!=null&&k!=='gold'&&k!=='pop')el.classList.toggle('keep',keep)}
+
+// ----- charter -----
+const GOAL_PROG={grow:()=>[capitalIsland()?.res||0,30],rum:()=>[S.stats.rum,25],pop:()=>[totalPop(),200]};
+function renderCharter(){
+  const open=GOALS.find(g=>!S.goals[g.id]),done=GOALS.filter(g=>S.goals[g.id]).length;let f=1,prog='Done';
+  if(open){const p=GOAL_PROG[open.id]?.();f=p?Math.min(1,p[0]/p[1]):0;prog=p?`${Math.floor(p[0])} / ${p[1]}`:'Not yet'}
+  $('cGoal').textContent=open?open.t:'Every charter goal met';$('cWhy').textContent=open?open.s:'The atoll thrives. Keep building.';
+  $('cBar').firstChild.style.width=(f*100).toFixed(1)+'%';$('cProg').textContent=prog;$('cCount').textContent=`${done} of ${GOALS.length} met`;
+  $('goals').innerHTML=GOALS.map(g=>`<li class="${S.goals[g.id]?'done':g===open?'now':''}">${esc(g.t)}</li>`).join('');
+}
+
+// ----- advisor feed (replaces toasts); the log keeps the last 20 -----
+const toastMem=new Map();
+function toast(msg,kind='',at=null){
+  const now=performance.now();if(toastMem.has(msg)&&now-toastMem.get(msg)<2500)return;toastMem.set(msg,now);
+  LOG.unshift({msg,kind,day:S?1+Math.floor(S.t/30):1,at});if(LOG.length>20)LOG.pop();
+  if($('log').hidden){unread++;renderBadge()}else renderLog();
+  const el=document.createElement(at?'button':'div');el.className=`msg pnl slide ${kind}${at?' go':''}`;
+  el.innerHTML=`<span class="portrait">${PORTRAIT}</span><span><span class="who">The katheeb${at?' · click to go there':''}</span>${esc(msg)}</span>`;
+  if(at)el.addEventListener('click',()=>jumpTo(at.x,at.y));
+  $('advisor').appendChild(el);while($('advisor').children.length>3)$('advisor').firstChild.remove();
+  setTimeout(()=>el.classList.add('fade'),6000);setTimeout(()=>el.remove(),6700);
+}
+function renderBadge(){const b=$('logBtn');let s=b.querySelector('.badge');if(!unread){s?.remove();return}if(!s){s=document.createElement('span');s.className='badge';b.appendChild(s)}s.textContent=unread>9?'9+':unread}
+function renderLog(){$('logList').innerHTML=LOG.length?LOG.map((m,i)=>`<${m.at?'button':'div'} class="item ${m.kind}" data-log="${i}"><span class="d">Day ${m.day}</span><span>${esc(m.msg)}</span></${m.at?'button':'div'}>`).join(''):'<div class="item">Nothing to report yet.</div>'}
+const alerted=new Map();
+function warnOnce(k,msg,at){if(alerted.has(k)&&S.t-alerted.get(k)<120)return;alerted.set(k,S.t);toast(msg,'bad',at)}
+function checkAlerts(){
+  for(const isl of islands){const hb=isl.harbor;if(!hb)continue;const st=hb.stock,f=flows(isl),at={x:hb.x,y:hb.y};
+    if(f.fish.use>0&&st.fish<1)warnOnce(isl.name+':fish',`${isl.name} is out of fish. Its compounds go hungry and stop paying tax.`,at);
+    if(f.sugar.use>0&&st.sugar<1)warnOnce(isl.name+':sugar',`The distillery on ${isl.name} is waiting for sugar.`,at);
+    if(isl.jobs>isl.res+1)warnOnce(isl.name+':jobs',`${isl.name} has more jobs than residents, so work slows. Build more compounds.`,at)}
+  for(const bt of boats)if(bt.state==='blocked'){const hb=byId(bt.home);if(hb)warnOnce('boat'+bt.home,`The ${islandName(hb)} boat is stuck. ${bt.why}`,{x:Math.round(bt.x),y:Math.round(bt.y)})}
+}
+
+// ----- selection and island panels -----
+function selectBuilding(b){sel=b?{kind:'b',id:b.id,armed:false}:null;renderSel(true)}
+function openIsland(isl){sel=isl?{kind:'isl',name:isl.name,hid:isl.harbor?.id}:null;renderSel(true)}
+function closeSel(){sel=null;renderSel()}
+function selIsland(){return islands.find(i=>sel.hid&&i.harbor&&i.harbor.id===sel.hid)||islands.find(i=>i.name===sel.name)}
+let selHTML='';
+function renderSel(fresh){
+  const el=$('sel');let h='';
+  if(sel?.kind==='b'){const b=byId(sel.id);if(b)h=buildingHTML(b);else sel=null}
+  else if(sel?.kind==='isl'){const isl=selIsland();if(isl)h=islandHTML(isl);else sel=null}
+  if(!h){el.hidden=true;selHTML='';return}
+  if(h===selHTML&&!fresh)return;selHTML=h;
+  const focus=document.activeElement?.closest?.('#sel')?document.activeElement.dataset.act:null;
+  el.innerHTML=h;el.hidden=false;if(fresh){el.classList.remove('slide');void el.offsetWidth;el.classList.add('slide')}
+  if(focus)el.querySelector(`[data-act="${focus}"]`)?.focus();
+}
+const node=(icon,n,lbl,me)=>`<div class="node${me?' me':''}">${ico(icon)}${n!=null?`<b>${n}</b>`:''}<span>${lbl}</span></div>`;
+function buildingHTML(b){
+  const d=DEF[b.type],isl=islands[b.isl],per=v=>rate1(v*60);
+  const status=b.off?'Paused':b.status||'';const cls=b.off?'warn':/Hungry|No |Waiting|stuck/.test(status)||b.eff<.5?'bad':b.eff<1&&b.type!=='house'?'warn':'';
+  let flow='',rows='',extra='';
+  const me=node(TOOL_ICO[b.type],null,d.name,true),arr='<span class="arr">→</span>';
+  switch(b.type){
+    case'house':{const fed=/^Fed/.test(b.status),lux=/enjoying/.test(b.status),cap=lux?12:6;
+      flow=node('fish',per(0.012*b.res),'fish/min')+(lux?node('rum',per(0.005*b.res),'rum/min'):'')+arr+me+arr+node('gold',fed?per(0.1*b.res*(lux?2:1)):'0','tax/min');
+      rows=`<span class="k">Residents</span><div class="bar"><i style="width:${Math.min(100,b.res/cap*100)}%"></i></div><b class="num">${b.res.toFixed(1)} / ${cap}</b>`;
+      extra=`<div class="need"><span class="${fed?'ok':'no'}">${ico('fish')}Fish ${fed?'✓':'✗'}</span><span class="${lux?'ok':'no'}">${ico('rum')}Rum ${lux?'✓':'✗'}</span></div>`;break}
+    case'harbor':{const hb=isl?.harbor;extra=hb?stockHTML(isl):'';break}
+    case'distillery':flow=node('sugar',per((b.rate||0)*2),'sugar/min')+arr+me+arr+node('rum',per(b.rate||0),'rum/min');break;
+    default:{const g={fishery:'fish',lumber:'wood',quarry:'stone',plantation:'sugar'}[b.type];flow=me+arr+node(g,per(b.rate||0),GOOD_LABEL[g].toLowerCase()+'/min')}
+  }
+  if(d.jobs){const filled=b.off?0:Math.round((isl?.eff??0)*d.jobs);
+    rows+=`<span class="k">Workers</span><div class="bar${filled<d.jobs?' warn':''}"><i style="width:${filled/d.jobs*100}%"></i></div><b class="num">${filled} / ${d.jobs}</b>`+
+      `<span class="k">Output</span><div class="bar${b.eff<.5?' bad':b.eff<1?' warn':''}"><i style="width:${(b.eff*100).toFixed(0)}%"></i></div><b class="num">${Math.round(b.eff*100)}%</b>`}
+  const refund=Math.floor((d.cost.gold||0)/2);
+  const acts=[];
+  if(d.jobs)acts.push(`<button class="btn" data-act="pause">${ico(b.off?'play':'pause')}${b.off?'Resume':'Pause'}</button>`);
+  if(b.type==='harbor')acts.push(`<button class="btn" data-act="island">${ico('harbour')}Island</button>`);
+  if(b.id!==S.capital)acts.push(`<button class="btn red" data-act="demolish">${ico('demolish')}${sel.armed?'Click again to demolish':`Demolish (+${refund})`}</button>`);
+  return`<div class="hd">${ico(TOOL_ICO[b.type])}<div class="t"><h2>${d.name}${b.id===S.capital?' ★':''}</h2><small>${esc(isl?.name||'')}${b.id===S.capital?' · capital':''}</small></div><button class="x" data-act="close" aria-label="Close">×</button></div>`+
+    `<div class="body"><div class="status ${cls}">${esc(status)}</div>${flow?`<div class="flow">${flow}</div>`:''}${extra}${rows?`<div class="kv">${rows}</div>`:''}${acts.length?`<div class="acts">${acts.join('')}</div>`:''}</div>`;
+}
+function stockHTML(isl){const st=isl.harbor.stock,f=flows(isl);
+  return`<div class="stock">${GOODS.map(g=>{const net=(f[g].make-f[g].use)*60,a=Math.abs(net),out=st[g]<1&&f[g].use>0;
+    return`<div class="g${out?' out':''}" data-tip="good:${g}">${ico(GOOD_ICO[g])}<b>${fmt(st[g])}</b><span class="tr${a>=.5?net>0?' up':' dn':''}">${a>=.5?(net>0?'▲':'▼')+rate1(a):'steady'}</span></div>`}).join('')}</div>`}
+function islandHTML(isl){
+  const hb=isl.harbor,cap=hb&&hb.id===S.capital;
+  let body=`<div class="kv"><span class="k">Residents</span><span></span><b class="num">${Math.floor(isl.res)}</b>`+
+    (isl.jobs?`<span class="k">Jobs filled</span><div class="bar${isl.eff<1?' warn':''}"><i style="width:${(isl.eff*100).toFixed(0)}%"></i></div><b class="num">${Math.round(isl.eff*100)}%</b>`:'')+`</div>`;
+  if(hb){body+=stockHTML(isl);
+    const bt=boats.find(b=>b.home===hb.id);
+    body+=cap?`<div class="boat">${ico('harbour')}${boats.length?`${boats.length} boat${boats.length>1?'s':''} trade with the capital`:'No other harbors yet, so no boats.'}</div>`
+      :bt?`<div class="boat">${ico('harbour')}${bt.state==='blocked'?`<span style="color:#8c2a1f">${esc(bt.why)}</span>`:`Boat ${bt.dir==='out'?'sailing to the capital':'sailing home'} · ${bt.trips} trips`}</div>`
+      :`<div class="boat">${ico('harbour')}Goods move overland to the capital.</div>`;
+  }else body+=`<div class="sub">No harbor yet. Build one on its coast to settle ${esc(isl.name)}.</div>`;
+  const at=hb||{x:Math.round(isl.cx),y:Math.round(isl.cy)};
+  body+=`<div class="acts"><button class="btn go" data-act="goto" data-x="${at.x}" data-y="${at.y}">${ico('pin')}Go there</button></div>`;
+  return`<div class="hd">${ico('harbour')}<div class="t"><h2>${esc(isl.name)}${cap?' ★':''}</h2><small>${cap?'Capital island':hb?'Settled island':'Unsettled'}</small></div><button class="x" data-act="close" aria-label="Close">×</button></div><div class="body">${body}</div>`;
+}
+function selAction(act,btn){
+  if(act==='close')return closeSel();
+  if(act==='goto')return jumpTo(+btn.dataset.x,+btn.dataset.y);
+  const b=sel?.kind==='b'?byId(sel.id):null;if(!b)return;
+  if(act==='pause'){b.off=!b.off;renderSel()}
+  else if(act==='island')openIsland(islands[b.isl]);
+  else if(act==='demolish'){if(!sel.armed){sel.armed=true;renderSel();return}demolish(b.x,b.y);closeSel()}
+}
+function jumpTo(x,y){cam.goal=cam.goal;cam.tx=x+.5;cam.tz=y+.5;cam.dist=Math.min(cam.dist,80)}
+function nextIsland(dir){const list=islands.filter(i=>i.harbor).sort((a,b)=>a.harbor.id-b.harbor.id);if(!list.length)return;
+  const cur=sel?.kind==='isl'?selIsland():uiIsl;let k=list.indexOf(cur);k=k<0?0:(k+dir+list.length)%list.length;
+  const isl=list[k];jumpTo(isl.harbor.x,isl.harbor.y);openIsland(isl)}
+// outline around the selected building's plot
+const selBox=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1,.5,1)),new THREE.LineBasicMaterial({color:'#d9a441',transparent:true,depthTest:false,toneMapped:false}));
+selBox.renderOrder=10;selBox.visible=false;scene.add(selBox);
+
+// ----- minimap and compass -----
+const mctx=$('mini').getContext('2d'),mimg=mctx.createImageData(W,H);
+const MCOL={'-3':[19,74,94],'-2':[31,125,140],'-1':[79,196,192],'0':[241,227,191],'1':[156,196,106],'2':[201,180,138],'3':[179,154,112]};
+const gp=new THREE.Vector3();
+function groundAt(nx,ny){ndc.set(nx,ny);ray.setFromCamera(ndc,camera);const o=ray.ray.origin,d=ray.ray.direction;let t=d.y<-1e-3?-o.y/d.y:400;t=Math.min(t,400);return gp.set(o.x+d.x*t,0,o.z+d.z*t).clone()}
+function drawMini(){
+  const p=mimg.data;
+  for(let i=0;i<W*H;i++){const h=S.h[i];let c=MCOL[h]||MCOL[0];
+    if(S.road[i])c=[216,195,154];else if(h>=1&&S.tree[i]===1)c=[95,148,69];
+    const id=S.bld[i];if(id>=0){const b=byId(id);c=b.type==='house'?[250,246,236]:b.type==='harbor'?[163,54,42]:[217,164,65]}
+    p[i*4]=c[0];p[i*4+1]=c[1];p[i*4+2]=c[2];p[i*4+3]=255}
+  mctx.putImageData(mimg,0,0);
+  for(const bt of boats){mctx.fillStyle=bt.state==='blocked'?'#ff6b5a':'#ffffff';mctx.fillRect(bt.x-1,bt.y-1,3,3)}
+  const q=[groundAt(-1,-1),groundAt(1,-1),groundAt(1,1),groundAt(-1,1)];
+  mctx.beginPath();q.forEach((v,i)=>i?mctx.lineTo(v.x,v.z):mctx.moveTo(v.x,v.z));mctx.closePath();
+  mctx.fillStyle='rgba(242,236,224,.16)';mctx.fill();mctx.strokeStyle='#f2ece0';mctx.lineWidth=1;mctx.stroke();
+}
+function miniJump(e){const r=$('mini').getBoundingClientRect();cam.tx=(e.clientX-r.left)/r.width*W;cam.tz=(e.clientY-r.top)/r.height*H}
+
+// ----- cursor tag: cost, running total, and why a tile is refused -----
+function refuse(msg){tagErr={msg,until:performance.now()+2400}}
+let tagHTML='';
+function updateTag(){
+  const el=$('tag');
+  if(!hover||tool==='inspect'||drag||pinch){el.hidden=true;tagHTML='';return}
+  let h='',bad=false;const i=idx(hover.x,hover.y);
+  if(tool in DEF){const d=DEF[tool],r=canPlace(tool,hover.x,hover.y),isl=islandOf(hover.x,hover.y);
+    const st=tool==='harbor'?capitalIsland()?.harbor?.stock:stockOf(isl);
+    h=`<div class="t">${d.name}</div><div class="chips">${chipsHTML(d.cost,st)}</div>`;if(!r.ok&&r.why){bad=true;h+=`<div class="why">${esc(r.why)}</div>`}}
+  else if(tool==='demolish'){const b=bAt(hover.x,hover.y);
+    if(b){h=`<div class="t">Demolish ${DEF[b.type].name}</div>`;if(b.id===S.capital){bad=true;h+='<div class="why">The capital harbor cannot be demolished</div>'}else h+=`<div>Refund ${Math.floor((DEF[b.type].cost.gold||0)/2)} gold</div>`}
+    else if(S.road[i])h='<div class="t">Remove sand road</div><div>Refund 1 gold</div>';else h='<div class="t">Demolish</div><div class="sub">Nothing to remove here</div>'}
+  else{const hv=S.h[i];h=`<div class="t">${TERRA[tool].name}${brush?` · ${2*brush+1}×${2*brush+1}`:''}</div><div class="sub">${TERR_NAME(hv)} · height ${hv}</div>`;
+    if(stroke&&(spend.g||spend.s))h+=`<div class="chips"><span class="chip">${ico('gold')}${Math.round(spend.g)}</span>${spend.s?`<span class="chip">${ico('stone')}${spend.s>0?'':'+'}${fmt(Math.abs(spend.s))}</span>`:''}</div>`;
+    else h+=`<div class="chips">${chipsHTML(TOOL_COST[tool],stockOf(uiIsl))}<span class="sub">${tool==='road'?'per tile':'per step'}</span></div>`}
+  if(tagErr&&tagErr.until>performance.now()){bad=true;h+=`<div class="why">${esc(tagErr.msg)}</div>`}
+  if(h!==tagHTML){el.innerHTML=h;tagHTML=h}
+  el.className=bad?'bad':'';el.hidden=false;
+  const flip=mouse.x>innerWidth-290;el.style.left=mouse.x+'px';el.style.top=mouse.y+'px';el.style.transform=flip?'translate(calc(-100% - 16px),14px)':'';
+}
+
+// ----- help overlay (F1) -----
+function toggleHelp(force){const el=$('help');const show=force??el.hidden;if(!show){el.hidden=true;return}
+  closePops();
+  const note=(id,title,text,place)=>{const r=$(id).getBoundingClientRect();return`<div class="note" style="${place(r)}"><b>${title}</b>${text}</div>`};
+  const W0=innerWidth,H0=innerHeight;
+  el.innerHTML=
+    note('res','Top bar','Gold, then the goods in the warehouse of the island you are looking at, then residents. Arrows show the change per minute. A red counter has run out. Hover any counter for detail.',r=>`left:${Math.max(8,r.left+r.width/2-330)}px;top:${r.bottom+14}px`)+
+    note('charter','Charter','Your current goal and how close you are. ▾ lists every goal.',r=>`right:${W0-r.right}px;top:${r.bottom+12}px`)+
+    note('advisor','The katheeb','Your island chief reports here. Click a message to go to the place; the bell keeps the last 20.',r=>`left:${r.left}px;top:${Math.max(r.top,130)}px`)+
+    note('mapbox','Minimap and compass','Click to jump, drag to pan. ⟲ ⟳ rotate, ⌂ returns to the capital, and the needle points north: click it to face north.',r=>`left:${r.right+12}px;bottom:${H0-r.bottom}px`)+
+    note('bar','Build bar','Pick a category (1–6), then a building card. Hover a card for what it needs and makes. Right-click or Esc drops the tool.',r=>`left:${Math.max(8,r.left+r.width/2-120)}px;bottom:${H0-r.top+(openCat?90:14)}px`)+
+    `<div class="keys pnl"><div class="hd"><h2>How to play</h2></div><table>
+      <tr><td>Click</td><td>A building or an island's name for details</td></tr>
+      <tr><td>Right or middle drag</td><td>Rotate and tilt (also Shift + drag)</td></tr>
+      <tr><td>Wheel · WASD</td><td>Zoom · pan</td></tr>
+      <tr><td>1–6</td><td>Open a build category</td></tr>
+      <tr><td>R / F / T · G</td><td>Raise / lower / level · sand road</td></tr>
+      <tr><td>B · X · V</td><td>Brush size · demolish · survey</td></tr>
+      <tr><td>Q / E</td><td>Rotate the camera</td></tr>
+      <tr><td>Tab</td><td>Next settled island</td></tr>
+      <tr><td>Space</td><td>Pause</td></tr>
+      <tr><td>Esc</td><td>Drop the tool, close a panel, then open the menu</td></tr>
+    </table><span class="close">Press F1 or Esc, or click anywhere, to close</span></div>`;
+  el.hidden=false}
+
+// ----- popovers -----
+const POPS=[['menuBtn','menu'],['setBtn','settings'],['logBtn','log']];
+function closePops(){for(const[b,p]of POPS){$(p).hidden=true;$(b).setAttribute('aria-expanded','false')}}
+function togglePop(p){const was=!$(p).hidden;closePops();if(was)return;const b=POPS.find(x=>x[1]===p)[0];$(p).hidden=false;$(b).setAttribute('aria-expanded','true');
+  if(p==='log'){unread=0;renderBadge();renderLog()}}
+function setUI(v){document.documentElement.style.setProperty('--ui',v);try{localStorage.setItem('islandsim.ui',v)}catch(e){}
+  document.querySelectorAll('[data-ui]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.ui===+v))}
+function escape(){
+  if(!$('help').hidden)return toggleHelp(false);
+  if(POPS.some(([,p])=>!$(p).hidden))return closePops();
+  if(tool!=='inspect')return setTool('inspect');
+  if(openCat)return setCat(null);
+  if(sel)return closeSel();
+  togglePop('menu');
+}
+
+function initUI(){
+  document.querySelectorAll('[data-ico]').forEach(el=>el.innerHTML=ico(el.dataset.ico));
+  renderBar();renderRes();
+  $('hud').addEventListener('click',e=>{
+    const t=e.target.closest('button');if(!t)return;
+    if(t.dataset.cat)return setCat(openCat===t.dataset.cat?null:t.dataset.cat);
+    if(t.dataset.tool)return setTool(t.dataset.tool);
+    if(t.dataset.brush)return setBrush(+t.dataset.brush);
+    if(t.dataset.speed)return setSpeed(+t.dataset.speed);
+    if(t.dataset.q)return setQuality(t.dataset.q);
+    if(t.dataset.ui)return setUI(t.dataset.ui);
+    if(t.closest('#sel')&&t.dataset.act)return selAction(t.dataset.act,t);
+    if(t.dataset.log){const m=LOG[+t.dataset.log];if(m?.at)jumpTo(m.at.x,m.at.y);return}
+    if(t.dataset.act==='help'){closePops();return toggleHelp(true)}
+    if(t.dataset.act==='home'){closePops();return homeCam()}
+    if(t.dataset.act==='settings')return togglePop('settings');
+    if(t.closest('#res'))return uiIsl&&openIsland(uiIsl);
+  });
+  for(const[b,p]of POPS)$(b).addEventListener('click',()=>togglePop(p));
+  document.addEventListener('pointerdown',e=>{if(!e.target.closest('.pop,.ib'))closePops()});
+  $('help').addEventListener('click',()=>toggleHelp(false));
+  $('charterToggle').addEventListener('click',()=>{const o=$('goals').hidden;$('goals').hidden=!o;$('charterToggle').setAttribute('aria-expanded',o);$('charterToggle').textContent=o?'▴':'▾'});
+  $('mapToggle').addEventListener('click',()=>{const m=$('mapbox');m.classList.toggle('open');$('mapToggle').setAttribute('aria-expanded',m.classList.contains('open'))});
+  const mini=$('mini');let md=false;
+  mini.addEventListener('pointerdown',e=>{md=true;mini.setPointerCapture(e.pointerId);miniJump(e)});
+  mini.addEventListener('pointermove',e=>{if(md)miniJump(e)});
+  mini.addEventListener('pointerup',()=>md=false);mini.addEventListener('pointercancel',()=>md=false);
+  $('north').addEventListener('click',()=>{cam.goal=Math.round(cam.yaw/(Math.PI*2))*Math.PI*2});
+  $('home').addEventListener('click',homeCam);
   // rotate buttons: a tap turns 45° smoothly, holding spins until released
   [['rotL',1],['rotR',-1]].forEach(([id,dir])=>{const b=$(id);let t0=0;
     b.addEventListener('pointerdown',e=>{b.setPointerCapture(e.pointerId);t0=performance.now();cam.spin=dir;cam.goal=null});
     const up=()=>{if(!cam.spin)return;cam.spin=0;if(performance.now()-t0<280)cam.goal=Math.round((cam.yaw+dir*Math.PI/4)/(Math.PI/4))*(Math.PI/4)};
     b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);
-    b.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();cam.goal=(cam.goal??cam.yaw)+dir*Math.PI/4}})});$('home').addEventListener('click',homeCam);
-  document.querySelectorAll('[data-q]').forEach(b=>b.addEventListener('click',()=>setQuality(b.dataset.q)));
-  $('sideToggle').addEventListener('click',()=>{const s=$('side');s.classList.toggle('closed');$('sideToggle').setAttribute('aria-expanded',!s.classList.contains('closed'))});
+    b.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();cam.goal=(cam.goal??cam.yaw)+dir*Math.PI/4}})});
+  // tooltips
+  const hud=$('hud');
+  hud.addEventListener('pointerover',e=>{if(e.pointerType==='touch')return;const el=e.target.closest('[data-tip]');if(el&&el!==tipFor)showTip(el);else if(!el&&tipFor)hideTip()});
+  hud.addEventListener('pointerleave',hideTip);
+  hud.addEventListener('focusin',e=>{const el=e.target.closest('[data-tip]');if(el)showTip(el);else hideTip()});
+  hud.addEventListener('focusout',hideTip);
+  hud.addEventListener('pointerdown',e=>{if(e.pointerType!=='touch')return;const el=e.target.closest('[data-tip]');if(el)tipTimer=setTimeout(()=>showTip(el),500)});
+  hud.addEventListener('pointerup',e=>{if(e.pointerType==='touch'){clearTimeout(tipTimer);setTimeout(hideTip,1500)}});
+  let ui=1;try{ui=+(localStorage.getItem('islandsim.ui')||1)}catch(e){}setUI(ui);
+  renderCards();
 }
-function setTool(id){tool=id;document.querySelectorAll('[data-tool]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.tool===id));cv.style.cursor=id==='inspect'?'grab':'crosshair';
-  if(id in DEF)setInsp(`<div class="ttl">${DEF[id].name}</div><div>${DEF[id].info}</div><div class="k">Cost ${costText(DEF[id].cost)} · upkeep ${DEF[id].upkeep}g/s</div>`)}
-function setBrush(n){brush=n;document.querySelectorAll('[data-brush]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.brush===n))}
-let speed=1;function setSpeed(n){speed=n;document.querySelectorAll('[data-speed]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.speed===n))}
-const TERR_NAME=h=>h<=-3?'Open ocean':h===-2?'Deep water (boats sail)':h===-1?'Shallow reef (blocks boats, feeds fish)':h===0?'Beach':h===1?'Island ground':h===2?'Low coral ridge':'Raised mound';
-function setInsp(html){$('insp').innerHTML=html}
-function inspect(t){
-  if(!t||!inb(t.x,t.y))return;
-  if(tool in DEF){const r=canPlace(tool,t.x,t.y);setInsp(`<div class="ttl">${DEF[tool].name}</div><div>${r.ok?'<span class="pos">Can build here</span>':`<span class="neg">${r.why}</span>`}</div><div class="k">${DEF[tool].info}</div>`);return}
-  const i=idx(t.x,t.y),hv=S.h[i],isl=islandOf(t.x,t.y),b=bAt(t.x,t.y);
-  let s=`<div class="ttl">${TERR_NAME(hv)}</div><div class="k">Height ${hv}${isl?` · ${isl.name}`:''}${S.tree[i]?' · trees':''}${S.road[i]?' · sand road':''}</div>`;
-  if(b)s+=`<div style="margin-top:4px"><b>${DEF[b.type].name}</b>${b.type==='house'?` · ${b.res.toFixed(1)} residents`:''}${b.rate!=null&&b.type!=='house'&&b.type!=='harbor'?` · ${(b.rate*60).toFixed(0)}/min`:''}</div><div class="k">${b.status||''}</div>`;
-  setInsp(s);
-}
-function fmt(n){return Math.abs(n)>=1000?(n/1000).toFixed(1)+'k':Math.floor(n).toString()}
 function updateUI(){
-  $('sGold').textContent=fmt(S.gold);$('sGold').className=S.gold<0?'neg':'';
-  const r=S.rate||0;$('sRate').textContent=(r>=0?'+':'')+r.toFixed(1)+'/s';$('sRate').className=r>=0?'pos':'neg';
-  $('sPop').textContent=Math.floor(totalPop());$('sDay').textContent=1+Math.floor(S.t/30);
-  const rows=islands.filter(i=>i.n>=60||i.harbor).sort((a,b)=>(b.harbor?1:0)-(a.harbor?1:0)||b.n-a.n);
-  $('islTable').innerHTML=`<tr><th>Island</th><th>Pop</th>${GOODS.map(g=>`<th title="${GOOD_LABEL[g]}">${GOOD_LABEL[g].slice(0,4)}</th>`).join('')}</tr>`+
-    rows.map(i=>`<tr><td>${i.name}${i.harbor&&i.harbor.id===S.capital?' ★':''}</td><td>${Math.floor(i.res)}</td>${GOODS.map(g=>`<td>${i.harbor?Math.floor(i.harbor.stock[g]):'–'}</td>`).join('')}</tr>`).join('');
-  $('boats').innerHTML=boats.length?boats.map(bt=>{const hb=byId(bt.home);const c=bt.state==='blocked'?'var(--bad)':'var(--reef)';const cargo=Object.entries(bt.cargo).map(([g,v])=>`${v} ${g}`).join(', ');
-    return`<li><span class="dot" style="background:${c}"></span><span>${islandName(hb)} ⇄ capital: ${bt.state==='blocked'?`<span class="neg">${bt.why}</span>`:`sailing ${bt.dir==='out'?'to capital':'home'}${cargo?` with ${cargo}`:''} · ${bt.trips} trips`}</span></li>`}).join(''):'<li class="hint">No boats yet. Build a harbor on another island and one will sail for the capital.</li>';
-  let firstOpen=true;
-  $('goals').innerHTML=GOALS.map(g=>{const d=S.goals[g.id];const now=!d&&firstOpen;if(now)firstOpen=false;return`<li class="${d?'done':now?'now':''}"><span class="ck"></span><span>${g.t}${g.s&&!d?`<span class="sub">${g.s}</span>`:''}</span></li>`}).join('');
-  if(selected&&tool==='inspect'&&!hover)inspect(selected);
+  const vi=viewIsland();uiIsl=vi;
+  $('islName').textContent=vi?vi.name:'No harbor';
+  setCtr('gold',fmt(S.gold),(S.rate||0)*60,S.gold<0);
+  const st=stockOf(vi),fl=flows(vi);let scarce=null,best=1e9;
+  for(const g of GOODS){if(fl[g].use>0){const c=(st?st[g]:0)/fl[g].use;if(c<best){best=c;scarce=g}}}
+  for(const g of GOODS)setCtr(g,st?fmt(st[g]):'–',(fl[g].make-fl[g].use)*60,st&&st[g]<1&&fl[g].use>0,g===scarce);
+  setCtr('pop',Math.floor(totalPop()));
+  $('sDay').textContent=1+Math.floor(S.t/30);
+  renderCharter();updateChips();renderSel();
+  if(tipFor&&!tipFor.isConnected)hideTip();else if(tipFor)$('tip').innerHTML=tipHTML(tipFor.dataset.tip)||$('tip').innerHTML;
 }
-const toastMem=new Map();
-function toast(msg,kind=''){
-  const now=performance.now();if(toastMem.has(msg)&&now-toastMem.get(msg)<2500)return;toastMem.set(msg,now);
-  const el=document.createElement('div');el.className=`toast panel ${kind}`;el.textContent=msg;$('toasts').appendChild(el);
-  while($('toasts').children.length>4)$('toasts').firstChild.remove();
-  setTimeout(()=>el.remove(),5200);
-}
-// floating island labels
-const labelEls=ISL.map(()=>{const d=document.createElement('div');d.className='lbl';$('labels').appendChild(d);return d});
+// floating island labels: click for the island panel
+const labelEls=ISL.map((I,k)=>{const d=document.createElement('button');d.className='lbl';d.textContent=I.name;
+  d.addEventListener('click',()=>{const c=islCentre(I);openIsland(islandOf(Math.round(c.x),Math.round(c.y)))});$('labels').appendChild(d);return d});
 const v3=new THREE.Vector3();
 function updateLabels(){
   ISL.forEach((I,k)=>{const c=islCentre(I);const isl=islandOf(Math.round(c.x),Math.round(c.y));const el=labelEls[k];
     const mid=isl&&isl.parts.length===1?{x:isl.cx,y:isl.cy}:c;v3.set(mid.x+.5,topY(2)+2.2,mid.y+.5).project(camera);
     if(v3.z>1||Math.abs(v3.x)>1.1||Math.abs(v3.y)>1.1){el.hidden=true;return}
-    el.hidden=false;el.textContent=I.name;el.style.left=((v3.x+1)/2*vw)+'px';el.style.top=((1-v3.y)/2*vh)+'px'})
+    el.hidden=false;el.style.left=((v3.x+1)/2*vw)+'px';el.style.top=((1-v3.y)/2*vh)+'px'})
 }
 
 function setQuality(n){Q=QUALITY[n];qName=n;try{localStorage.setItem('islandsim.quality',n)}catch(e){}
   document.querySelectorAll('[data-q]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.q===n));applyQuality()}
 // ---------- persistence for live updates ----------
-function snapshot(){return{v:4,h:Array.from(S.h),tree:Array.from(S.tree),road:Array.from(S.road),buildings:S.buildings.map(b=>({id:b.id,type:b.type,x:b.x,y:b.y,w:b.w,d:b.d,res:b.res,stock:b.stock})),gold:S.gold,t:S.t,nextId:S.nextId,stats:S.stats,goals:S.goals,capital:S.capital,origin:Array.from(origin),cam:{...cam}}}
+function snapshot(){return{v:4,h:Array.from(S.h),tree:Array.from(S.tree),road:Array.from(S.road),buildings:S.buildings.map(b=>({id:b.id,type:b.type,x:b.x,y:b.y,w:b.w,d:b.d,res:b.res,stock:b.stock,off:b.off})),gold:S.gold,t:S.t,nextId:S.nextId,stats:S.stats,goals:S.goals,capital:S.capital,origin:Array.from(origin),cam:{...cam}}}
 function restore(d){
   if(d.v!==4||!d.h||d.h.length!==W*H)throw new Error('old save');
   generate();
@@ -1286,7 +1809,7 @@ function restore(d){
 
 
 // ---------- loop ----------
-let last=0,acc=0,uiT=0,goalT=0;
+let last=0,acc=0,uiT=0,goalT=0,miniT=0,alertT=0;
 function frame(ts){
   const t=ts/1000,dt=Math.min(.1,t-(last||t));last=t;
   const kp=600*dt;
@@ -1298,6 +1821,8 @@ function frame(ts){
   if(cam.goal!=null){const d=cam.goal-cam.yaw;cam.yaw+=d*Math.min(1,dt*9);if(Math.abs(d)<.002){cam.yaw=cam.goal;cam.goal=null}}
   acc+=dt*speed;let n=0;while(acc>=.1&&n<20){step(.1);acc-=.1;n++}if(n>=20)acc=0;
   uiT+=dt;if(uiT>.25){uiT=0;updateUI()}
+  miniT+=dt;if(miniT>.2){miniT=0;drawMini()}
+  alertT+=dt;if(alertT>3){alertT=0;checkAlerts()}
   goalT+=dt;if(goalT>.5){goalT=0;checkGoals()}
   if(dirtyTerrain)rebuildTerrain();
   if(dirtyTrees)rebuildTrees();
@@ -1312,14 +1837,16 @@ function frame(ts){
     else{const r=(tool==='inspect'||tool==='demolish')?0:brush;cursor.visible=true;cursor.scale.set(2*r+1,1,2*r+1);cursor.position.set(hover.x+.5,gy+.3,hover.y+.5);
       cursor.material.color.set(tool==='raise'?'#ffcf5a':tool==='lower'?'#4fd1c5':tool==='demolish'?'#ff6b6b':'#f3e6c4')}
   }
-  applyCam();placeSun();sky.position.copy(camera.position);renderFrame();updateLabels();
+  const sb=sel?.kind==='b'?byId(sel.id):null;selBox.visible=!!sb;
+  if(sb){selBox.scale.set(sb.w||1,1,sb.d||1);const c=plotCentre(sb);selBox.position.set(c.x,topY(S.h[idx(sb.x,sb.y)])+.25,c.y)}
+  applyCam();placeSun();sky.position.copy(camera.position);renderFrame();updateLabels();updateTag();
+  $('north').firstChild.style.transform=`rotate(${cam.yaw}rad)`;
   requestAnimationFrame(frame);
 }
 async function start(data){
-  buildToolbar();
+  initUI();
   document.querySelectorAll('[data-q]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.q===qName));
   applyQuality();
-  if(vw<=760){$('side').classList.add('closed');$('sideToggle').setAttribute('aria-expanded','false')}
   try{[groundAlb.value,groundNor.value]=await Promise.all([loadArray(LAYERS.map(n=>n+'_albedo.jpg'),true),loadArray(LAYERS.map(n=>n+'_normal.jpg'),false)])}
   catch(e){$('loading').textContent='Some textures could not load. Check your connection and reload.';return}
   let restored=false;
@@ -1330,7 +1857,7 @@ async function start(data){
   window.claude?.hot?.snapshot?.(snapshot);
   $('loading').hidden=true;
   toast('Welcome, governor. Palm Isle is yours. Reshape the reef and lagoon to bind the atoll together.','good');
-  window.__island={S:()=>S,buildRoad,islands:()=>islands,boats:()=>boats,setTool,place,terraform,step,computeIslands,setSpeed,cam,setQuality,renderer,ready:true};
+  window.__island={S:()=>S,selectBuilding,openIsland,setCat,toggleHelp,byId,buildRoad,islands:()=>islands,boats:()=>boats,setTool,place,terraform,step,computeIslands,setSpeed,cam,setQuality,renderer,ready:true};
   requestAnimationFrame(frame);
 }
 window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.hot?.data??{});

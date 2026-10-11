@@ -6,7 +6,7 @@ A browser prototype of an Anno/Tropico-style city-builder set on one tropical at
 
 Serve the folder and open `index.html`, for example `python3 -m http.server` then http://localhost:8000. There is no build step; Three.js 0.170 loads from jsDelivr. Opening the file directly from disk will not work, because browsers block reading local textures.
 
-Pick a graphics preset in the header: **Lo** (phones), **Hi** (refraction, bloom, grass) or **Ul** (adds ambient occlusion and tilt-shift). The choice is remembered.
+Pick a graphics preset under the gear button at the top right: **Low** (phones), **High** (refraction, bloom, grass) or **Ultra** (adds ambient occlusion and tilt-shift). The same panel sets the UI size from 90% to 150%. Both are remembered.
 
 ## What's in it
 
@@ -15,11 +15,16 @@ Pick a graphics preset in the header: **Lo** (phones), **Hi** (refraction, bloom
 - Raise, lower and level land. Raising costs stone from the nearest harbor; lowering returns some.
 - Deep water carries boats, shallow reef blocks them but feeds fisheries. Dredge channels, build land bridges, or split islands.
 - Each island has its own warehouse; boats shuttle goods to the capital. Land bridges merge warehouses.
-- Compounds (walled 3×2 family plots with an old coral house) eat fish and pay more tax with rum. Fishery, lumber camp, quarry, sugar field and distillery.
+- Compounds (walled 3×2 family plots with an old coral house) eat fish and pay more tax with rum. Fishery, lumber camp, quarry, sugar field and distillery; worked buildings can be paused.
 
 ## Controls
 
-Left-drag paints the current tool (Survey pans). Right-drag, Shift+drag, Q/E or the ⟲ ⟳ buttons rotate (hold a button to keep turning; two-finger twist on touch), wheel or pinch zooms, WASD pans. Hotkeys: V survey, R raise, F lower, T level, G sand road, X demolish, H harbor, 1–6 buildings, B brush size, Space pause.
+The screen follows the UI design doc ("Island Sim UI Design"): a top bar with gold, the goods in the warehouse of the island you are looking at and residents; the charter card at the top right; the katheeb's messages on the left; the minimap and compass at the bottom left; the build bar at the bottom; and the selection panel at the bottom right. Press **F1** in the game for a labelled overlay.
+
+- **Build:** pick a category (1 Terraform, 2 Homes, 3 Food, 4 Industry, 5 Harbour, 6 Roads), then a card. Hover a card for what it needs and makes. The cursor shows the cost and, if a tile is refused, why. Right-click or Esc drops the tool.
+- **Inspect:** click a building for its inputs, outputs, workers and actions (pause, demolish), or an island's floating name for its warehouse. Tab jumps to the next settled island.
+- **Camera:** right or middle drag, Shift + drag, Q/E or the ⟲ ⟳ buttons rotate (hold to keep turning; two-finger twist on touch); wheel or pinch zooms; WASD pans; click or drag on the minimap to move; click the needle to face north.
+- **Keys:** V survey, R raise, F lower, T level, G sand road, X demolish, H harbor, C compound, B brush size, Space pause, Esc drop tool / close / menu, F1 help.
 
 ## Update log
 
