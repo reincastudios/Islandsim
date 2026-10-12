@@ -27,6 +27,9 @@ namespace IslandSim.Core
         /// <summary>The height Level flattens to (one of Defs.Levels).</summary>
         public int LevelTo = 1;
         public Stroke CurStroke;
+        /// <summary>What Plant puts down: 2 coconut palm, 1 shade tree, 3 mangrove (the Tree values).</summary>
+        public byte PlantKind = 2;
+        public const int PlantGold = 3;
         public static bool IsTerra(Tool t) => t == Tool.Raise || t == Tool.Lower || t == Tool.Flatten || t == Tool.Smooth;
 
         // one round brush, 1–9 tiles across: the tiles whose centres sit within half the size of the hovered tile's centre
@@ -136,6 +139,12 @@ namespace IslandSim.Core
             if (Tool == Tool.Build) { if (first) Place(BuildType, tx, ty); return; }
             if (Tool == Tool.Demolish) { if (BAt(tx, ty) != null) { if (first) Demolish(tx, ty); } else RemoveRoad(tx, ty); return; }
             if (Tool == Tool.Inspect) return;
+            if (Tool == Tool.Plant)
+            {
+                string err = null; int n = 0;
+                ForBrush(tx, ty, (x, y) => { var r = PlantTree(x, y, PlantKind); if (r.Ok && !r.Noop) n++; else if (!r.Ok && !string.IsNullOrEmpty(r.Why)) err = r.Why; });
+                if (n == 0 && err != null) Refuse(err); return;
+            }
             if (Tool == Tool.Road) { string err = null; ForBrush(tx, ty, (x, y) => { var r = BuildRoad(x, y); if (!r.Ok && !string.IsNullOrEmpty(r.Why)) err = r.Why; }); if (err != null) Refuse(err); return; }
             bool coast = false; string why = null;
             foreach (var (x, y, target) in BrushJobs(tx, ty))
@@ -152,8 +161,39 @@ namespace IslandSim.Core
             }
         }
 
+        // ------------------------------------------------------------ planting
+        /// <summary>Puts a tree on one tile: palms from the beach up, shade trees on land, mangroves in a kulhi. Tiles that already hold a tree are left alone (Noop). dry = only check and price it.</summary>
+        public TerraResult PlantTree(int x, int y, byte kind, bool dry = false)
+        {
+            if (!Inb(x, y)) return new TerraResult(); int i = Idx(x, y), h = Hgt[i];
+            if (Tree[i] != 0) return new TerraResult { Ok = true, Noop = true };
+            if (Bld[i] >= 0 || Road[i] != 0) return new TerraResult { Noop = true };      // buildings and roads simply keep their tile
+            if (Gt[i] == GT.Bird) return new TerraResult { Why = "Birds nest here. The island is protected." };
+            if (kind == 3)
+            {
+                if (Gt[i] != GT.Kulhi || h < 0) return new TerraResult { Why = "Mangroves only take root in a kulhi, the island's wetland" };
+            }
+            else
+            {
+                if (h < 0) return new TerraResult { Why = "Trees need land" };
+                if (kind == 1 && h < 1) return new TerraResult { Why = "Shade trees need land above the beach. Palms grow on sand." };
+                if (Gt[i] == GT.Kulhi) return new TerraResult { Why = "A kulhi takes mangroves, not dry-land trees" };
+                if (Gt[i] == GT.Pond || Gt[i] == GT.Taro) return new TerraResult { Why = $"Not in the {(Gt[i] == GT.Pond ? "pond" : "taro field")}" };
+            }
+            if (Gold < PlantGold) return new TerraResult { Why = $"Need {PlantGold} gold per tree" };
+            if (dry) return new TerraResult { Ok = true, Gold = PlantGold };
+            Gold -= PlantGold; SpendGold += PlantGold; Tree[i] = kind; MarkTrees(x, y);
+            return new TerraResult { Ok = true, Gold = PlantGold };
+        }
+
         public BrushPreview PreviewBrush(int tx, int ty)
         {
+            if (Tool == Tool.Plant)
+            {
+                var q = new BrushPreview();
+                ForBrush(tx, ty, (x, y) => { var r = PlantTree(x, y, PlantKind, true); if (r.Noop) return; if (r.Ok) { q.Gold += r.Gold; q.N++; } else q.Bad[(y - ty + 5) * 11 + (x - tx + 5)] = true; });
+                return q;
+            }
             if (!IsTerra(Tool)) return null; var p = new BrushPreview();
             foreach (var (x, y, target) in BrushJobs(tx, ty))
             {

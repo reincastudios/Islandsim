@@ -10,7 +10,7 @@ using static IslandSim.View.UiKit;
 namespace IslandSim.View
 {
     /// <summary>
-    /// The web game's HUD in UI Toolkit, same layout, wording and rules ("Island Sim UI Design"): the lacquer top bar with
+    /// The web game's HUD in UI Toolkit, same layout, wording and rules (restyled in clean Maldivian wood and coral stone): the teak top bar with
     /// the warehouse of the island in view, the charter card, the katheeb's advisor feed and log, the minimap and compass,
     /// the build bar with its cards, brush and level pickers, the selection and island panels, the cursor tag, tooltips,
     /// the F1 help overlay, saves, settings and the game-over box. It only reads the game, and changes it through the same
@@ -23,23 +23,23 @@ namespace IslandSim.View
         VisualElement root, hud;
 
         // ------------------------------------------------------------ the tool vocabulary (web ids)
-        static readonly string[] TerraIds = { "inspect", "raise", "lower", "flatten", "smooth", "road", "demolish" };
+        static readonly string[] TerraIds = { "inspect", "raise", "lower", "flatten", "smooth", "plant", "road", "demolish" };
         static readonly Dictionary<string, (string name, string key)> TERRA = new Dictionary<string, (string, string)>
         {
             ["inspect"] = ("Survey", "V"), ["raise"] = ("Raise", "R"), ["lower"] = ("Lower", "F"), ["flatten"] = ("Level", "T"),
-            ["smooth"] = ("Smooth", "Y"), ["road"] = ("Sand road", "G"), ["demolish"] = ("Demolish", "X"),
+            ["smooth"] = ("Smooth", "Y"), ["plant"] = ("Plant trees", "N"), ["road"] = ("Sand road", "G"), ["demolish"] = ("Demolish", "X"),
         };
         static readonly Dictionary<string, string> TOOL_ICO = new Dictionary<string, string>
         {
-            ["inspect"] = "survey", ["raise"] = "raise", ["lower"] = "lower", ["flatten"] = "level", ["smooth"] = "smooth", ["road"] = "road", ["demolish"] = "demolish",
+            ["inspect"] = "survey", ["raise"] = "raise", ["lower"] = "lower", ["flatten"] = "level", ["smooth"] = "smooth", ["plant"] = "plant", ["road"] = "road", ["demolish"] = "demolish",
             ["harbor"] = "harbour", ["house"] = "homes", ["fishery"] = "fish", ["drying"] = "racks", ["grove"] = "palm", ["toddy"] = "toddy", ["lumber"] = "wood",
             ["quarry"] = "stone", ["coir"] = "rope", ["cowrie"] = "cowrie", ["mosque"] = "mosque", ["palace"] = "palace",
         };
         static readonly string[] GOOD_ICO = { "wood", "stone", "fish", "coconut", "toddy", "hikimas", "rope", "cowrie", "rice" };
-        sealed class Cat { public string Id, Name, Ico; public string[] Tools; public bool Brush, Levels, Plots; }
+        sealed class Cat { public string Id, Name, Ico; public string[] Tools; public bool Brush, Levels, Plots, Plants; }
         static readonly Cat[] CATS =
         {
-            new Cat { Id = "terra", Name = "Terraform", Ico = "terra", Tools = new[] { "raise", "lower", "flatten", "smooth" }, Brush = true, Levels = true },
+            new Cat { Id = "terra", Name = "Terraform", Ico = "terra", Tools = new[] { "raise", "lower", "flatten", "smooth", "plant" }, Brush = true, Levels = true, Plants = true },
             new Cat { Id = "homes", Name = "Homes", Ico = "homes", Tools = new[] { "house" }, Plots = true },
             new Cat { Id = "food", Name = "Food", Ico = "fish", Tools = new[] { "fishery", "grove", "toddy", "drying" } },
             new Cat { Id = "industry", Name = "Industry", Ico = "axe", Tools = new[] { "lumber", "quarry", "coir", "cowrie" } },
@@ -48,7 +48,7 @@ namespace IslandSim.View
             new Cat { Id = "roads", Name = "Roads", Ico = "road", Tools = new[] { "road" }, Brush = true },
         };
         static readonly Dictionary<string, (int gold, int stone)> TOOL_COST = new Dictionary<string, (int, int)>
-        { ["raise"] = (4, 1), ["lower"] = (4, 0), ["flatten"] = (4, 0), ["smooth"] = (4, 0), ["road"] = (2, 0) };
+        { ["raise"] = (4, 1), ["lower"] = (4, 0), ["flatten"] = (4, 0), ["smooth"] = (4, 0), ["plant"] = (Sim.PlantGold, 0), ["road"] = (2, 0) };
         static readonly Dictionary<string, string> TOOL_TIP = new Dictionary<string, string>
         {
             ["inspect"] = "Click a building or an island's name to see its details. Left-drag pans the view.",
@@ -56,6 +56,7 @@ namespace IslandSim.View
             ["lower"] = "Lowers land one step for 4 gold and returns half a coral stone; hold still to keep lowering. Lower shallows to let boats through. The open ocean beyond the reef cannot be dredged.",
             ["flatten"] = "Every tile you paint takes the height picked under Level to: deep lagoon, boat channel, reef, beach, land or ridge. 4 gold per step; raising uses coral stone.",
             ["smooth"] = "Evens out bumps: each tile steps toward the average of its neighbours. Hold still to keep smoothing. 4 gold per step.",
+            ["plant"] = "Plants a tree on every open tile under the brush, 3 gold each: coconut palms from the beach up, shade trees on higher land, mangroves in a kulhi. Press N again to switch kind. Trees feed timber yards and shade trees spread on their own.",
             ["road"] = "A sand road between buildings. 2 gold per tile; clears trees, and nothing grows on it.",
             ["demolish"] = "Removes a building for half its gold back, or a road tile for 1 gold.",
         };
@@ -319,6 +320,7 @@ namespace IslandSim.View
             else SyncPressed();
         }
         public void SetBrush(int n) { S.SetBrush(n); SyncPressed(); }
+        public void SetPlant(byte k) { S.PlantKind = k; if (Tool != "plant") SetTool("plant"); else SyncPressed(); }
         public void SetLevel(int h) { S.LevelTo = h; if (Tool != "flatten") SetTool("flatten"); else SyncPressed(); }
         public void SetPlot(int n) { S.Plot = n; if (Tool != "house") SetTool("house"); else SyncPressed(); UpdateChips(); }
 
@@ -326,12 +328,16 @@ namespace IslandSim.View
         readonly List<(VisualElement el, string id)> chipBoxes = new List<(VisualElement, string)>();
         readonly List<(Button b, int h)> lvBtns = new List<(Button, int)>();
         readonly List<(Button b, int n)> plotBtns = new List<(Button, int)>();
-        VisualElement lvBox; Label bsV; SliderInt bsR;
+        readonly List<(VisualElement dot, int n)> pips = new List<(VisualElement, int)>();
+        readonly List<(Button b, byte k)> plantBtns = new List<(Button, byte)>();
+        VisualElement lvBox, plantBox; Label bsV;
+        static readonly (byte k, string ico, string name)[] PLANTS = { (2, "palm", "Coconut palm"), (1, "tree", "Shade tree"), (3, "mangrove", "Mangrove") };
+        static string PlantName(byte k) => PLANTS.First(p => p.k == k).name;
 
         void RenderCards()
         {
             var c = CATS.FirstOrDefault(x => x.Id == openCat); Show(cards, c != null);
-            cards.Clear(); cardBtns.Clear(); chipBoxes.Clear(); lvBtns.Clear(); plotBtns.Clear(); lvBox = null; bsV = null; bsR = null;
+            cards.Clear(); cardBtns.Clear(); chipBoxes.Clear(); lvBtns.Clear(); plotBtns.Clear(); pips.Clear(); plantBtns.Clear(); lvBox = plantBox = null; bsV = null;
             if (c != null)
             {
                 foreach (var id in c.Tools)
@@ -343,17 +349,31 @@ namespace IslandSim.View
                 }
                 if (c.Brush)
                 {
-                    bsR = new SliderInt(1, 9) { value = S.BrushSize }; bsR.RegisterValueChangedCallback(e => SetBrush(e.newValue));
-                    var box = K.E("brushes", Gap(K.E("lbl2", K.L("Brush size"), K.L("[", "kbd"), K.L("]", "kbd")), 4),
-                        K.E("bsz", K.T("−", null, () => SetBrush(S.BrushSize - 1)), bsR, bsV = K.L(S.BrushSize.ToString(), "v b"), K.T("+", null, () => SetBrush(S.BrushSize + 1))));
-                    if (c.Id == "terra") box.Add(K.E("lbl2", K.L("Ctrl+Z undoes the last 10 s")));
+                    // nine round pips that grow with the brush: click one, or drag along them
+                    var track = K.E("pips");
+                    for (int n = 1; n <= 9; n++)
+                    {
+                        int nn = n; var dot = K.E("dot"); float d = 5 + n * 1.25f; dot.style.width = dot.style.height = d; dot.style.borderTopLeftRadius = dot.style.borderTopRightRadius = dot.style.borderBottomLeftRadius = dot.style.borderBottomRightRadius = d / 2;
+                        var pip = K.E("pip", dot); pips.Add((dot, n)); track.Add(pip);
+                        pip.RegisterCallback<PointerDownEvent>(e => { SetBrush(nn); e.StopPropagation(); });
+                        pip.RegisterCallback<PointerEnterEvent>(e => { if ((e.pressedButtons & 1) != 0) SetBrush(nn); });
+                    }
+                    var box = K.E("brushes", Gap(K.E("lbl2", K.L("Brush"), bsV = K.L(S.BrushSize.ToString(), "bv"), K.L("[", "kbd"), K.L("]", "kbd")), 4),
+                        K.E("bsz", K.T("−", null, () => SetBrush(S.BrushSize - 1)), track, K.T("+", null, () => SetBrush(S.BrushSize + 1))));
+                    if (c.Id == "terra") box.Add(K.L("Ctrl+Z undoes the last 10 s", "hint"));
                     cards.Add(box);
                 }
                 if (c.Levels)
                 {
                     var seg = K.E("segc lv");
-                    foreach (var (h, n) in Levels) { var b = K.B(null, () => SetLevel(h), K.L(n), K.L(h.ToString(), "small")); lvBtns.Add((b, h)); seg.Add(b); }
+                    foreach (var (h, n) in Levels) { var b = K.B(null, () => SetLevel(h), K.L(n), K.L((h > 0 ? "+" : "") + h, "small")); lvBtns.Add((b, h)); seg.Add(b); }
                     lvBox = K.E("brushes", K.E("lbl2", K.L("Level to")), seg); cards.Add(lvBox);
+                }
+                if (c.Plants)
+                {
+                    var seg = K.E("segc kinds");
+                    foreach (var (k, ico, n) in PLANTS) { var b = K.B(null, () => SetPlant(k), K.I(ico), K.L(n)); plantBtns.Add((b, k)); seg.Add(b); }
+                    plantBox = K.E("brushes", Gap(K.E("lbl2", K.L("Plant"), K.L("N", "kbd")), 4), seg); cards.Add(plantBox);
                 }
                 if (c.Plots)
                 {
@@ -376,7 +396,10 @@ namespace IslandSim.View
             if (lvBox != null) Show(lvBox, tool == "flatten");
             cards.EnableInClassList("compact", openCat == "terra");
             foreach (var (b, n) in plotBtns) b.EnableInClassList("on", n == S.Plot);
-            if (bsR != null) { bsR.SetValueWithoutNotify(S.BrushSize); bsV.text = S.BrushSize.ToString(); }
+            if (bsV != null) bsV.text = S.BrushSize.ToString();
+            foreach (var (dot, n) in pips) dot.EnableInClassList("on", n <= S.BrushSize);
+            foreach (var (b, k) in plantBtns) b.EnableInClassList("on", k == S.PlantKind);
+            if (plantBox != null) Show(plantBox, tool == "plant");
         }
 
         double[] StockFor(string id) => id == "harbor" ? S.CapitalIsland?.Harbor?.Stock : S.StockOf(UiIsl);
@@ -585,7 +608,7 @@ namespace IslandSim.View
             foreach (var (a, b) in new[]
             {
                 ("Click", "A building or an island's name for details"), ("Right or middle drag", "Rotate and tilt (also Shift + drag)"), ("Wheel · WASD", "Zoom · pan"),
-                ("1–7", "Open a build category"), ("R / F / T / Y · G", "Raise / lower / level / smooth · sand road"), ("[ ] · Ctrl+Z", "Brush size 1–9 · undo reshaping (10 s)"),
+                ("1–7", "Open a build category"), ("R / F / T / Y · N · G", "Raise / lower / level / smooth · plant trees · sand road"), ("[ ] · Ctrl+Z", "Brush size 1–9 · undo reshaping (10 s)"),
                 ("P · X · V", "Compound plot size · demolish · survey"), ("Q / E", "Rotate the camera"), ("Tab", "Next settled island"), ("Space", "Pause"),
                 ("Esc", "Drop the tool, close a panel, then open the menu"),
             }) keys.Add(k.E("krow", k.L(a, "a"), k.L(b, "b2")));
@@ -914,9 +937,10 @@ namespace IslandSim.View
             else
             {
                 int hv = S.Hgt[i]; string lvName = Levels.FirstOrDefault(l => l.h == S.LevelTo).name?.ToLowerInvariant();
-                v.Add(k.L($"{TERRA[tool].name}{(tool == "flatten" ? $" to {lvName} ({S.LevelTo})" : "")} · brush {S.BrushSize}", "t"));
+                string what = tool == "plant" ? $"Plant {PlantName(S.PlantKind).ToLowerInvariant()}s" : TERRA[tool].name + (tool == "flatten" ? $" to {lvName} ({S.LevelTo})" : "");
+                v.Add(k.L($"{what} · brush {S.BrushSize}", "t"));
                 v.Add(k.L($"{(S.Gt[i] != 0 ? GT.Name[S.Gt[i]] : TerrainName(hv))} · height {hv}", "sub"));
-                var bc = Sim.IsTerra(S.Tool) ? S.PreviewBrush(hx, hy) : null;
+                var bc = Sim.IsTerra(S.Tool) || S.Tool == Core.Tool.Plant ? S.PreviewBrush(hx, hy) : null;
                 if (S.CurStroke != null && (S.SpendGold != 0 || S.SpendStone != 0))
                 {
                     var row = k.E("chips", Chip("gold", Noise.Round(S.SpendGold).ToString("0")));
@@ -929,11 +953,11 @@ namespace IslandSim.View
                     {
                         var row = k.E("chips", Chip("gold", Noise.Round(bc.Gold).ToString("0"), S.Gold < bc.Gold));
                         if (bc.Stone != 0) row.Add(Chip("stone", (bc.Stone > 0 ? "" : "+") + Fmt(Math.Abs(bc.Stone))));
-                        row.Add(k.L($"{bc.N} tile{(bc.N > 1 ? "s" : "")}", "sub")); v.Add(row);
+                        row.Add(k.L(tool == "plant" ? $"{bc.N} tree{(bc.N > 1 ? "s" : "")}" : $"{bc.N} tile{(bc.N > 1 ? "s" : "")}", "sub")); v.Add(row);
                     }
-                    else v.Add(k.L("Nothing to change here", "sub"));
+                    else v.Add(k.L(tool == "plant" ? "Nothing to plant here" : "Nothing to change here", "sub"));
                 }
-                else { var row = k.E("chips"); Chips(row, tool, S.StockOf(UiIsl)); row.Add(k.L(tool == "road" ? "per tile" : "per step", "sub")); v.Add(row); }
+                else { var row = k.E("chips"); Chips(row, tool, S.StockOf(UiIsl)); row.Add(k.L(tool == "road" ? "per tile" : tool == "plant" ? "per tree" : "per step", "sub")); v.Add(row); }
             }
             if (tagErr != null && tagUntil > Time.unscaledTime) { bad = true; v.Add(k.L(tagErr, "why")); }
             string sig = k.Sig.ToString();
@@ -955,7 +979,7 @@ namespace IslandSim.View
             if (Shown(help) || ctrl || InputBridge.Held(InputBridge.Sp.Alt)) return;
             if (InputBridge.Pressed(InputBridge.Sp.Tab)) { NextIsland(InputBridge.Held(InputBridge.Sp.Shift) ? -1 : 1); return; }
             for (int n = 1; n <= CATS.Length; n++) if (InputBridge.Pressed((char)('0' + n))) { var c = CATS[n - 1].Id; SetCat(openCat == c ? null : c); return; }
-            foreach (var id in TerraIds) if (InputBridge.Pressed(char.ToLowerInvariant(TERRA[id].key[0]))) SetTool(id);
+            foreach (var id in TerraIds) if (InputBridge.Pressed(char.ToLowerInvariant(TERRA[id].key[0]))) { if (id == "plant" && Tool == "plant") SetPlant(PLANTS[(Array.FindIndex(PLANTS, p => p.k == S.PlantKind) + 1) % PLANTS.Length].k); else SetTool(id); }
             foreach (var d in Buildings) if (!string.IsNullOrEmpty(d.Key) && InputBridge.Pressed(char.ToLowerInvariant(d.Key[0]))) SetTool(d.Id);
             if (InputBridge.Pressed('b')) SetBrush(S.BrushSize >= 9 ? 1 : S.BrushSize >= 5 ? 9 : S.BrushSize + 2);
             if (InputBridge.Pressed('[')) SetBrush(S.BrushSize - 1);

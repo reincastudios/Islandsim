@@ -4,6 +4,12 @@ Newest first. Each entry says what changed for the player and where the code liv
 
 ## 2026-10-12
 
+### Unity: wood-and-coral-stone HUD, a better terraform panel, and tree planting (PR #6)
+- **What changed:** the HUD is redesigned in clean Maldivian woodwork and coral-stone carving. The top bar is planed teak. Panels are framed in teak with a honey inlay line and brass corner studs round a pale coral-stone field. A carved coral-stone frieze (the lozenge-and-eye chain cut round old mosque walls) replaces the lacquer stripes under the top bar and every panel header. The build bar is a light framed panel with teak tabs.
+- **Terraform panel:** the default Unity slider is gone. Brush size is now a row of nine round pips that grow with the brush (click one, or drag along them; − and + still work, and so do [ and ]). The size shows in the label, and the Ctrl+Z hint sits under it. Level to is a tidy 3 × 2 grid with each height under its name, as on the web version.
+- **Plant trees (new, key N):** a fifth Terraform tool that paints trees with the brush for 3 gold each. Pick Coconut palm, Shade tree or Mangrove in the panel, or press N again to cycle. Palms grow from the beach up, shade trees on land above the beach, and mangroves only in a kulhi. Buildings, roads, existing trees, ponds, taro fields and bird islands are skipped. The brush ring turns green, refused tiles show red under it, and the cursor tag shows the cost and tree count. Planted trees count for timber yards and groves like wild ones, and shade trees spread on their own.
+- **Where:** `PlantTree` and the Plant branches in `Scripts/Core/SimTerraform.cs`, `Tool.Plant` in `Defs.cs`, the panel in `Scripts/View/Hud.cs` (`RenderCards`, `SetPlant`), new tree, mangrove and sapling icons in `Icons.cs`, styles in `Resources/IslandSim/UI/Hud.uss`, and the textures `ui_wood`, `ui_wood_light`, `ui_frieze` and `ui_frame` drawn by `unity/Tools/UiGen/ui_tex.py`.
+
 ### Unity: thicker, jungle-like vegetation (PR #6)
 - **What changed:** the islands are much greener and denser, like the real Maldives photos. Where the forest is thick, a second, younger tree or palm shares many tiles. Undergrowth crowds round the trunks, bushes thicken toward the forest edge, and beach naupaka forms a green wall where the sand meets the trees.
 - **Gameplay:** unchanged. This is look only: the sim still counts one tree per tile for lumber, coconuts and clearing, so nothing about building or production moves.

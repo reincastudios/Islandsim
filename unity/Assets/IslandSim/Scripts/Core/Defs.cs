@@ -15,7 +15,7 @@ namespace IslandSim.Core
     }
 
     /// <summary>Tools the player can hold: Survey, the terraform tools, roads, Demolish, or a building (Build + a BType).</summary>
-    public enum Tool { Inspect, Raise, Lower, Flatten, Smooth, Road, Demolish, Build }
+    public enum Tool { Inspect, Raise, Lower, Flatten, Smooth, Road, Demolish, Build, Plant }
 
     public sealed class Cost
     {

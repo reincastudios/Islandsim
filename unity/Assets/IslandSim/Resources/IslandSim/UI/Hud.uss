@@ -1,10 +1,12 @@
-/* The web game's HUD ("Island Sim UI Design"), in USS: lacquered teak and whitewashed coral, trimmed with liyelaa jehun
-   lacquer bands. USS has no gap, grid, shadows, gradients or ::before, so spacing is set in code, the bands are three
-   stripes, and the dots are small elements. */
+/* The HUD in clean Maldivian wood and coral stone. Bars are planed teak; panels are framed in teak with a honey inlay
+   line and brass studs (ui_frame, 9-sliced) round a pale coral-stone field; a carved coral-stone frieze (ui_frieze,
+   the lozenge-and-eye chain cut round old mosque walls) runs under the top bar and every panel header. Textures are
+   drawn by Tools/UiGen/ui_tex.py at 2x and shown at half size. USS has no gap, grid or shadows, so spacing is set in code. */
 :root {
-    --lacquer: #1c1714; --teak: #5a3a24; --ochre: #d9a441; --red: #a3362a; --coral: #f2ece0; --coral-2: #e6dccb;
-    --lagoon: #2fb7a8; --deep: #134a5e; --good: #5fae5a; --warn: #e0a33a; --bad: #d0533f; --ink-2: #4a3d33; --paper: #fbf8f2;
-    color: #1c1714;
+    --walnut: #3a2415; --teak: #7c4f2d; --honey: #d29a4c; --honey-2: #f3e1bd; --red: #a8432f;
+    --coral: #f6f0e5; --coral-2: #e9dfcd; --line: #dccdb4; --lagoon: #2a9d8f; --deep: #2a5a68;
+    --good: #5fae5a; --warn: #e0a33a; --bad: #c9503b; --ink-2: #5a4636; --paper: #fdfaf4; --cream: #f7ecd8;
+    color: #2a1b10;
     font-size: 14px;
     -unity-font: resource("IslandSim/Fonts/FamiljenGrotesk-Regular");
     -unity-font-definition: initial;
@@ -21,56 +23,54 @@ Button { margin: 0; padding: 0; border-width: 0; background-color: rgba(0, 0, 0,
 .hidden { display: none; }
 
 /* panels */
-.pnl { background-color: var(--coral); border-width: 3px; border-color: var(--teak); border-radius: 6px; }
-.hd { flex-direction: row; align-items: center; padding: 8px 10px 7px 10px; }
-.hd .h2 { -unity-font: resource("IslandSim/Fonts/YoungSerif-Regular"); -unity-font-definition: initial; font-size: 18px; color: var(--lacquer); }
-.band { height: 6px; flex-shrink: 0; margin-top: -3px; margin-bottom: -3px; }
-.band > .s1 { height: 34%; background-color: var(--red); }
-.band > .s2 { height: 32%; background-color: var(--lacquer); }
-.band > .s3 { height: 34%; background-color: var(--ochre); }
+.pnl { background-image: resource("IslandSim/UI/ui_frame"); -unity-slice-left: 20; -unity-slice-right: 20; -unity-slice-top: 20; -unity-slice-bottom: 20; -unity-slice-scale: 0.5px; padding: 8px; background-color: rgba(0, 0, 0, 0); border-width: 0; }
+.hd { flex-direction: row; align-items: center; padding: 6px 8px 5px 8px; background-image: resource("IslandSim/UI/ui_wood_light"); background-size: 128px 128px; background-repeat: repeat; border-radius: 2px; }
+.hd .h2 { -unity-font: resource("IslandSim/Fonts/YoungSerif-Regular"); -unity-font-definition: initial; font-size: 18px; color: var(--walnut); }
+.band { height: 12px; flex-shrink: 0; background-image: resource("IslandSim/UI/ui_frieze"); background-size: 32px 12px; background-repeat: repeat-x; margin-bottom: 2px; }
 .x { margin-left: auto; font-size: 20px; padding: 0 4px; color: var(--ink-2); }
 .sub { color: var(--deep); font-size: 13px; white-space: normal; }
 .num { }
 
 /* top bar */
-#top { position: absolute; top: 0; left: 0; right: 0; height: 46px; flex-direction: row; align-items: center; padding: 0 10px; background-color: var(--lacquer); color: var(--coral); }
-#topband { position: absolute; top: 46px; left: 0; right: 0; height: 6px; margin: 0; }
+#top { position: absolute; top: 0; left: 0; right: 0; height: 46px; flex-direction: row; align-items: center; padding: 0 10px; background-color: var(--teak); background-image: resource("IslandSim/UI/ui_wood"); background-size: 128px 128px; background-repeat: repeat; border-bottom-width: 1px; border-color: var(--walnut); color: var(--coral); }
+#topband { position: absolute; top: 47px; left: 0; right: 0; margin: 0; border-bottom-width: 1px; border-color: rgba(58, 36, 21, 0.6); }
 .ib { width: 34px; height: 34px; border-radius: 6px; border-width: 1px; border-color: rgba(0, 0, 0, 0); align-items: center; justify-content: center; }
-.ib .i { -unity-background-image-tint-color: var(--ochre); }
-.ib:hover { border-color: var(--ochre); }
-.ib.on { background-color: rgba(217, 164, 65, 0.22); }
+.ib .i { -unity-background-image-tint-color: var(--honey-2); }
+.ib:hover { border-color: var(--honey); }
+.ib.on { background-color: rgba(58, 36, 21, 0.45); border-color: var(--honey); }
 .badge { position: absolute; top: 1px; right: 0; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background-color: var(--bad); color: #fff; font-size: 11px; -unity-text-align: middle-center; -unity-font: resource("IslandSim/Fonts/FamiljenGrotesk-Bold"); -unity-font-definition: initial; }
 .day { font-size: 14px; }
-.day .i { -unity-background-image-tint-color: var(--ochre); }
-.speed { flex-direction: row; background-color: rgba(255, 255, 255, 0.06); border-radius: 12px; padding: 2px; }
+.day .i { -unity-background-image-tint-color: var(--honey-2); }
+.speed { flex-direction: row; background-color: rgba(58, 36, 21, 0.45); border-radius: 12px; padding: 2px; border-width: 1px; border-color: rgba(243, 225, 189, 0.18); }
 .speed > Button { border-radius: 10px; padding: 3px 9px; font-size: 13px; color: var(--coral); min-width: 32px; }
-.speed > Button.on { background-color: var(--ochre); color: var(--lacquer); -unity-font: resource("IslandSim/Fonts/FamiljenGrotesk-Bold"); -unity-font-definition: initial; }
+.speed > Button.on { background-color: var(--honey); color: var(--walnut); -unity-font: resource("IslandSim/Fonts/FamiljenGrotesk-Bold"); -unity-font-definition: initial; }
 #res { flex-grow: 1; flex-direction: row; align-items: center; justify-content: center; overflow: hidden; }
 .ctr { flex-direction: row; align-items: center; padding: 4px 9px; border-radius: 12px; font-size: 15px; color: var(--coral); }
-.ctr .i { -unity-background-image-tint-color: var(--ochre); margin-right: 5px; }
+.ctr .i { -unity-background-image-tint-color: var(--honey-2); margin-right: 5px; }
 .ctr .v { min-width: 18px; }
-.ctr .tr { font-size: 12px; color: #b9ad9a; margin-left: 5px; }
+.ctr .tr { font-size: 12px; color: #e4d3b6; margin-left: 5px; }
 .ctr .tr.up { color: #8fd48a; }
 .ctr .tr.dn { color: #f08a76; }
-.ctr:hover { background-color: rgba(255, 255, 255, 0.08); }
+.ctr:hover { background-color: rgba(58, 36, 21, 0.35); }
 .ctr.out { background-color: rgba(208, 83, 63, 0.35); }
 .ctr.out.dim { background-color: rgba(208, 83, 63, 0.1); }
 .ctr.idle { display: none; }
-.isl-chip { flex-direction: row; align-items: center; padding: 4px 10px; margin-right: 4px; border-radius: 14px; border-width: 1px; border-color: rgba(217, 164, 65, 0.6); color: var(--coral); font-size: 15px; -unity-font: resource("IslandSim/Fonts/YoungSerif-Regular"); -unity-font-definition: initial; }
-.isl-chip .i { -unity-background-image-tint-color: var(--ochre); margin-right: 6px; }
-.sep { width: 1px; height: 22px; background-color: rgba(242, 236, 224, 0.18); margin: 0 4px; }
+.isl-chip { flex-direction: row; align-items: center; padding: 4px 10px; margin-right: 4px; border-radius: 14px; border-width: 1px; border-color: rgba(210, 154, 76, 0.8); background-color: rgba(58, 36, 21, 0.35); color: var(--coral); font-size: 15px; -unity-font: resource("IslandSim/Fonts/YoungSerif-Regular"); -unity-font-definition: initial; }
+.isl-chip .i { -unity-background-image-tint-color: var(--honey-2); margin-right: 6px; }
+.sep { width: 1px; height: 22px; background-color: rgba(243, 225, 189, 0.28); margin: 0 4px; }
 
 /* popovers */
-.pop { position: absolute; top: 56px; width: 250px; padding-bottom: 10px; }
+.pop { position: absolute; top: 64px; width: 250px; padding-bottom: 10px; }
 .pop .prow { flex-direction: row; align-items: center; justify-content: space-between; padding: 8px 12px 0 12px; font-size: 14px; }
 .mi { flex-direction: row; align-items: center; padding: 8px 12px; -unity-text-align: middle-left; font-size: 14px; }
-.mi .i { margin-right: 10px; -unity-background-image-tint-color: var(--lacquer); }
+.mi .i { margin-right: 10px; -unity-background-image-tint-color: var(--walnut); }
 .mi:hover { background-color: var(--coral-2); }
 .mi .kbd { margin-left: auto; }
-.segc { flex-direction: row; background-color: var(--coral-2); border-radius: 12px; padding: 2px; }
+.segc { flex-direction: row; background-color: var(--coral-2); border-radius: 12px; padding: 2px; border-width: 1px; border-color: var(--line); }
 .segc > Button { border-radius: 10px; padding: 3px 9px; font-size: 13px; }
+.segc > Button:hover { background-color: var(--cream); }
 .segc > Button.on { background-color: var(--teak); color: var(--coral); }
-.kbd { font-size: 11px; -unity-font: resource("IslandSim/Fonts/FamiljenGrotesk-Bold"); -unity-font-definition: initial; color: var(--ink-2); border-width: 1px; border-bottom-width: 2px; border-color: #c9bca6; border-radius: 4px; padding: 0 4px; background-color: var(--paper); }
+.kbd { font-size: 11px; -unity-font: resource("IslandSim/Fonts/FamiljenGrotesk-Bold"); -unity-font-definition: initial; color: var(--ink-2); border-width: 1px; border-bottom-width: 2px; border-color: var(--line); border-radius: 4px; padding: 0 4px; background-color: var(--paper); }
 #menu { left: 8px; width: 290px; }
 #settings { right: 8px; }
 #log { right: 48px; width: 320px; max-height: 60%; }
@@ -90,11 +90,11 @@ Button { margin: 0; padding: 0; border-width: 0; background-color: rgba(0, 0, 0,
 #over .p { font-size: 14px; margin-bottom: 10px; white-space: normal; }
 
 /* charter */
-#charter { position: absolute; top: 60px; right: 12px; width: 270px; }
+#charter { position: absolute; top: 68px; right: 12px; width: 270px; }
 #charter .body { padding: 10px 12px 12px 12px; }
 #charter .goal { font-size: 14px; white-space: normal; }
 #charter .why { font-size: 12.5px; color: var(--deep); margin-top: 3px; white-space: normal; }
-#charter.won { border-color: var(--ochre); }
+#charter.won { -unity-background-image-tint-color: #fff3d6; }
 .bar { height: 8px; border-radius: 4px; background-color: var(--coral-2); overflow: hidden; margin-top: 8px; }
 .bar > .fill { height: 100%; background-color: var(--lagoon); border-radius: 4px; transition: width 0.3s; }
 .bar.warn > .fill { background-color: var(--warn); }
@@ -106,66 +106,78 @@ Button { margin: 0; padding: 0; border-width: 0; background-color: rgba(0, 0, 0,
 .li .t { white-space: normal; flex-shrink: 1; }
 .li.done { color: #7b6f62; }
 .li.done .dot, .li.ok .dot { background-color: var(--lagoon); border-color: var(--lagoon); }
-.li.now .dot { border-color: var(--ochre); background-color: rgba(217, 164, 65, 0.4); }
+.li.now .dot { border-color: var(--honey); background-color: rgba(217, 164, 65, 0.4); }
 .li .n { margin-left: auto; color: var(--deep); }
 
 /* advisor feed */
-#advisor { position: absolute; top: 60px; left: 12px; width: 310px; }
-.msg { flex-direction: row; align-items: flex-start; padding: 8px 10px; margin-bottom: 8px; font-size: 13.5px; transition: opacity 0.6s, translate 0.16s; -unity-text-align: upper-left; }
+#advisor { position: absolute; top: 68px; left: 12px; width: 310px; }
+.msg { flex-direction: row; align-items: flex-start; padding: 10px 12px; margin-bottom: 8px; font-size: 13.5px; transition: opacity 0.6s, translate 0.16s; -unity-text-align: upper-left; }
 .msg.fade { opacity: 0; }
-.msg.bad { border-color: var(--red); }
-.msg.good { border-color: #3c7d5f; }
+.msg.bad { -unity-background-image-tint-color: #ffd9cf; }
+.msg.good { -unity-background-image-tint-color: #dff2e2; }
 .msg .who { -unity-font: resource("IslandSim/Fonts/YoungSerif-Regular"); -unity-font-definition: initial; font-size: 12px; color: var(--deep); }
 .msg .txt { white-space: normal; }
 .portrait { flex-shrink: 0; width: 38px; height: 38px; border-radius: 19px; border-width: 2px; border-color: var(--teak); margin-right: 10px; overflow: hidden; }
 
 /* minimap and compass */
-#mapbox { position: absolute; left: 12px; bottom: 12px; width: 230px; padding: 6px; }
-#mini { width: 212px; height: 147px; border-radius: 3px; background-color: var(--deep); }
+#mapbox { position: absolute; left: 12px; bottom: 12px; width: 230px; }
+#mini { width: 212px; height: 147px; border-radius: 2px; border-width: 1px; border-color: var(--walnut); background-color: var(--deep); }
 .compass { flex-direction: row; align-items: center; justify-content: space-between; margin-top: 6px; }
-.cb { width: 36px; height: 30px; border-radius: 6px; border-width: 1px; border-color: #c9bca6; background-color: var(--paper); font-size: 17px; }
+.cb { width: 36px; height: 30px; border-radius: 6px; border-width: 1px; border-bottom-width: 2px; border-color: var(--line); background-color: var(--paper); font-size: 17px; }
+.cb .i { -unity-background-image-tint-color: var(--teak); }
 .cb:hover { border-color: var(--teak); }
-#north { width: 44px; height: 44px; border-radius: 22px; border-width: 2px; border-color: var(--teak); background-color: var(--lacquer); align-items: center; justify-content: center; }
+#north { width: 44px; height: 44px; border-radius: 22px; border-width: 3px; border-color: var(--honey); background-color: var(--teak); background-image: resource("IslandSim/UI/ui_wood"); background-size: 64px 64px; background-repeat: repeat; align-items: center; justify-content: center; }
 #north .i { width: 30px; height: 30px; }
 
 /* build bar and cards */
 #build { position: absolute; left: 0; right: 0; bottom: 12px; align-items: center; }
-#bar { flex-direction: row; align-items: stretch; padding: 4px; background-color: var(--lacquer); }
-.tab { flex-direction: column; align-items: center; min-width: 62px; padding: 5px 6px 4px 6px; border-radius: 4px; color: var(--coral); font-size: 11.5px; margin-right: 2px; }
-.tab .i { width: 26px; height: 26px; -unity-background-image-tint-color: var(--ochre); margin-bottom: 2px; }
-.tab .k { position: absolute; top: 2px; right: 3px; color: #9d907e; font-size: 10px; }
-.tab:hover { background-color: rgba(255, 255, 255, 0.08); }
-.tab.on { background-color: var(--ochre); color: var(--lacquer); }
-.tab.on .i { -unity-background-image-tint-color: var(--lacquer); }
-.tab.danger .i { -unity-background-image-tint-color: #f08a76; }
-.tab.danger.on { background-color: var(--red); color: var(--coral); }
+#bar { flex-direction: row; align-items: stretch; padding: 9px 10px; }
+.tab { flex-direction: column; align-items: center; min-width: 62px; padding: 5px 6px 4px 6px; border-radius: 5px; color: var(--walnut); font-size: 11.5px; margin-right: 2px; border-width: 1px; border-color: rgba(0, 0, 0, 0); }
+.tab .i { width: 26px; height: 26px; -unity-background-image-tint-color: var(--teak); margin-bottom: 2px; }
+.tab .k { position: absolute; top: 2px; right: 3px; color: #a8957c; font-size: 10px; }
+.tab:hover { background-color: var(--cream); border-color: var(--line); }
+.tab.on { background-color: var(--teak); background-image: resource("IslandSim/UI/ui_wood"); background-size: 96px 96px; background-repeat: repeat; border-color: var(--walnut); color: var(--coral); }
+.tab.on .i { -unity-background-image-tint-color: var(--honey-2); }
+.tab.on .k { color: var(--honey-2); }
+.tab.danger .i { -unity-background-image-tint-color: var(--red); }
+.tab.danger.on { background-color: var(--red); background-image: none; color: var(--coral); }
 .tab.danger.on .i { -unity-background-image-tint-color: var(--coral); }
-.bsep { width: 1px; background-color: rgba(242, 236, 224, 0.16); margin: 4px 3px; }
-#cards { flex-direction: row; padding: 6px; align-items: stretch; margin-bottom: 8px; }
-.card { flex-direction: row; align-items: center; min-width: 150px; padding: 7px 10px 7px 8px; border-width: 1.5px; border-color: #d3c6b0; border-radius: 6px; background-color: var(--paper); margin-right: 6px; -unity-text-align: middle-left; }
+.bsep { width: 1px; background-color: var(--line); margin: 4px 5px; }
+#cards { flex-direction: row; padding: 10px; align-items: stretch; margin-bottom: 6px; }
+.card { flex-direction: row; align-items: center; min-width: 150px; padding: 7px 10px 7px 8px; border-width: 1.5px; border-bottom-width: 2.5px; border-color: var(--line); border-radius: 6px; background-color: var(--paper); margin-right: 6px; -unity-text-align: middle-left; }
 .card > .i { width: 32px; height: 32px; -unity-background-image-tint-color: var(--teak); margin-right: 8px; }
 .card .nm { font-size: 14px; padding-right: 16px; -unity-font: resource("IslandSim/Fonts/FamiljenGrotesk-Bold"); -unity-font-definition: initial; }
 .card .kbd { position: absolute; top: 5px; right: 6px; }
 .card:hover { border-color: var(--teak); }
-.card.on { border-color: var(--ochre); border-width: 3px; background-color: #fff6e2; padding: 5.5px 8.5px 5.5px 6.5px; }
+.card.on { border-color: var(--honey); border-width: 3px; background-color: #fff4dc; padding: 5.5px 8.5px 5px 6.5px; }
 #cards.compact .card { min-width: 0; padding: 7px 20px 7px 7px; }
-#cards.compact .card.on { padding: 5.5px 18.5px 5.5px 5.5px; }
+#cards.compact .card.on { padding: 5.5px 18.5px 5px 5.5px; }
 #cards.compact .card .chips { display: none; }
 #cards.compact .card > .i { width: 26px; height: 26px; margin-right: 5px; }
 .chips { flex-direction: row; margin-top: 3px; }
 .chip { flex-direction: row; align-items: center; border-radius: 9px; padding: 1px 7px 1px 4px; background-color: var(--coral-2); font-size: 12px; margin-right: 4px; }
 .chip .i { width: 13px; height: 13px; -unity-background-image-tint-color: var(--teak); margin-right: 3px; }
 .chip.no { background-color: #f6d8d2; color: #8c2a1f; }
-.brushes { justify-content: center; padding: 0 4px 0 8px; border-left-width: 1px; border-color: var(--coral-2); }
+.brushes { justify-content: center; padding: 0 6px 0 10px; margin-left: 4px; border-left-width: 1px; border-color: var(--line); }
 .lbl2 { font-size: 11px; color: var(--deep); flex-direction: row; align-items: center; }
+.lbl2 .bv { font-size: 13px; color: var(--walnut); min-width: 10px; -unity-font: resource("IslandSim/Fonts/FamiljenGrotesk-Bold"); -unity-font-definition: initial; }
+.hint { font-size: 10.5px; color: #8a7a66; margin-top: 4px; }
 .bsz { flex-direction: row; align-items: center; margin-top: 4px; }
-.bsz > Button { width: 24px; height: 24px; border-radius: 5px; border-width: 1.5px; border-color: #d3c6b0; background-color: var(--paper); -unity-font: resource("IslandSim/Fonts/FamiljenGrotesk-Bold"); -unity-font-definition: initial; }
-.bsz .v { min-width: 14px; -unity-text-align: middle-center; margin: 0 4px; }
-.bsz SliderInt { width: 72px; margin: 0 4px; }
-.lv { flex-wrap: wrap; width: 156px; border-radius: 8px; margin-top: 4px; }
-.lv > Button { width: 50px; border-radius: 6px; padding: 2px 5px; font-size: 12px; flex-direction: column; align-items: center; }
+.bsz > Button { width: 22px; height: 22px; border-radius: 11px; border-width: 1.5px; border-color: var(--line); background-color: var(--paper); color: var(--teak); font-size: 15px; -unity-font: resource("IslandSim/Fonts/FamiljenGrotesk-Bold"); -unity-font-definition: initial; }
+.bsz > Button:hover { border-color: var(--teak); }
+.pips { flex-direction: row; align-items: center; height: 22px; margin: 0 4px; padding: 0 3px; border-radius: 11px; background-color: var(--coral-2); border-width: 1px; border-color: var(--line); }
+.pip { width: 17px; height: 20px; align-items: center; justify-content: center; }
+.pip > .dot { background-color: rgba(124, 79, 45, 0.18); border-width: 1px; border-color: rgba(124, 79, 45, 0.35); }
+.pip > .dot.on { background-color: var(--teak); border-color: var(--walnut); }
+.pip:hover > .dot { border-color: var(--honey); }
+.lv { flex-direction: row; flex-wrap: wrap; width: 176px; border-radius: 8px; margin-top: 4px; }
+.lv > Button { width: 56px; height: 34px; border-radius: 6px; margin: 1px; padding: 1px 2px; font-size: 12px; flex-direction: column; align-items: center; justify-content: center; }
 .lv .small { font-size: 10px; color: var(--deep); }
-.lv > Button.on .small { color: var(--coral-2); }
+.lv > Button.on .small { color: var(--honey-2); }
+.kinds { margin-top: 4px; }
+.kinds > Button { flex-direction: row; align-items: center; padding: 3px 9px 3px 6px; }
+.kinds .i { width: 16px; height: 16px; margin-right: 4px; -unity-background-image-tint-color: var(--teak); }
+.kinds > Button.on .i { -unity-background-image-tint-color: var(--honey-2); }
 
 /* selection panel */
 #sel { position: absolute; right: 12px; bottom: 12px; width: 330px; max-height: 80%; }
@@ -177,11 +189,11 @@ Button { margin: 0; padding: 0; border-width: 0; background-color: rgba(0, 0, 0,
 .status.warn .dot { background-color: var(--warn); }
 .status.bad .dot { background-color: var(--bad); }
 .status .t { white-space: normal; flex-shrink: 1; }
-.flow { flex-direction: row; align-items: center; justify-content: center; padding: 8px; background-color: var(--paper); border-width: 1px; border-color: var(--coral-2); border-radius: 6px; }
+.flow { flex-direction: row; align-items: center; justify-content: center; padding: 8px; background-color: var(--paper); border-width: 1px; border-color: var(--line); border-radius: 6px; }
 .node { align-items: center; font-size: 12px; min-width: 54px; margin: 0 4px; }
 .node .i { width: 26px; height: 26px; -unity-background-image-tint-color: var(--teak); }
 .node .n { font-size: 13px; -unity-font: resource("IslandSim/Fonts/FamiljenGrotesk-Bold"); -unity-font-definition: initial; }
-.node.me .i { width: 34px; height: 34px; -unity-background-image-tint-color: var(--lacquer); }
+.node.me .i { width: 34px; height: 34px; -unity-background-image-tint-color: var(--walnut); }
 .arr { color: #a4977f; font-size: 18px; }
 .kv { font-size: 13px; }
 .kvrow { flex-direction: row; align-items: center; margin-bottom: 6px; }
@@ -190,20 +202,20 @@ Button { margin: 0; padding: 0; border-width: 0; background-color: rgba(0, 0, 0,
 .kvrow .n { -unity-font: resource("IslandSim/Fonts/FamiljenGrotesk-Bold"); -unity-font-definition: initial; margin-left: auto; }
 .need { flex-direction: row; flex-wrap: wrap; }
 .pill { flex-direction: row; align-items: center; padding: 2px 8px 2px 5px; border-radius: 10px; font-size: 12.5px; background-color: var(--coral-2); margin: 0 6px 6px 0; }
-.pill .i { width: 15px; height: 15px; margin-right: 4px; -unity-background-image-tint-color: var(--lacquer); }
+.pill .i { width: 15px; height: 15px; margin-right: 4px; -unity-background-image-tint-color: var(--walnut); }
 .pill.ok { background-color: #d7ebd6; }
 .pill.no { background-color: #f6d8d2; }
 .acts { flex-direction: row; }
-.btn { flex-grow: 1; flex-basis: 0; flex-direction: row; align-items: center; justify-content: center; padding: 7px 10px; border-radius: 6px; border-width: 1.5px; border-color: var(--teak); background-color: var(--paper); font-size: 13.5px; -unity-font: resource("IslandSim/Fonts/FamiljenGrotesk-Bold"); -unity-font-definition: initial; }
-.btn .i { width: 16px; height: 16px; margin-right: 6px; -unity-background-image-tint-color: var(--lacquer); }
-.btn:hover { background-color: #fff; }
+.btn { flex-grow: 1; flex-basis: 0; flex-direction: row; align-items: center; justify-content: center; padding: 7px 10px; border-radius: 6px; border-width: 1.5px; border-bottom-width: 2.5px; border-color: var(--teak); background-color: var(--paper); font-size: 13.5px; -unity-font: resource("IslandSim/Fonts/FamiljenGrotesk-Bold"); -unity-font-definition: initial; }
+.btn .i { width: 16px; height: 16px; margin-right: 6px; -unity-background-image-tint-color: var(--walnut); }
+.btn:hover { background-color: var(--cream); }
 .btn.red { border-color: var(--red); color: var(--red); }
 .btn.red .i { -unity-background-image-tint-color: var(--red); }
-.btn.go { background-color: var(--lagoon); border-color: #1f8a7e; color: #fff; }
+.btn.go { background-color: var(--lagoon); border-color: #1b6f66; color: #fff; }
 .btn.go .i { -unity-background-image-tint-color: #fff; }
 .btn:disabled { opacity: 0.5; }
 .stock { flex-direction: row; flex-wrap: wrap; }
-.g { width: 54px; align-items: center; padding: 6px 2px; background-color: var(--paper); border-width: 1px; border-color: var(--coral-2); border-radius: 6px; font-size: 12px; margin: 0 6px 6px 0; }
+.g { width: 54px; align-items: center; padding: 6px 2px; background-color: var(--paper); border-width: 1px; border-color: var(--line); border-radius: 6px; font-size: 12px; margin: 0 6px 6px 0; }
 .g .i { -unity-background-image-tint-color: var(--teak); }
 .g .n { font-size: 15px; }
 .g .tr { font-size: 11.5px; color: #7b6f62; }
@@ -214,13 +226,13 @@ Button { margin: 0; padding: 0; border-width: 0; background-color: rgba(0, 0, 0,
 .boat .i { margin-right: 6px; -unity-background-image-tint-color: var(--teak); }
 .t2 { flex-direction: row; align-items: center; font-size: 13px; -unity-font: resource("IslandSim/Fonts/FamiljenGrotesk-Bold"); -unity-font-definition: initial; }
 .t2 .i { margin-right: 6px; -unity-background-image-tint-color: var(--teak); }
-.tg { flex-direction: row; align-items: center; padding: 4px 8px 4px 6px; border-width: 1.5px; border-color: #d3c6b0; border-radius: 6px; background-color: var(--paper); font-size: 13px; margin-top: 5px; -unity-text-align: middle-left; }
+.tg { flex-direction: row; align-items: center; padding: 4px 8px 4px 6px; border-width: 1.5px; border-color: var(--line); border-radius: 6px; background-color: var(--paper); font-size: 13px; margin-top: 5px; -unity-text-align: middle-left; }
 .tg .i { width: 16px; height: 16px; margin-right: 6px; -unity-background-image-tint-color: var(--teak); }
 .tg .p { margin-left: auto; color: var(--deep); -unity-font: resource("IslandSim/Fonts/FamiljenGrotesk-Bold"); -unity-font-definition: initial; }
 .tg.on { border-color: var(--lagoon); background-color: #e2f4f1; }
 .tg.off .lab { color: #7b6f62; }
 .rename { font-size: 17px; margin: 0; }
-.rename > #unity-text-input { -unity-font: resource("IslandSim/Fonts/YoungSerif-Regular"); -unity-font-definition: initial; border-width: 1.5px; border-color: var(--teak); border-radius: 5px; background-color: #fff; color: var(--lacquer); padding: 2px 6px; }
+.rename > #unity-text-input { -unity-font: resource("IslandSim/Fonts/YoungSerif-Regular"); -unity-font-definition: initial; border-width: 1.5px; border-color: var(--teak); border-radius: 5px; background-color: #fff; color: var(--walnut); padding: 2px 6px; }
 
 /* island names over the map */
 .lbl { position: absolute; translate: -50% -50%; -unity-font: resource("IslandSim/Fonts/YoungSerif-Regular"); -unity-font-definition: initial; font-size: 16px; color: #fffaf0; text-shadow: 0 1px 3px rgba(0, 30, 50, 0.8); letter-spacing: 0.5px; padding: 2px 6px; }
@@ -228,11 +240,11 @@ Button { margin: 0; padding: 0; border-width: 0; background-color: rgba(0, 0, 0,
 .lbl.atl { font-size: 22px; letter-spacing: 2.6px; opacity: 0.92; }
 
 /* cursor tag and tooltips */
-#tag { position: absolute; padding: 5px 9px; font-size: 13px; max-width: 260px; background-color: var(--coral); border-width: 2px; border-color: var(--teak); border-radius: 6px; }
+#tag { position: absolute; padding: 5px 9px; font-size: 13px; max-width: 260px; background-color: var(--coral); border-width: 2px; border-left-width: 4px; border-color: var(--teak); border-radius: 6px; }
 #tag.bad { border-color: var(--red); }
 #tag .t { -unity-font: resource("IslandSim/Fonts/FamiljenGrotesk-Bold"); -unity-font-definition: initial; }
 #tag .why { color: #8c2a1f; white-space: normal; }
-#tip { position: absolute; width: 270px; padding: 9px 11px; font-size: 13px; background-color: var(--coral); border-width: 2px; border-color: var(--teak); border-radius: 6px; }
+#tip { position: absolute; width: 270px; padding: 9px 11px; font-size: 13px; background-color: var(--coral); border-width: 2px; border-top-width: 4px; border-color: var(--teak); border-radius: 6px; }
 #tip .t { -unity-font: resource("IslandSim/Fonts/YoungSerif-Regular"); -unity-font-definition: initial; font-size: 16px; white-space: normal; }
 #tip .p { white-space: normal; }
 #tip .k { color: var(--deep); white-space: normal; }
@@ -240,10 +252,10 @@ Button { margin: 0; padding: 0; border-width: 0; background-color: rgba(0, 0, 0,
 
 /* help overlay (F1) */
 #help { position: absolute; left: 0; right: 0; top: 0; bottom: 0; background-color: rgba(12, 8, 4, 0.62); color: var(--coral); }
-.note { position: absolute; max-width: 240px; font-size: 13.5px; padding: 8px 10px; background-color: var(--lacquer); border-width: 2px; border-color: var(--ochre); border-radius: 6px; color: var(--coral); }
-.note .t { -unity-font: resource("IslandSim/Fonts/YoungSerif-Regular"); -unity-font-definition: initial; font-size: 15px; color: var(--ochre); }
+.note { position: absolute; max-width: 240px; font-size: 13.5px; padding: 8px 10px; background-color: var(--teak); background-image: resource("IslandSim/UI/ui_wood"); background-size: 128px 128px; background-repeat: repeat; border-width: 2px; border-color: var(--honey); border-radius: 6px; color: var(--coral); }
+.note .t { -unity-font: resource("IslandSim/Fonts/YoungSerif-Regular"); -unity-font-definition: initial; font-size: 15px; color: var(--honey); }
 .note .p { white-space: normal; }
-.keys { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: 440px; padding-bottom: 12px; color: var(--lacquer); }
+.keys { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: 440px; padding-bottom: 12px; color: var(--walnut); }
 .krow { flex-direction: row; border-bottom-width: 1px; border-color: var(--coral-2); padding: 4px 12px; font-size: 13.5px; }
 .krow .a { width: 150px; }
 .krow .b2 { flex-shrink: 1; white-space: normal; }

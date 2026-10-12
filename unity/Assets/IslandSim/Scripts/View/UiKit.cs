@@ -50,7 +50,8 @@ namespace IslandSim.View
             S("bar" + Mathf.RoundToInt(f * 1000));
             return b;
         }
-        public VisualElement Band() { var b = E("band", E("s1"), E("s2"), E("s3")); b.pickingMode = PickingMode.Ignore; return b; }
+        /// <summary>The carved coral-stone frieze under a panel header (a tiled texture in Hud.uss).</summary>
+        public VisualElement Band() { var b = E("band"); b.pickingMode = PickingMode.Ignore; return b; }
         public void Note(string s) => S(s);
 
         /// <summary>Spaces children evenly (USS has no gap property).</summary>

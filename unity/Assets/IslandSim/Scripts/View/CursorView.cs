@@ -67,7 +67,7 @@ namespace IslandSim.View
             Graphics.RenderMesh(new RenderParams(mat) { shadowCastingMode = ShadowCastingMode.Off, receiveShadows = false }, mesh, 0, m);
         }
 
-        static Color ToolColour(Tool t) => Srgb(t == Tool.Raise ? "#ffcf5a" : t == Tool.Lower ? "#4fd1c5" : t == Tool.Demolish ? "#ff6b6b" : t == Tool.Smooth ? "#c9b6ff" : "#f3e6c4");
+        static Color ToolColour(Tool t) => Srgb(t == Tool.Raise ? "#ffcf5a" : t == Tool.Lower ? "#4fd1c5" : t == Tool.Demolish ? "#ff6b6b" : t == Tool.Smooth ? "#c9b6ff" : t == Tool.Plant ? "#8fdc6a" : "#f3e6c4");
 
         void PlaceRing(int x, int y, float r, Color col)
         {
