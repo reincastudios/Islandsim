@@ -32,14 +32,17 @@ namespace IslandSim.View
             void Try(string n)
             {
                 var go = Resources.Load<GameObject>(Folder + n); if (go == null) return;
-                var m = Build(go, n, height, wind); if (m != null) o.Add(m);
+                // further levels may come as their own files: palm_LOD1, palm_LOD2 ...
+                var extra = new List<GameObject>();
+                for (int l = 1; l <= 4; l++) { var e = Resources.Load<GameObject>($"{Folder}{n}_LOD{l}"); if (e == null) break; extra.Add(e); }
+                var m = Build(go, extra, n, height, wind); if (m != null) o.Add(m);
             }
             Try(slot); for (int k = 1; k <= 9; k++) Try(slot + "_" + k);
             if (o.Count > 0) Debug.Log($"[Island Sim] Using {o.Count} custom {slot} model{(o.Count > 1 ? "s" : "")} from {Folder}.");
             return o;
         }
 
-        static PlantModel Build(GameObject go, string name, float height, float wind)
+        static PlantModel Build(GameObject go, List<GameObject> extra, string name, float height, float wind)
         {
             // the LOD levels: from an LODGroup, or from renderer names (tree_LOD0, tree_LOD1...), else one level
             var sets = new List<List<MeshRenderer>>();
@@ -60,6 +63,11 @@ namespace IslandSim.View
                     if (!byLod.TryGetValue(lod, out var l)) byLod[lod] = l = new List<MeshRenderer>(); l.Add(mr);
                 }
                 foreach (var kv in byLod) sets.Add(kv.Value);
+            }
+            foreach (var e in extra)
+            {
+                var s = new List<MeshRenderer>(); foreach (var mr in e.GetComponentsInChildren<MeshRenderer>(true)) if (Usable(mr)) s.Add(mr);
+                if (s.Count > 0 && sets.Count > 0) sets.Add(s);
             }
             if (sets.Count == 0) { Debug.LogWarning($"[Island Sim] {Folder}{name} has no meshes the game can draw; keeping the built-in plant."); return null; }
 

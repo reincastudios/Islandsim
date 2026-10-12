@@ -45,7 +45,7 @@ Delete the file to go back to the built-in model.
 
 ## Realistic plants
 
-Palms, trees, mangroves, bushes, taro, rocks and grass can each be swapped for a model from outside the game. Put an FBX or prefab in `Assets/IslandSim/Resources/IslandSim/Plants/` named `palm`, `tree`, `mangrove`, `bush`, `taro`, `rock` or `grass`, with `palm_1` ... `palm_9` for variety. Each one is scaled to the height of the plant it replaces, keeps its LODs, and gets the game's wind on its leaves. A heavy model with no LODs is drawn only up close, with the built-in plant beyond. The folder's README lists free sources (Poly Haven, and two free palm packs on the Asset Store). Asset Store files must not be pushed to the public repo.
+The islands use realistic plants made for the game: three coconut palms, three forest trees and two bushes, each with three levels of detail, in `Assets/IslandSim/Resources/IslandSim/Plants/` (textures in `PlantTextures/`, generator in `Tools/PlantGen`). Any of them, and the mangroves, taro, rocks and grass, can be swapped for your own FBX or prefab with the same name (`palm`, `tree`, `bush`, `mangrove`, `taro`, `rock`, `grass`, plus `_1` to `_9` for variety). Each model is scaled to the plant it replaces, keeps its LODs and gets the game's wind on its leaves. Delete a model to fall back to the simple built-in plant. Asset Store files must not be pushed to the public repo.
 
 ## Layout
 

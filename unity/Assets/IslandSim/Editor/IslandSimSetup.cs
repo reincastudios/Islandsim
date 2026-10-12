@@ -154,7 +154,7 @@ namespace IslandSim.EditorTools
     {
         void OnPreprocessTexture()
         {
-            if (!assetPath.Replace('\\', '/').Contains("/Resources/IslandSim/Textures/")) return;
+            var path = assetPath.Replace('\\', '/'); if (!path.Contains("/Resources/IslandSim/Textures/") && !path.Contains("/Resources/IslandSim/PlantTextures/")) return;
             var ti = (TextureImporter)assetImporter; string name = Path.GetFileNameWithoutExtension(assetPath);
             bool normal = name.EndsWith("_normal"), cutout = assetPath.EndsWith(".png");
             ti.textureType = normal ? TextureImporterType.NormalMap : TextureImporterType.Default;
@@ -168,8 +168,9 @@ namespace IslandSim.EditorTools
     }
 
     /// <summary>
-    /// Import settings for custom models (see CustomModels): readable meshes, so the game can merge them into its town
-    /// batches; Blender's axes baked in, so nothing arrives lying on its side; no cameras, lights or animation.
+    /// Import settings for custom models and plants (see CustomModels, PlantModels): building meshes readable, so the game
+    /// can merge them into its town batches; Blender's axes baked in, so nothing arrives lying on its side; tangents for
+    /// normal maps; no cameras, lights or animation.
     /// </summary>
     sealed class IslandSimModels : AssetPostprocessor
     {
@@ -177,9 +178,10 @@ namespace IslandSim.EditorTools
         {
             var path = assetPath.Replace('\\', '/'); if (!path.Contains("/Resources/IslandSim/Models/") && !path.Contains("/Resources/IslandSim/Plants/")) return;
             var mi = (ModelImporter)assetImporter;
-            mi.isReadable = true; mi.bakeAxisConversion = true;
+            mi.isReadable = path.Contains("/Resources/IslandSim/Models/");   // plants are drawn from their own meshes, buildings are merged
+            mi.bakeAxisConversion = true;
             mi.importCameras = false; mi.importLights = false; mi.importAnimation = false; mi.animationType = ModelImporterAnimationType.None;
-            mi.importNormals = ModelImporterNormals.Import; mi.importTangents = ModelImporterTangents.None;
+            mi.importNormals = ModelImporterNormals.Import; mi.importTangents = ModelImporterTangents.CalculateMikk;   // for normal maps
         }
     }
 }

@@ -4,6 +4,11 @@ Newest first. Each entry says what changed for the player and where the code liv
 
 ## 2026-10-12
 
+### Unity: realistic palms, trees and bushes (PR #6)
+- **What changed:** the islands now grow realistic plants in place of the simple built-in ones. There are three coconut palms (leaning, curved trunks with leaf-scar rings and a swollen base, arching fronds whose leaflets fold into a V and droop, a few dry fronds hanging below, coconuts), three forest trees and two bushes with photo bark and leaf textures. They are mixed at random, sway in the wind, cast shadows and pick up the island light.
+- **Speed:** every plant has three levels of detail, chosen per 64-tile chunk by distance (a palm is about 2,200 triangles up close, 480 in the middle distance and 260 far away). Green and dry fronds share one texture so each palm type costs at most three draws per chunk.
+- **Where:** models in `unity/Assets/IslandSim/Resources/IslandSim/Plants/`, textures in `PlantTextures/`, made by `unity/Tools/PlantGen` (palms painted and modelled in Python; trees and bushes from the MIT-licensed ez-tree generator with its CC0 bark and leaf photos). Each model can still be replaced with your own. Separate `_LOD1`/`_LOD2` files and name-matched textures are now understood by the loader.
+
 ### Unity: drop-in realistic plants (PR #6)
 - **What changed:** palms, forest trees, mangroves, bushes, taro, rocks and grass can each be replaced by a model from outside the game, such as a Poly Haven scan, a free Asset Store palm pack or your own Blender model. Put the FBX or prefab in `unity/Assets/IslandSim/Resources/IslandSim/Plants/` named after the plant (`palm`, `tree`...), with `palm_1` to `palm_9` for variety, mixed at random.
 - **How it fits in:** each model is scaled to the built-in plant's height whatever units it was made in, so it drops in with no setup. It keeps its own LODs and is drawn instanced per 64-tile chunk like the built-in plants. Its leaves get the game's wind and its textures go through the game's lit material. A heavy model with no LODs is drawn only within about 110 tiles of the camera, with the built-in plant standing in farther away, so the frame rate holds.

@@ -11,7 +11,7 @@ namespace IslandSim.View
     /// </summary>
     public static class Mats
     {
-        const string Tex = "IslandSim/Textures/";
+        const string Tex = "IslandSim/Textures/", PlantTex = "IslandSim/PlantTextures/";
         static readonly Dictionary<string, Texture2D> textures = new Dictionary<string, Texture2D>();
         public static Texture2D T(string name)
         {
@@ -106,6 +106,16 @@ namespace IslandSim.View
                 if (src.HasProperty("_BumpMap") && src.GetTexture("_BumpMap") != null) { m.SetTexture("_BumpMap", src.GetTexture("_BumpMap")); m.EnableKeyword("_NORMALMAP"); }
                 if (src.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", src.GetFloat("_Smoothness")); else if (src.HasProperty("_Glossiness")) m.SetFloat("_Smoothness", src.GetFloat("_Glossiness"));
                 if (src.HasProperty("_Metallic")) m.SetFloat("_Metallic", src.GetFloat("_Metallic"));
+                // the game's own plant models (isim_*) carry no texture paths; their textures sit in PlantTextures by name
+                var id = System.Text.RegularExpressions.Regex.Match(src.name, @"isim_[A-Za-z0-9_]+");
+                if (id.Success)
+                {
+                    var t = Resources.Load<Texture2D>(PlantTex + id.Value); var nt = Resources.Load<Texture2D>(PlantTex + id.Value + "_normal");
+                    if (t != null) { m.SetTexture("_BaseMap", t); m.SetTextureScale("_BaseMap", Vector2.one); m.SetTextureOffset("_BaseMap", Vector2.zero); }
+                    else Debug.LogWarning("[Island Sim] Missing plant texture " + PlantTex + id.Value);
+                    if (nt != null) { m.SetTexture("_BumpMap", nt); m.EnableKeyword("_NORMALMAP"); }
+                    c = Color.white; m.SetColor("_BaseColor", c); m.SetFloat("_Smoothness", .12f); m.SetFloat("_Metallic", 0);
+                }
                 // leaves and other cut-outs: transparent in Blender becomes alpha-tested here, both sides drawn
                 if (Cutout(src, c, m.GetTexture("_BaseMap")))
                 {
