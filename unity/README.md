@@ -43,6 +43,10 @@ Any building can use a model you make. Export it from Blender as FBX into `Asset
 
 Delete the file to go back to the built-in model.
 
+## Realistic plants
+
+Palms, trees, mangroves, bushes, taro, rocks and grass can each be swapped for a model from outside the game. Put an FBX or prefab in `Assets/IslandSim/Resources/IslandSim/Plants/` named `palm`, `tree`, `mangrove`, `bush`, `taro`, `rock` or `grass`, with `palm_1` ... `palm_9` for variety. Each one is scaled to the height of the plant it replaces, keeps its LODs, and gets the game's wind on its leaves. A heavy model with no LODs is drawn only up close, with the built-in plant beyond. The folder's README lists free sources (Poly Haven, and two free palm packs on the Asset Store). Asset Store files must not be pushed to the public repo.
+
 ## Layout
 
 ```

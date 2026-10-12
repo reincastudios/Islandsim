@@ -63,6 +63,7 @@ namespace IslandSim.View
             ["leaf"] = Leaf("leaf_cluster", .04f), ["frond"] = Leaf("palm_frond", .03f), ["tuft"] = Leaf("grass_tuft", .6f), ["cane"] = Leaf("grass_tuft", .22f),
         };
 
+        public static float WindOf(string key) => table.TryGetValue(key, out var s) ? s.Wind : 0;
         public static bool IsFoliage(string key) => table.TryGetValue(key, out var s) && s.Wind > 0;
 
         static readonly Dictionary<string, Material> mats = new Dictionary<string, Material>();
@@ -87,7 +88,7 @@ namespace IslandSim.View
         /// A custom model's material (see CustomModels), turned into the game's own lit material so it gets the same sun,
         /// haze, shadows and post effects: colour, albedo and normal maps, smoothness and metalness carry over. Returns its key.
         /// </summary>
-        public static string Custom(Material src, string model)
+        public static string Custom(Material src, string model, float wind = 0)
         {
             string k = "custom/" + model + "/" + (src != null ? src.name : "default");
             if (mats.ContainsKey(k)) return k;
@@ -106,13 +107,24 @@ namespace IslandSim.View
                 if (src.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", src.GetFloat("_Smoothness")); else if (src.HasProperty("_Glossiness")) m.SetFloat("_Smoothness", src.GetFloat("_Glossiness"));
                 if (src.HasProperty("_Metallic")) m.SetFloat("_Metallic", src.GetFloat("_Metallic"));
                 // leaves and other cut-outs: transparent in Blender becomes alpha-tested here, both sides drawn
-                if (c.a < .99f || src.renderQueue >= (int)RenderQueue.AlphaTest)
+                if (Cutout(src, c, m.GetTexture("_BaseMap")))
                 {
-                    m.EnableKeyword("_ALPHATEST_ON"); m.SetFloat("_Cutoff", .45f); m.renderQueue = (int)RenderQueue.AlphaTest; m.SetFloat("_Cull", (float)CullMode.Off);
+                    m.EnableKeyword("_ALPHATEST_ON"); m.SetFloat("_Cutoff", src.HasProperty("_Cutoff") ? Mathf.Clamp(src.GetFloat("_Cutoff"), .2f, .6f) : .45f);
+                    m.renderQueue = (int)RenderQueue.AlphaTest; m.SetFloat("_Cull", (float)CullMode.Off);
                     var cc = c; cc.a = 1; m.SetColor("_BaseColor", cc);
+                    if (wind > 0) { m.EnableKeyword("_WIND"); m.SetFloat("_Wind", wind); }
                 }
             }
             mats[k] = m; return k;
+        }
+
+        /// <summary>Leaves, fronds and grass cards: a transparent or cut-out material, or a leafy name over a texture with alpha.</summary>
+        static bool Cutout(Material src, Color c, Texture map)
+        {
+            if (c.a < .99f || src.renderQueue >= (int)RenderQueue.AlphaTest || src.IsKeywordEnabled("_ALPHATEST_ON")) return true;
+            string n = (src.name + " " + (src.shader != null ? src.shader.name : "")).ToLowerInvariant();
+            bool leafy = n.Contains("leaf") || n.Contains("leaves") || n.Contains("frond") || n.Contains("foliage") || n.Contains("grass") || n.Contains("fern") || n.Contains("cutout");
+            return leafy && map is Texture2D t && GraphicsFormatUtility.HasAlphaChannel(t.graphicsFormat);
         }
 
         /// <summary>A copy of a part's material, for boat sails whose colour changes.</summary>

@@ -14,10 +14,17 @@ namespace IslandSim.View
     public sealed class VegetationView
     {
         readonly Sim S;
-        sealed class Kind { public string Name; public Mesh Mesh; public Material Mat; public bool Shadow; public float Far; }
+        sealed class Kind
+        {
+            public string Name; public Mesh Mesh; public Material Mat; public bool Shadow; public float Far;
+            public PlantModel Plant; public float[] LodFar;   // a custom plant (see PlantModels) and where each of its LODs ends
+            public bool Hidden;                               // part of a built-in plant that a custom one replaced
+            public int[] Stand;                               // the built-in kinds drawn past the custom plant's last LOD
+        }
         readonly Kind[] kinds;
         readonly Dictionary<string, int> kindIx = new Dictionary<string, int>();
-        sealed class Batch { public Matrix4x4[] M; public int N; public MaterialPropertyBlock P; }
+        readonly Dictionary<int, List<int>> swap = new Dictionary<int, List<int>>();   // built-in kind -> its custom variants
+        sealed class Batch { public Matrix4x4[] M; public int N; public MaterialPropertyBlock P; public Matrix4x4[][] PM; }   // PM: per custom-plant part
         sealed class Chunk { public int X0, Y0, W, H; public Bounds Box; public bool Dirty = true; public List<Batch>[] ByKind; }
         readonly List<Chunk> chunks = new List<Chunk>();
         public bool Grass = true;
@@ -33,7 +40,7 @@ namespace IslandSim.View
         {
             S = s;
             Kind K(string n, Geo g, string mat, bool shadow, float far) { var m = g.ToMesh(n); m.RecalculateTangents(); return new Kind { Name = n, Mesh = m, Mat = Mats.Get(mat), Shadow = shadow, Far = far }; }
-            kinds = new[]
+            var list = new List<Kind>
             {
                 K("trunk", Models.TreeTrunk, "bark", true, 620), K("crown", Models.TreeCrown, "leaf", true, 760),
                 K("pTrunk", Models.PalmTrunk, "palmBark", true, 520), K("pCrown", Models.Fronds, "frond", true, 760),
@@ -41,7 +48,34 @@ namespace IslandSim.View
                 K("mCrown", Models.MangroveCrown, "leaf", true, 760), K("bush", Models.Bush, "leaf", true, 320),
                 K("taro", Models.Taro, "leaf", false, 260), K("rock", Models.Rock, "rock", false, 300), K("tuft", Models.Tuft, "tuft", false, 150),
             };
+            for (int k = 0; k < list.Count; k++) kindIx[list[k].Name] = k;
+            // custom plants from Resources/IslandSim/Plants, each fitted to the built-in plant it replaces
+            var slots = new (string slot, string main, string[] hide, string leaf)[]
+            {
+                ("palm", "pTrunk", new[] { "pCrown", "nut" }, "frond"), ("tree", "trunk", new[] { "crown" }, "leaf"), ("mangrove", "mRoot", new[] { "mCrown" }, "leaf"),
+                ("bush", "bush", new string[0], "leaf"), ("taro", "taro", new string[0], "leaf"), ("rock", "rock", new string[0], null), ("grass", "tuft", new string[0], "tuft"),
+            };
+            foreach (var (slot, main, hide, leaf) in slots)
+            {
+                var mk = list[kindIx[main]]; float hgt = mk.Mesh.bounds.max.y, far = mk.Far;
+                foreach (var h in hide) { var hk = list[kindIx[h]]; hgt = Mathf.Max(hgt, hk.Mesh.bounds.max.y); far = Mathf.Max(far, hk.Far); }
+                var vars = PlantModels.Variants(slot, hgt, leaf != null ? Mats.WindOf(leaf) : 0); if (vars.Count == 0) continue;
+                var ix = new List<int>();
+                foreach (var v in vars)
+                {
+                    // nearest level up close, the last one out to the plant's range; a heavy model with no LODs only up close,
+                    // with the built-in plant standing in beyond (the two look alike from that far)
+                    int n = v.Lods.Count; var lf = new float[n]; float reach = n == 1 && v.Tris > 5000 ? Mathf.Min(far, 110) : far;
+                    for (int l = 0; l < n; l++) { float f = (l + 1f) / n; lf[l] = reach * f * f; }
+                    var stand = new List<int> { kindIx[main] }; foreach (var h in hide) stand.Add(kindIx[h]);
+                    ix.Add(list.Count); list.Add(new Kind { Name = slot + "#" + v.Name, Plant = v, LodFar = lf, Shadow = mk.Shadow, Far = far, Stand = reach < far ? stand.ToArray() : null });
+                }
+                swap[kindIx[main]] = ix;
+                foreach (var h in hide) list[kindIx[h]].Hidden = true;
+            }
+            kinds = list.ToArray();
             for (int k = 0; k < kinds.Length; k++) kindIx[kinds[k].Name] = k;
+            bufM = InitBuf<Matrix4x4>(kinds.Length); bufC = InitBuf<Vector4>(kinds.Length);
             for (int cy = 0; cy < CYN; cy++)
                 for (int cx = 0; cx < CXN; cx++)
                 {
@@ -53,11 +87,19 @@ namespace IslandSim.View
         }
 
         // instances gathered per kind while a chunk is rebuilt
-        readonly List<Matrix4x4>[] bufM = InitBuf<Matrix4x4>(); readonly List<Vector4>[] bufC = InitBuf<Vector4>();
-        static List<T>[] InitBuf<T>() { var a = new List<T>[11]; for (int k = 0; k < a.Length; k++) a[k] = new List<T>(); return a; }
-        Matrix4x4 cur;
-        void Set(float px, float py, float pz, float rx, float ry, float sx, float sy, float sz) => cur = U(TRS(new Vector3(px, py, pz), rx, ry, 0, new Vector3(sx, sy, sz)));
-        void Push(string k, Color? col = null) { int i = kindIx[k]; bufM[i].Add(cur); var c = col ?? Color.white; bufC[i].Add(new Vector4(c.r, c.g, c.b, 1)); }
+        readonly List<Matrix4x4>[] bufM; readonly List<Vector4>[] bufC;
+        static List<T>[] InitBuf<T>(int n) { var a = new List<T>[n]; for (int k = 0; k < a.Length; k++) a[k] = new List<T>(); return a; }
+        Matrix4x4 cur; float curH;
+        void Set(float px, float py, float pz, float rx, float ry, float sx, float sy, float sz)
+        {
+            cur = U(TRS(new Vector3(px, py, pz), rx, ry, 0, new Vector3(sx, sy, sz))); curH = Hash(Mathf.FloorToInt(px * 4), Mathf.FloorToInt(pz * 4), 31);
+        }
+        void Push(string k, Color? col = null)
+        {
+            int i = kindIx[k]; if (kinds[i].Hidden) return;
+            if (swap.TryGetValue(i, out var vars)) { i = vars[Mathf.Min(vars.Count - 1, (int)(curH * vars.Count))]; col = null; }   // real textures keep their own colour
+            bufM[i].Add(cur); var c = col ?? Color.white; bufC[i].Add(new Vector4(c.r, c.g, c.b, 1));
+        }
         static Color Pick(Color[] a, float h) => a[(int)(h * a.Length)];
 
         void RebuildChunk(Chunk vc)
@@ -94,6 +136,12 @@ namespace IslandSim.View
                 {
                     int n = Mathf.Min(1023, m.Count - at); var b = new Batch { M = new Matrix4x4[n], N = n, P = new MaterialPropertyBlock() };
                     m.CopyTo(at, b.M, 0, n); var tint = new Vector4[n]; c.CopyTo(at, tint, 0, n); b.P.SetVectorArray("_Tint", tint);
+                    var pl = kinds[k].Plant;
+                    if (pl != null)
+                    {
+                        b.PM = new Matrix4x4[pl.PartCount][]; int g = 0;
+                        foreach (var lod in pl.Lods) foreach (var part in lod) { var a = b.PM[g++] = new Matrix4x4[n]; for (int q = 0; q < n; q++) a[q] = b.M[q] * part.M; }
+                    }
                     list.Add(b);
                 }
                 m.Clear(); c.Clear();
@@ -120,12 +168,43 @@ namespace IslandSim.View
                 var c = vc.Box.center; c.y = 0; float d = Mathf.Max(0, Vector3.Distance(c, cp) - vc.W * .7f);
                 for (int k = 0; k < kinds.Length; k++)
                 {
-                    var kd = kinds[k]; if (d >= kd.Far || kd.Mat == null) continue;
+                    var kd = kinds[k]; if (d >= kd.Far) continue;
+                    if (kd.Plant != null) { DrawPlant(kd, vc, d); continue; }
+                    if (kd.Mat == null) continue;
                     foreach (var b in vc.ByKind[k])
                     {
                         var rp = new RenderParams(kd.Mat) { shadowCastingMode = kd.Shadow ? ShadowCastingMode.On : ShadowCastingMode.Off, receiveShadows = true, worldBounds = vc.Box, matProps = b.P };
                         Graphics.RenderMeshInstanced(rp, kd.Mesh, 0, b.M, b.N);
                     }
+                }
+            }
+        }
+
+        void DrawPlant(Kind kd, Chunk vc, float d)
+        {
+            var batches = vc.ByKind[kindIx[kd.Name]];
+            if (kd.Stand != null && d >= kd.LodFar[kd.LodFar.Length - 1])
+            {
+                foreach (int s in kd.Stand)
+                {
+                    var bk = kinds[s]; if (d >= bk.Far || bk.Mat == null) continue;
+                    foreach (var b in batches)
+                    {
+                        var rp = new RenderParams(bk.Mat) { shadowCastingMode = bk.Shadow ? ShadowCastingMode.On : ShadowCastingMode.Off, receiveShadows = true, worldBounds = vc.Box, matProps = b.P };
+                        Graphics.RenderMeshInstanced(rp, bk.Mesh, 0, b.M, b.N);
+                    }
+                }
+                return;
+            }
+            int lod = 0; while (lod < kd.LodFar.Length - 1 && d >= kd.LodFar[lod]) lod++;
+            int g0 = 0; for (int l = 0; l < lod; l++) g0 += kd.Plant.Lods[l].Length;
+            foreach (var b in batches)
+            {
+                var parts = kd.Plant.Lods[lod];
+                for (int p = 0; p < parts.Length; p++)
+                {
+                    var rp = new RenderParams(parts[p].Mat) { shadowCastingMode = kd.Shadow ? ShadowCastingMode.On : ShadowCastingMode.Off, receiveShadows = true, worldBounds = vc.Box, matProps = b.P };
+                    Graphics.RenderMeshInstanced(rp, parts[p].Mesh, parts[p].Sub, b.PM[g0 + p], b.N);
                 }
             }
         }

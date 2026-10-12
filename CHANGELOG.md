@@ -4,6 +4,11 @@ Newest first. Each entry says what changed for the player and where the code liv
 
 ## 2026-10-12
 
+### Unity: drop-in realistic plants (PR #6)
+- **What changed:** palms, forest trees, mangroves, bushes, taro, rocks and grass can each be replaced by a model from outside the game, such as a Poly Haven scan, a free Asset Store palm pack or your own Blender model. Put the FBX or prefab in `unity/Assets/IslandSim/Resources/IslandSim/Plants/` named after the plant (`palm`, `tree`...), with `palm_1` to `palm_9` for variety, mixed at random.
+- **How it fits in:** each model is scaled to the built-in plant's height whatever units it was made in, so it drops in with no setup. It keeps its own LODs and is drawn instanced per 64-tile chunk like the built-in plants. Its leaves get the game's wind and its textures go through the game's lit material. A heavy model with no LODs is drawn only within about 110 tiles of the camera, with the built-in plant standing in farther away, so the frame rate holds.
+- **Code:** `Scripts/View/PlantModels.cs`, `VegetationView` (custom kinds, LOD pick, stand-ins), `Mats.Custom` (leaf detection, wind). The folder's README lists free sources.
+
 ### Unity: your own Blender models in the game (PR #6)
 - **What changed:** an FBX dropped into `unity/Assets/IslandSim/Resources/IslandSim/Models/`, named after a building (`house`, `fishery`, `palace`, `harbor`...), now replaces that building's built-in model. It is placed, turned, batched and shadowed like the built-in one, and its colours, textures and normal maps are carried onto the game's own lit material so it sits in the same light and haze. Compounds can have one model per plot size (`house_3x2`, `house_4x3`), or one `house` stretched to fit; the capital can have its own jetty (`harbor_capital`).
 - **Rules for a model:** 1 Blender metre is 1 tile, origin at the centre of the plot on the ground. The folder's README lists the names. Import settings are set automatically (readable meshes, Blender axes baked in). Code: `Scripts/View/CustomModels.cs`, `Mats.Custom`, `IslandSimModels` in the setup script.

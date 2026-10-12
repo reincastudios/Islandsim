@@ -175,7 +175,7 @@ namespace IslandSim.EditorTools
     {
         void OnPreprocessModel()
         {
-            if (!assetPath.Replace('\\', '/').Contains("/Resources/IslandSim/Models/")) return;
+            var path = assetPath.Replace('\\', '/'); if (!path.Contains("/Resources/IslandSim/Models/") && !path.Contains("/Resources/IslandSim/Plants/")) return;
             var mi = (ModelImporter)assetImporter;
             mi.isReadable = true; mi.bakeAxisConversion = true;
             mi.importCameras = false; mi.importLights = false; mi.importAnimation = false; mi.animationType = ModelImporterAnimationType.None;
