@@ -1475,7 +1475,7 @@ const WALLS=[0xf6ead2,0xf7cfae,0xc4e4da,0xf8e8a6,0xeebdb4,0xcfdcf2,0xfaf4ea].map
 const SHUTTERS=[0x2f7f7a,0x3a5f9a,0x9a3a2f,0x5a8a3a,0x2f6f9a].map(c=>M(c,.8,{map:T.wood,normalMap:T.woodN}));
 
 // ---------- vegetation ----------
-function foliageMat(map,wind){const m=STD({map,alphaTest:.45,side:THREE.DoubleSide,roughness:.72,metalness:0});patch(m,{wind,key:'leaf'});return m}
+function foliageMat(map,wind){const m=STD({map,alphaTest:.45,side:THREE.DoubleSide,roughness:.72,metalness:0});patch(m,{wind,key:'leaf'});m.userData.wind=true;return m}
 function depthFor(map,wind){const m=new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking,map,alphaTest:.45,side:THREE.DoubleSide});patch(m,{wind,key:'d'});return m}
 // cards: quads arranged on a sphere with normals pointing outward, so the crown shades like a volume
 function crownCards(count,radius,cx,cy,cz,size,seed){const geos=[];const r=rng(seed);
@@ -1712,17 +1712,39 @@ function makeModel(type,capital,seed=0,pw=3,pd=2){
   return g;
 }
 const bMeshes=new Map();
+// Static building parts are baked into world space and merged per material in 64-tile chunks, so a grown town draws
+// in a few dozen calls instead of one per part per building. Harbors (they turn toward their berth), swaying leaves
+// (their wind depends on each model's own frame) and the warning pips stay as ordinary meshes.
+const BCH=64,bParts=new Map(),bBatches=new Map(),bDirty=new Set();
+function bakeBuilding(b,m){
+  if(b.type==='harbor')return;m.updateMatrixWorld(true);const parts=[],drop=[];
+  m.traverse(o=>{if(!o.isMesh||o===m.userData.pip||o.material.userData.wind)return;parts.push({mat:o.material,geo:o.geometry.clone().applyMatrix4(o.matrixWorld)});drop.push(o)});
+  for(const o of drop){o.parent.remove(o);o.geometry.dispose()}
+  const c=plotCentre(b),key=((c.x/BCH)|0)+','+((c.y/BCH)|0);bParts.set(b.id,{key,parts});bDirty.add(key)}
+function rebuildBatches(){
+  for(const key of bDirty){
+    for(const mesh of bBatches.get(key)||[]){scene.remove(mesh);mesh.geometry.dispose()}
+    const groups=new Map();
+    for(const{key:k,parts}of bParts.values()){if(k!==key)continue;for(const p of parts){const sig=p.mat.uuid+'|'+Object.keys(p.geo.attributes).sort().join(',');if(!groups.has(sig))groups.set(sig,{mat:p.mat,geos:[]});groups.get(sig).geos.push(p.geo)}}
+    const meshes=[];
+    for(const{mat:mt,geos}of groups.values()){const g=geos.length===1?geos[0].clone():mergeGeometries(geos,false);if(!g)continue;
+      const mesh=new THREE.Mesh(g,mt);mesh.castShadow=mesh.receiveShadow=true;mesh.matrixAutoUpdate=false;scene.add(mesh);meshes.push(mesh)}
+    bBatches.set(key,meshes)}
+  bDirty.clear()}
+function clearBatches(){for(const ms of bBatches.values())for(const mesh of ms){scene.remove(mesh);mesh.geometry.dispose()}bBatches.clear();
+  for(const{parts}of bParts.values())for(const p of parts)p.geo.dispose();bParts.clear();bDirty.clear()}
 function syncBuildings(t){
   const live=new Set();
   for(const b of S.buildings){live.add(b.id);let m=bMeshes.get(b.id);
     if(!m){m=makeModel(b.type,b.id===S.capital,(hash2(b.x,b.y,2)*997)|0,Math.max(b.w,b.d),Math.min(b.w,b.d));const c=plotCentre(b);m.position.set(c.x,topY(S.h[idx(b.x,b.y)]),c.y);
       m.rotation.y=b.type==='house'?plotRot(b):(hash2(b.x,b.y,1)*4|0)*Math.PI/2;
-      const pip=new THREE.Mesh(new THREE.SphereGeometry(.07,10,8),mat.pip);pip.position.y=1.05;pip.visible=false;m.add(pip);m.userData.pip=pip;scene.add(m);bMeshes.set(b.id,m)}
+      const pip=new THREE.Mesh(new THREE.SphereGeometry(.07,10,8),mat.pip);pip.position.y=1.05;pip.visible=false;m.add(pip);m.userData.pip=pip;bakeBuilding(b,m);scene.add(m);bMeshes.set(b.id,m)}
     if(b.type==='harbor'){const h=berthOf(b.x,b.y);const fx=h?h[0]-b.x:0,fz=h?h[1]-b.y:1;m.rotation.y=Math.atan2(fx,fz)}
     const bad=b.type==='harbor'?(!b.merged&&!berthOf(b.x,b.y)):!b.off&&(b.eff<0.5||/Hungry|No /.test(b.status));
     m.userData.pip.visible=bad;if(bad)m.userData.pip.position.y=1.05+Math.sin(t*3)*.05;
   }
-  for(const[id,m]of bMeshes)if(!live.has(id)){scene.remove(m);bMeshes.delete(id)}
+  for(const[id,m]of bMeshes)if(!live.has(id)){scene.remove(m);bMeshes.delete(id);const bp=bParts.get(id);if(bp){for(const p of bp.parts)p.geo.dispose();bParts.delete(id);bDirty.add(bp.key)}}
+  if(bDirty.size)rebuildBatches();
 }
 // boats: a planked hull that narrows to a bow, mast and a gently curved sail
 const hullGeo=(()=>{const g=new THREE.BoxGeometry(.8,.16,.3,8,1,2);const p=g.attributes.position;
@@ -1843,6 +1865,7 @@ function renderFrame(){
   // it reuses last frame's shadow map, and the main pass below refreshes it with the plants in place
   if(Q.refract){water.visible=false;const cv0=cursor.visible,rq=rangeQuad.visible;cursor.visible=rangeQuad.visible=false;
     vegOn.length=0;for(const vc of vChunks)for(const k in vc.m){const m=vc.m[k];if(m.visible){m.visible=false;vegOn.push(m)}}
+    for(const ms of bBatches.values())for(const m of ms)if(m.visible){m.visible=false;vegOn.push(m)}   // buildings stand on land too
     renderer.setRenderTarget(refractRT);renderer.render(scene,camera);renderer.setRenderTarget(null);
     for(const m of vegOn)m.visible=true;
     water.visible=true;cursor.visible=cv0;rangeQuad.visible=rq}
@@ -2345,7 +2368,7 @@ function saveTo(key){try{const meta={day:1+Math.floor(S.t/30),pop:Math.floor(tot
 function renderSaves(){const row=(lbl,key,i)=>{const m=slotMeta(key);
     return`<div class="slot"><span><b>${lbl}</b> · ${m?`day ${m.day}, ${m.pop} residents`:'empty'}</span>${i!=='auto'?`<button data-save="${i}">Save</button>`:''}<button data-load="${i}"${m?'':' disabled'}>Load</button></div>`};
   $('saves').innerHTML=SLOTS.map((k,i)=>row(`Slot ${i+1}`,k,i)).join('')+row('Autosave',AUTO,'auto')}
-function resetWorld(){for(const[,m]of bMeshes)scene.remove(m);bMeshes.clear();for(const[,m]of boatMeshes)scene.remove(m);boatMeshes.clear();boats=[];trader=null;tradeRouteCache.ver=-1;
+function resetWorld(){for(const[,m]of bMeshes)scene.remove(m);bMeshes.clear();clearBatches();for(const[,m]of boatMeshes)scene.remove(m);boatMeshes.clear();boats=[];trader=null;tradeRouteCache.ver=-1;
   sel=null;renderSel();$('over').hidden=true;alerted.clear()}
 function afterLoad(){dirtyTerrain=dirtyTrees=miniDirty=true;terrainVer++;setSpeed(1);updateUI()}
 function loadFrom(key){let d=null;try{d=JSON.parse(localStorage.getItem(key)||'null')}catch(e){}
@@ -2522,7 +2545,7 @@ async function start(data){
   window.claude?.hot?.snapshot?.(snapshot);
   $('loading').hidden=true;
   toast(auto?`Welcome back, governor. Your autosave from day ${1+Math.floor(S.t/30)} is loaded; the menu starts a new game.`:'Welcome, governor. It is the Age of Cowries, and Palm Isle is yours. Feed your fishing families, plant coconuts, and sell rope and dried fish to the ships that call at your jetty.','good');
-  window.__island={S:()=>S,canPlace,capitalHarbor,trader:()=>trader,doTrade,tradeRoute,ageReady,advanceAge,undoTerraform,setBrush,setPlot,setLevel,contentFishers,stepTrader,drawMini,paintMiniBase,vChunks,saveTo,loadFrom,restartGame,gameOver,roadBeside,selectBuilding,openIsland,setCat,toggleHelp,byId,buildRoad,islands:()=>islands,boats:()=>boats,setTool,place,terraform,step,computeIslands,setSpeed,cam,setQuality,renderer,W,H,ATOLLS,ISL,ISL_C,GT,rebuildTerrain,markTerrain,markShore,computeShore,rebuildTrees,snapshot,restore,ready:true};
+  window.__island={S:()=>S,bMeshes,sun,scene,canPlace,capitalHarbor,trader:()=>trader,doTrade,tradeRoute,ageReady,advanceAge,undoTerraform,setBrush,setPlot,setLevel,contentFishers,stepTrader,drawMini,paintMiniBase,vChunks,saveTo,loadFrom,restartGame,gameOver,roadBeside,selectBuilding,openIsland,setCat,toggleHelp,byId,buildRoad,islands:()=>islands,boats:()=>boats,setTool,place,terraform,step,computeIslands,setSpeed,cam,setQuality,renderer,W,H,ATOLLS,ISL,ISL_C,GT,rebuildTerrain,markTerrain,markShore,computeShore,rebuildTrees,snapshot,restore,ready:true};
   requestAnimationFrame(frame);
 }
 window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.hot?.data??{});

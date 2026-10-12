@@ -2,6 +2,14 @@
 
 Newest first. Each entry says what changed for the player and where the code lives.
 
+## 2026-10-12
+
+### Smoother all the time: buildings drawn in batches (PR #5)
+- **Why it lagged:** every part of every building (walls, roof, posts, fence, yard) was its own draw call, so a town of about 100 compounds asked the graphics card for 2,200 to 2,600 draws every frame, and again for the sun's shadow. The game logic itself only takes about 2 ms a frame.
+- **Now:** when a building goes up, its fixed parts are baked into place and merged with the same material in 64-tile chunks. The same town draws in 370 to 480 calls, about six times fewer, so frames are steadier on every preset.
+- **Nothing looks different:** same models, materials, shadows and water. Side-by-side screenshots of the old and new build on the same town match (only the waves and palm sway differ, because they move). Jetties (they turn toward their berth), swaying leaves and the warning pips stay separate as before.
+- Placing or demolishing a building only rebuilds its own chunk. Code: `bakeBuilding`, `rebuildBatches` and `syncBuildings` in index.html.
+
 ## 2026-10-11
 
 ### Age 1: the Age of Cowries, a terraform panel and bigger compounds (PR #5)
