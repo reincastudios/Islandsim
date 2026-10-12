@@ -97,7 +97,13 @@ namespace IslandSim.View
         void Push(string k, Color? col = null)
         {
             int i = kindIx[k]; if (kinds[i].Hidden) return;
-            if (swap.TryGetValue(i, out var vars)) { i = vars[Mathf.Min(vars.Count - 1, (int)(curH * vars.Count))]; col = null; }   // real textures keep their own colour
+            if (swap.TryGetValue(i, out var vars))
+            {
+                // real textures keep their own colour, varied a little per plant (some lusher, some sun-bleached) so a
+                // stand of one species never looks stamped
+                i = vars[Mathf.Min(vars.Count - 1, (int)(curH * vars.Count))];
+                float h = (curH * 7.31f) % 1f, v = .9f + .16f * h; col = new Color(v * (1.02f - .06f * h), v, v * (.92f + .1f * h));
+            }
             bufM[i].Add(cur); var c = col ?? Color.white; bufC[i].Add(new Vector4(c.r, c.g, c.b, 1));
         }
         static Color Pick(Color[] a, float h) => a[(int)(h * a.Length)];

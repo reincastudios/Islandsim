@@ -1,5 +1,6 @@
 // Buildings, boats and plants: textured PBR with cloud shadows, optional alpha-tested foliage that sways in the wind,
-// and a per-instance tint for instanced plants (the web game's MeshStandardMaterial plus its shader patch).
+// and a per-instance tint for instanced plants (the web game's MeshStandardMaterial plus its shader patch). _FOLIAGE
+// lights the game's own leaves as leaves: light through them, soft shade, and the canopy's baked depth.
 Shader "IslandSim/Lit"
 {
     Properties
@@ -62,6 +63,15 @@ Shader "IslandSim/Lit"
             #endif
             return p;
         }
+        // texture coordinates without the foliage occlusion packed into them (see FoliageUV)
+        float2 LeafUV(float2 uv)
+        {
+            #if defined(_FOLIAGE)
+                float occ; return FoliageUV(uv, occ);
+            #else
+                return uv;
+            #endif
+        }
         half4 Albedo(float2 uv)
         {
             half4 c = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, uv) * _BaseColor * UNITY_ACCESS_INSTANCED_PROP(IslandProps, _Tint);
@@ -85,6 +95,7 @@ Shader "IslandSim/Lit"
             #pragma multi_compile_local _ _ALPHATEST_ON
             #pragma multi_compile_local _ _WIND
             #pragma multi_compile_local _ _BAKEDHEIGHT
+            #pragma multi_compile_local _ _FOLIAGE
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE
             #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
             #pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
@@ -99,6 +110,7 @@ Shader "IslandSim/Lit"
                 float4 tangentWS : TEXCOORD2;
                 float2 uv : TEXCOORD3;
                 float fog : TEXCOORD4;
+                float occ : TEXCOORD5;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
@@ -110,7 +122,11 @@ Shader "IslandSim/Lit"
                 o.positionCS = TransformWorldToHClip(o.positionWS);
                 VertexNormalInputs n = GetVertexNormalInputs(v.normalOS, v.tangentOS);
                 o.normalWS = n.normalWS; o.tangentWS = float4(n.tangentWS, v.tangentOS.w * GetOddNegativeScale());
-                o.uv = TRANSFORM_TEX(v.uv, _BaseMap);
+                float2 uv = v.uv; o.occ = 1;
+                #if defined(_FOLIAGE)
+                    uv = FoliageUV(uv, o.occ);
+                #endif
+                o.uv = TRANSFORM_TEX(uv, _BaseMap);
                 o.fog = ComputeFogFactor(o.positionCS.z);
                 return o;
             }
@@ -119,14 +135,22 @@ Shader "IslandSim/Lit"
             {
                 UNITY_SETUP_INSTANCE_ID(i);
                 half4 alb = Albedo(i.uv);
-                float sgn = IS_FRONT_VFACE(face, 1.0, -1.0);
+                #if defined(_FOLIAGE)
+                    float sgn = 1.0;   // leaf normals are bent around the whole canopy, so both faces keep them
+                #else
+                    float sgn = IS_FRONT_VFACE(face, 1.0, -1.0);
+                #endif
                 half3 n = normalize(i.normalWS) * sgn;
                 #if defined(_NORMALMAP)
                     half3 tn = UnpackNormalScale(SAMPLE_TEXTURE2D(_BumpMap, sampler_BumpMap, i.uv), _BumpScale);
                     half3 t = normalize(i.tangentWS.xyz) * sgn; half3 b = cross(n, t) * i.tangentWS.w;
                     n = normalize(t * tn.x + b * tn.y + n * tn.z);
                 #endif
-                half3 c = IslandShade(i.positionWS, n, alb.rgb, _Metallic, _Smoothness, GetNormalizedScreenSpaceUV(i.positionCS), 1);
+                #if defined(_FOLIAGE)
+                    half3 c = IslandShadeFoliage(i.positionWS, n, alb.rgb, _Smoothness, GetNormalizedScreenSpaceUV(i.positionCS), i.occ);
+                #else
+                    half3 c = IslandShade(i.positionWS, n, alb.rgb, _Metallic, _Smoothness, GetNormalizedScreenSpaceUV(i.positionCS), 1);
+                #endif
                 return half4(MixFog(c, i.fog), 1);
             }
             ENDHLSL
@@ -144,6 +168,7 @@ Shader "IslandSim/Lit"
             #pragma multi_compile_local _ _ALPHATEST_ON
             #pragma multi_compile_local _ _WIND
             #pragma multi_compile_local _ _BAKEDHEIGHT
+            #pragma multi_compile_local _ _FOLIAGE
             #pragma multi_compile_vertex _ _CASTING_PUNCTUAL_LIGHT_SHADOW
             #pragma multi_compile_instancing
             float3 _LightDirection; float3 _LightPosition;
@@ -164,7 +189,7 @@ Shader "IslandSim/Lit"
                 #else
                     o.positionCS.z = max(o.positionCS.z, UNITY_NEAR_CLIP_VALUE);
                 #endif
-                o.uv = TRANSFORM_TEX(v.uv, _BaseMap);
+                o.uv = TRANSFORM_TEX(LeafUV(v.uv), _BaseMap);
                 return o;
             }
             half4 frag(Varyings i) : SV_Target { UNITY_SETUP_INSTANCE_ID(i); Albedo(i.uv); return 0; }
@@ -183,6 +208,7 @@ Shader "IslandSim/Lit"
             #pragma multi_compile_local _ _ALPHATEST_ON
             #pragma multi_compile_local _ _WIND
             #pragma multi_compile_local _ _BAKEDHEIGHT
+            #pragma multi_compile_local _ _FOLIAGE
             #pragma multi_compile_instancing
             struct Varyings { float4 positionCS : SV_POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
             Varyings vert(Attributes v)
@@ -190,7 +216,7 @@ Shader "IslandSim/Lit"
                 Varyings o = (Varyings)0;
                 UNITY_SETUP_INSTANCE_ID(v); UNITY_TRANSFER_INSTANCE_ID(v, o);
                 o.positionCS = TransformWorldToHClip(TransformObjectToWorld(Sway(v)));
-                o.uv = TRANSFORM_TEX(v.uv, _BaseMap);
+                o.uv = TRANSFORM_TEX(LeafUV(v.uv), _BaseMap);
                 return o;
             }
             half frag(Varyings i) : SV_Target { UNITY_SETUP_INSTANCE_ID(i); Albedo(i.uv); return i.positionCS.z; }
@@ -209,6 +235,7 @@ Shader "IslandSim/Lit"
             #pragma multi_compile_local _ _ALPHATEST_ON
             #pragma multi_compile_local _ _WIND
             #pragma multi_compile_local _ _BAKEDHEIGHT
+            #pragma multi_compile_local _ _FOLIAGE
             #pragma multi_compile_instancing
             struct Varyings { float4 positionCS : SV_POSITION; float2 uv : TEXCOORD0; float3 normalWS : TEXCOORD1; UNITY_VERTEX_INPUT_INSTANCE_ID };
             Varyings vert(Attributes v)
@@ -217,7 +244,7 @@ Shader "IslandSim/Lit"
                 UNITY_SETUP_INSTANCE_ID(v); UNITY_TRANSFER_INSTANCE_ID(v, o);
                 o.positionCS = TransformWorldToHClip(TransformObjectToWorld(Sway(v)));
                 o.normalWS = TransformObjectToWorldNormal(v.normalOS);
-                o.uv = TRANSFORM_TEX(v.uv, _BaseMap);
+                o.uv = TRANSFORM_TEX(LeafUV(v.uv), _BaseMap);
                 return o;
             }
             half4 frag(Varyings i, FRONT_FACE_TYPE face : FRONT_FACE_SEMANTIC) : SV_Target

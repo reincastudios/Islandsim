@@ -6,7 +6,8 @@ def load_tex(path):
     im = Image.open(path).convert('RGBA'); return np.asarray(im).astype(np.float32) / 255.0
 
 def render(meshes, size=(512, 512), yaw=0.6, pitch=0.25, bg=(0.72, 0.82, 0.9), fit=None):
-    """meshes: list of (P[n,3], N[n,3], UV[n,2], I[m,3], tex[h,w,4] or None, color[3], uv_tile)"""
+    """meshes: list of (P[n,3], N[n,3], UV[n,2], I[m,3], tex[h,w,4] or None, color[3], uv_tile[, foliage])
+    foliage: decode the canopy occlusion from u's whole-number part and light it like the game's foliage shader."""
     W, H = size
     allp = np.concatenate([m[0] for m in meshes])
     lo, hi = allp.min(0), allp.max(0); c = (lo + hi) / 2; ext = (hi - lo).max() * 0.55
@@ -14,7 +15,10 @@ def render(meshes, size=(512, 512), yaw=0.6, pitch=0.25, bg=(0.72, 0.82, 0.9), f
     R = np.array([[cy, 0, -sy], [0, 1, 0], [sy, 0, cy]]) ; Rp = np.array([[1, 0, 0], [0, cp, -sp], [0, sp, cp]]); M = Rp @ R
     img = np.zeros((H, W, 3), np.float32); img[:] = bg; zb = np.full((H, W), np.inf, np.float32)
     sun = np.array([0.4, 0.8, 0.45]); sun /= np.linalg.norm(sun)
-    for P, N, UV, I, tex, col, tile in meshes:
+    for m in meshes:
+        P, N, UV, I, tex, col, tile = m[:7]; fol = len(m) > 7 and m[7]
+        AO = np.ones(len(P))
+        if fol: k = np.floor(UV[:, 0]); AO = 1 - k / 15 * 0.85; UV = UV.copy(); UV[:, 0] -= k
         q = (P - c) @ M.T; sx = (q[:, 0] / ext * 0.5 + 0.5) * W; syy = (0.5 - q[:, 1] / ext * 0.5) * H; z = q[:, 2]
         nl = N @ np.eye(3)
         for t in I:
@@ -39,7 +43,12 @@ def render(meshes, size=(512, 512), yaw=0.6, pitch=0.25, bg=(0.72, 0.82, 0.9), f
                 th, tw = tex.shape[:2]; tx = (np.mod(u, 1) * (tw - 1)).astype(int); ty = ((1 - np.mod(v, 1)) * (th - 1)).astype(int)
                 s = tex[ty, tx]; vis &= s[..., 3] > 0.45; base = s[..., :3]
             else: base = np.broadcast_to(np.array(col, np.float32), gx.shape + (3,))
-            lam = np.abs(n @ sun) * 0.75 + 0.35 + 0.1 * n[..., 1]
-            shade = base * lam[..., None]
+            if fol:
+                ao = w0 * AO[a] + w1 * AO[b] + w2 * AO[d]
+                ndl = n @ sun; lam = (np.clip((ndl + 0.35) / 1.35, 0, 1) * 0.8 + 0.3 + 0.1 * n[..., 1]) * ao
+                shade = base * lam[..., None] + base * base * 0.5 * ao[..., None]
+            else:
+                lam = np.abs(n @ sun) * 0.75 + 0.35 + 0.1 * n[..., 1]
+                shade = base * lam[..., None]
             sub[vis] = zz[vis]; img[y0:y1 + 1, x0:x1 + 1][vis] = shade[vis]
     return Image.fromarray((np.clip(img, 0, 1) ** (1 / 1.0) * 255).astype(np.uint8))

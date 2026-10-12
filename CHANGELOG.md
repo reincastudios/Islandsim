@@ -4,6 +4,13 @@ Newest first. Each entry says what changed for the player and where the code liv
 
 ## 2026-10-12
 
+### Unity: Maldivian island vegetation (PR #6)
+- **What changed:** the plants now match an uninhabited Maldivian island. Coconut palms are taller and slimmer with fuller, brighter crowns, and there is a new palm leaning out over the beach. The forest is now sea hibiscus, tropical almond, Alexandrian laurel, ironwood and screw pine (on stilt roots, with orange fruit). The bushes are beach naupaka, which forms the bright green wall along the shore, and silvery octopus bush. Each species has its own painted leaves in rich tropical greens, and each plant gets a slight colour shift so a stand never looks stamped.
+- **Fixed:** some palm trunks were bent out of shape. The trunk's gentle wobble picked a new random phase at every point along it, so trunks zig-zagged; it now uses one phase per palm. The same fix keeps each palm's three levels of detail identical, so nothing pops as you zoom.
+- **Shading:** the game's own leaves now light like leaves: sunlight glows through them when you look toward the sun, the side away from the sun stays soft instead of going dark, and leaves deep inside a canopy or under a palm crown sit in shade. The depth is baked into the models, so it costs nothing per frame. Leaves have a light waxy sheen.
+- **Speed:** a tree is about 5,000 to 7,300 triangles up close, 1,300 to 2,200 in the middle distance and 450 to 800 far away; a bush about 3,500 to 5,000, 1,300 to 1,800 and 500 to 730; a palm about 2,700, 600 and 340. Same three-level scheme and draw counts as before.
+- **Where:** models in `unity/Assets/IslandSim/Resources/IslandSim/Plants/`, textures in `PlantTextures/`, made by `unity/Tools/PlantGen` (new `leaf_tex.py`, `pandanus.py` and `trees_jobs.json`). The foliage lighting is `_FOLIAGE` in `IslandLit.shader` and `IslandCommon.hlsl`.
+
 ### Unity: realistic palms, trees and bushes (PR #6)
 - **What changed:** the islands now grow realistic plants in place of the simple built-in ones. There are three coconut palms (leaning, curved trunks with leaf-scar rings and a swollen base, arching fronds whose leaflets fold into a V and droop, a few dry fronds hanging below, coconuts), three forest trees and two bushes with photo bark and leaf textures. They are mixed at random, sway in the wind, cast shadows and pick up the island light.
 - **Speed:** every plant has three levels of detail, chosen per 64-tile chunk by distance (a palm is about 2,200 triangles up close, 480 in the middle distance and 260 far away). Green and dry fronds share one texture so each palm type costs at most three draws per chunk.

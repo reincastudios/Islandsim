@@ -1,11 +1,16 @@
+# Turns ez-tree's branches and leaf cards (trees.json from gen.mjs) into the game's OBJ files, one per level of detail.
+# Far levels keep fewer leaf cards, scaled up so the canopy stays full. Leaf normals bend outward from the canopy centre
+# for soft, rounded canopy light, and each card carries how deep inside the canopy it sits (see ao_encode).
 import json, sys, numpy as np
-from PIL import Image
-from objio import write_obj, write_lods, compact
-from render import render, load_tex
-D = json.load(open('trees.json')); OUT = 'lods3/'
-LEAF_KEEP = {'tree': [0.5, 0.15, 0.045], 'bush': [0.5, 0.16, 0.05]}
-LEAF_OVERRIDE = {'tree_1': 'ash', 'bush_1': 'oak', 'bush_2': 'ash'}
+from objio import write_lods, compact
+LEAF_KEEP = {'tree': [0.5, 0.15, 0.045], 'bush': [0.34, 0.11, 0.04]}
 def arr(x, k): return np.array(x, np.float32).reshape(-1, k)
+
+def ao_encode(UV, dark):
+    """The game's foliage shader reads ambient occlusion from the whole-number part of u: u + k, k = 0 (open) .. 15 (deep
+    inside). Leaf textures only use u in 0..1, so this costs nothing and needs no second UV set (OBJ has only one)."""
+    k = np.clip(np.round(np.asarray(dark) * 15), 0, 15)
+    UV = UV.copy(); UV[:, 0] = np.clip(UV[:, 0], 0.002, 0.998) + k; return UV
 
 def leaves_lod(L, keep, rng):
     P, N, UV = arr(L['pos'], 3), arr(L['nrm'], 3), arr(L['uv'], 2)
@@ -15,34 +20,35 @@ def leaves_lod(L, keep, rng):
         if q + 1 < nq and np.allclose(m0, (P[q*4+5] + P[q*4+6]) / 2, atol=1e-4): groups.append([q, q+1]); q += 2
         else: groups.append([q]); q += 1
     sel = [g for g in groups if rng.random() < keep]; s = (1 / keep) ** 0.5
-    centre = P.mean(0) * np.array([1, 1.15, 1])   # canopy centre, a little high: normals bend outward from it
+    # the canopy as an ellipsoid around the leaf cards; centre a little high so normals bend outward and up
+    lo, hi = np.percentile(P, 4, axis=0), np.percentile(P, 96, axis=0)
+    centre = (lo + hi) / 2 + np.array([0, (hi[1] - lo[1]) * 0.08, 0]); R = np.maximum((hi - lo) / 2, 1e-3)
     oP, oN, oUV, oI = [], [], [], []
     for g in sel:
         for qq in g:
             v = P[qq*4:qq*4+4].copy(); o = (v[1] + v[2]) / 2; v = o + (v - o) * s
             n0 = N[qq*4]; out = v - centre; out /= np.linalg.norm(out, axis=1, keepdims=True) + 1e-6
-            n = n0 * 0.35 + out * 0.65; n /= np.linalg.norm(n, axis=1, keepdims=True)
-            b = len(oP) * 4; oP.append(v); oN.append(n); oUV.append(UV[qq*4:qq*4+4]); oI += [[b, b+1, b+2], [b, b+2, b+3]]
+            n = n0 * 0.4 + out * 0.6; n /= np.linalg.norm(n, axis=1, keepdims=True)
+            # open at the canopy's skin, darker toward its core and its underside
+            m = v.mean(0); r = np.linalg.norm((m - centre) / R); h = (m[1] - lo[1]) / max(hi[1] - lo[1], 1e-3)
+            dark = min(1.0, np.clip(1 - (r - 0.25) / 0.75, 0, 1) ** 1.3 * 0.55 + np.clip(0.45 - h, 0, 1) * 0.45)
+            b = len(oP) * 4; oP.append(v); oN.append(n); oUV.append(ao_encode(UV[qq*4:qq*4+4], np.full(4, dark)))
+            oI += [[b, b+1, b+2], [b, b+2, b+3]]
     return np.concatenate(oP), np.concatenate(oN), np.concatenate(oUV), np.array(oI)
 
-textures = set(); previews = []
-for name, t in D.items():
-    kind = 'bush' if name.startswith('bush') else 'tree'; rng = np.random.default_rng(7)
-    bark, leaf = t['bark'], LEAF_OVERRIDE.get(name, t['leaf']); ts = t['texScale']
-    bm, lm = f"isim_bark_{bark}", f"isim_leaf_{leaf}"; textures |= {('bark', bark), ('leaf', leaf)}
-    BP, BN, BUV = arr(t['B']['pos'], 3), arr(t['B']['nrm'], 3), arr(t['B']['uv'], 2) * np.array([ts['x'], 1 / ts['y']], np.float32)
-    lods = []
-    for li, idx in enumerate(t['lodB']):
-        I = np.array(idx).reshape(-1, 3); bp = compact(BP, BN, BUV, I)
-        lp = leaves_lod(t['L'], LEAF_KEEP[kind][li], np.random.default_rng(11 + li))
-        lods.append([(bm, *bp), (lm, *lp)])
-        print(name, 'LOD', li, 'tris', len(bp[3]) + len(lp[3]))
-    write_lods(OUT, name, lods, [bm, lm])
-    if '--preview' in sys.argv:
-        bt = load_tex(f'package/src/lib/assets/bark/{bark}_color_1k.jpg'); lt = load_tex(f'package/src/lib/assets/leaves/{leaf}_color.png')
-        row = []
-        for li in range(3):
-            (m1, *b), (m2, *l) = lods[li]
-            row.append(render([(b[0], b[1], b[2], b[3], bt, None, (1, 1)), (l[0], l[1], l[2], l[3], lt, None, (1, 1))], size=(320, 320)))
-        im = Image.new('RGB', (960, 320)); [im.paste(r, (i * 320, 0)) for i, r in enumerate(row)]; im.save(f'prev_{name}.png')
-json.dump(sorted(textures), open('tree_textures.json', 'w'))
+if __name__ == '__main__':
+    D = json.load(open('trees.json')); OUT = sys.argv[1] if len(sys.argv) > 1 else 'out/'
+    textures = set()
+    for name, t in D.items():
+        kind = 'bush' if name.startswith('bush') else 'tree'
+        bm, lm = f"isim_bark_{t['bark']}", f"isim_leaf_{t['leaf']}"; textures |= {t['bark']}
+        ts = t['texScale']
+        BP, BN, BUV = arr(t['B']['pos'], 3), arr(t['B']['nrm'], 3), arr(t['B']['uv'], 2) * np.array([ts['x'], 1 / ts['y']], np.float32)
+        lods = []
+        for li, idx in enumerate(t['lodB']):
+            I = np.array(idx).reshape(-1, 3); bp = compact(BP, BN, BUV, I)
+            lp = leaves_lod(t['L'], LEAF_KEEP[kind][li], np.random.default_rng(11 + li))
+            lods.append([(bm, *bp), (lm, *lp)])
+            print(name, 'LOD', li, 'tris', len(bp[3]) + len(lp[3]))
+        write_lods(OUT, name, lods, [bm, lm])
+    json.dump(sorted(textures), open('tree_textures.json', 'w'))

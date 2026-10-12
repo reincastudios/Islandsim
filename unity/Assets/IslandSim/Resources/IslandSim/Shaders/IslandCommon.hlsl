@@ -71,4 +71,36 @@ half3 IslandShade(float3 positionWS, half3 normalWS, half3 albedo, half metallic
     c += LightingPhysicallyBased(brdf, mainLight, normalWS, viewDirWS);
     return c;
 }
+// Leaves: the light scatters through them, so the side away from the sun is never black (wrapped diffuse), sunlight
+// glows through when you look toward the sun (transmission, more saturated than the reflected colour), and the canopy's
+// own depth darkens the leaves inside it (occ, baked into the model; see FoliageUV).
+half3 IslandShadeFoliage(float3 positionWS, half3 normalWS, half3 albedo, half smoothness, float2 screenUV, half occ)
+{
+    SurfaceData s = (SurfaceData)0;
+    s.albedo = albedo; s.metallic = 0; s.smoothness = smoothness; s.occlusion = occ; s.alpha = 1; s.normalTS = half3(0, 0, 1);
+    BRDFData brdf; InitializeBRDFData(s, brdf);
+    half3 viewDirWS = GetWorldSpaceNormalizeViewDir(positionWS);
+    float4 shadowCoord = TransformWorldToShadowCoord(positionWS);
+    Light mainLight = GetMainLight(shadowCoord, positionWS, half4(1, 1, 1, 1));
+    AmbientOcclusionFactor ao = CreateAmbientOcclusionFactor(screenUV, occ);
+    half3 sun = mainLight.color * ao.directAmbientOcclusion * CloudShadow(TileXZ(positionWS), _IsTime)
+              * mainLight.shadowAttenuation * mainLight.distanceAttenuation;
+    half3 c = GlobalIllumination(brdf, SampleSH(normalWS), ao.indirectAmbientOcclusion * occ, positionWS, normalWS, viewDirWS);
+    half nl = dot(normalWS, mainLight.direction);
+    half wrapped = saturate((nl + 0.4) / 1.4);
+    c += brdf.diffuse * sun * wrapped * lerp(0.55, 1.0, occ);
+    c += brdf.specular * DirectBRDFSpecular(brdf, normalWS, mainLight.direction, viewDirWS) * sun * saturate(nl);
+    half toSun = pow(saturate(dot(viewDirWS, -mainLight.direction)), 4.0);
+    c += albedo * albedo * 2.0 * sun * (toSun * 0.9 + 0.12) * occ;
+    return c;
+}
+
+// The game's own plant models carry their canopy occlusion in the whole-number part of u (0 = open .. 15 = deep inside),
+// since OBJ has only one UV set; the leaf textures themselves only use 0..1.
+float2 FoliageUV(float2 uv, out float occ)
+{
+    float k = floor(uv.x);
+    occ = 1.0 - saturate(k / 15.0) * 0.85;
+    return float2(uv.x - k, uv.y);
+}
 #endif

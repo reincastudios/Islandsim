@@ -1,0 +1,7 @@
+newmtl isim_bark_willow
+Kd 1 1 1
+Ns 10
+
+newmtl isim_leaf_velvet
+Kd 1 1 1
+Ns 10

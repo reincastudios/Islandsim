@@ -1,13 +1,17 @@
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { MeshoptSimplifier } from 'meshoptimizer';
 import { Tree } from './package/src/lib/tree.js';
 import { loadPreset } from './package/src/lib/presets/index.js';
 await MeshoptSimplifier.ready;
 
-const jobs = JSON.parse(process.argv[2]);
+const arg = process.argv[2] ?? 'trees_jobs.json';
+const jobs = JSON.parse(arg.trim().startsWith('[') ? arg : readFileSync(arg, 'utf8'));
 const out = {};
 for (const j of jobs) {
   const t = new Tree(); const opt = loadPreset(j.preset); opt.seed = j.seed ?? opt.seed;
+  // per-tree overrides on top of the preset, e.g. {"branch": {"angle": {"1": 80}}, "leaves": {"count": 20}}
+  const merge = (a, b) => { for (const k in b) { if (b[k] && typeof b[k] === 'object' && a[k] && typeof a[k] === 'object') merge(a[k], b[k]); else a[k] = b[k]; } };
+  if (j.opt) merge(opt, j.opt);
   if (j.leafScale) opt.leaves.size *= j.leafScale;
   t.loadFromJson(opt);
   const bg = t.branchesMesh.geometry, lg = t.leavesMesh.geometry;
@@ -21,7 +25,7 @@ for (const j of jobs) {
     const [res] = ratio < 0.2 ? [MeshoptSimplifier.simplifySloppy(new Uint32Array(B.idx), new Float32Array(B.pos), 3, null, target, 0.2)[0]] : MeshoptSimplifier.simplify(new Uint32Array(B.idx), new Float32Array(B.pos), 3, target, 0.08, []);
     return Array.from(res);
   };
-  out[j.name] = { bark: opt.bark.type, leaf: opt.leaves.type, texScale: opt.bark.textureScale, B, L, lodB: j.lods.map(r => simp(r)) };
+  out[j.name] = { bark: j.bark ?? opt.bark.type, leaf: j.leaf ?? opt.leaves.type, texScale: opt.bark.textureScale, B, L, lodB: j.lods.map(r => simp(r)) };
   console.error(j.name, j.preset, 'branch tris', B.idx.length / 3, 'leaf quads', L.idx.length / 6, 'lods', out[j.name].lodB.map(x => x.length / 3));
 }
 writeFileSync('trees.json', JSON.stringify(out));

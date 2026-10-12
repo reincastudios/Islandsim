@@ -1,0 +1,337 @@
+[
+ {
+  "name": "tree",
+  "species": "sea hibiscus",
+  "preset": "Ash Small",
+  "seed": 318,
+  "leaf": "hibiscus",
+  "bark": "oak",
+  "lods": [
+   0.22,
+   0.07,
+   0.025
+  ],
+  "opt": {
+   "branch": {
+    "levels": 3,
+    "angle": {
+     "1": 52,
+     "2": 50,
+     "3": 45
+    },
+    "children": {
+     "0": 6,
+     "1": 4,
+     "2": 4
+    },
+    "gnarliness": {
+     "0": 0.12,
+     "1": 0.2,
+     "2": 0.18,
+     "3": 0.1
+    },
+    "length": {
+     "0": 16,
+     "1": 13,
+     "2": 6,
+     "3": 3
+    },
+    "radius": {
+     "0": 1.4,
+     "1": 0.7,
+     "2": 0.6,
+     "3": 0.6
+    },
+    "start": {
+     "1": 0.45,
+     "2": 0.3,
+     "3": 0.2
+    },
+    "taper": {
+     "0": 0.6,
+     "1": 0.7,
+     "2": 0.7,
+     "3": 0.7
+    },
+    "force": {
+     "direction": {
+      "x": 0,
+      "y": 1,
+      "z": 0
+     },
+     "strength": 0.012
+    }
+   },
+   "leaves": {
+    "count": 10,
+    "size": 2.2,
+    "angle": 45,
+    "start": 0.05,
+    "sizeVariance": 0.35
+   }
+  }
+ },
+ {
+  "name": "tree_1",
+  "species": "tropical almond",
+  "preset": "Ash Medium",
+  "seed": 4401,
+  "leaf": "almond",
+  "bark": "oak",
+  "lods": [
+   0.3,
+   0.1,
+   0.035
+  ],
+  "opt": {
+   "branch": {
+    "levels": 3,
+    "angle": {
+     "1": 84,
+     "2": 40,
+     "3": 40
+    },
+    "children": {
+     "0": 9,
+     "1": 4,
+     "2": 3
+    },
+    "gnarliness": {
+     "0": 0.03,
+     "1": 0.08,
+     "2": 0.15,
+     "3": 0.1
+    },
+    "length": {
+     "0": 40,
+     "1": 16,
+     "2": 6,
+     "3": 3
+    },
+    "radius": {
+     "0": 1.6,
+     "1": 0.55,
+     "2": 0.6,
+     "3": 0.6
+    },
+    "start": {
+     "1": 0.4,
+     "2": 0.4,
+     "3": 0.2
+    },
+    "force": {
+     "direction": {
+      "x": 0,
+      "y": 1,
+      "z": 0
+     },
+     "strength": 0.0
+    }
+   },
+   "leaves": {
+    "count": 8,
+    "size": 2.6,
+    "angle": 70,
+    "start": 0.2,
+    "sizeVariance": 0.35
+   }
+  }
+ },
+ {
+  "name": "tree_2",
+  "species": "Alexandrian laurel",
+  "preset": "Oak Medium",
+  "seed": 905,
+  "leaf": "laurel",
+  "bark": "willow",
+  "lods": [
+   0.5,
+   0.14,
+   0.04
+  ],
+  "opt": {
+   "branch": {
+    "levels": 3,
+    "angle": {
+     "1": 55,
+     "2": 50,
+     "3": 45
+    },
+    "children": {
+     "0": 6,
+     "1": 4,
+     "2": 4
+    },
+    "gnarliness": {
+     "0": 0.12,
+     "1": 0.15,
+     "2": 0.15,
+     "3": 0.1
+    },
+    "length": {
+     "0": 22,
+     "1": 17,
+     "2": 8,
+     "3": 3.5
+    },
+    "radius": {
+     "0": 1.5,
+     "1": 0.75,
+     "2": 0.6,
+     "3": 0.6
+    },
+    "start": {
+     "1": 0.35,
+     "2": 0.25,
+     "3": 0.2
+    },
+    "force": {
+     "direction": {
+      "x": 0,
+      "y": 1,
+      "z": 0
+     },
+     "strength": 0.01
+    }
+   },
+   "leaves": {
+    "count": 11,
+    "size": 2.5,
+    "angle": 50,
+    "start": 0.05,
+    "sizeVariance": 0.3
+   }
+  }
+ },
+ {
+  "name": "tree_3",
+  "species": "ironwood",
+  "preset": "Pine Small",
+  "seed": 51,
+  "leaf": "ironwood",
+  "bark": "willow",
+  "lods": [
+   0.5,
+   0.14,
+   0.04
+  ],
+  "opt": {
+   "branch": {
+    "levels": 2,
+    "angle": {
+     "1": 70,
+     "2": 40
+    },
+    "children": {
+     "0": 26,
+     "1": 6
+    },
+    "gnarliness": {
+     "0": 0.06,
+     "1": 0.12,
+     "2": 0.1
+    },
+    "length": {
+     "0": 40,
+     "1": 10,
+     "2": 4
+    },
+    "radius": {
+     "0": 0.9,
+     "1": 0.35,
+     "2": 0.4
+    },
+    "start": {
+     "1": 0.25,
+     "2": 0.2
+    },
+    "sections": {
+     "1": 6,
+     "2": 4
+    },
+    "segments": {
+     "1": 4,
+     "2": 3
+    },
+    "force": {
+     "direction": {
+      "x": 0,
+      "y": 1,
+      "z": 0
+     },
+     "strength": 0.01
+    }
+   },
+   "leaves": {
+    "count": 7,
+    "size": 2.6,
+    "angle": 30,
+    "start": 0.1,
+    "sizeVariance": 0.3
+   }
+  }
+ },
+ {
+  "name": "bush",
+  "species": "beach naupaka",
+  "preset": "Bush 1",
+  "seed": 31,
+  "leaf": "naupaka",
+  "bark": "oak",
+  "lods": [
+   0.25,
+   0.08,
+   0.03
+  ],
+  "opt": {
+   "leaves": {
+    "count": 14,
+    "size": 2.6,
+    "angle": 50,
+    "sizeVariance": 0.3
+   }
+  }
+ },
+ {
+  "name": "bush_1",
+  "species": "beach naupaka",
+  "preset": "Bush 1",
+  "seed": 913,
+  "leaf": "naupaka",
+  "bark": "oak",
+  "lods": [
+   0.25,
+   0.08,
+   0.03
+  ],
+  "opt": {
+   "leaves": {
+    "count": 14,
+    "size": 2.6,
+    "angle": 50,
+    "sizeVariance": 0.3
+   }
+  }
+ },
+ {
+  "name": "bush_2",
+  "species": "octopus bush",
+  "preset": "Bush 3",
+  "seed": 12,
+  "leaf": "velvet",
+  "bark": "willow",
+  "lods": [
+   0.12,
+   0.05,
+   0.02
+  ],
+  "opt": {
+   "leaves": {
+    "count": 12,
+    "size": 2.4,
+    "angle": 55,
+    "sizeVariance": 0.3
+   }
+  }
+ }
+]

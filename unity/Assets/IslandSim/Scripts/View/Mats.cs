@@ -123,6 +123,9 @@ namespace IslandSim.View
                     m.renderQueue = (int)RenderQueue.AlphaTest; m.SetFloat("_Cull", (float)CullMode.Off);
                     var cc = c; cc.a = 1; m.SetColor("_BaseColor", cc);
                     if (wind > 0) { m.EnableKeyword("_WIND"); m.SetFloat("_Wind", wind); }
+                    // the game's own leaves: lit as leaves, with the canopy depth their models carry (IslandLit _FOLIAGE),
+                    // and a waxy tropical sheen
+                    if (id.Success) { m.EnableKeyword("_FOLIAGE"); m.SetFloat("_Smoothness", .3f); }
                 }
             }
             mats[k] = m; return k;

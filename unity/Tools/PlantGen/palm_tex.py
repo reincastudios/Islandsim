@@ -24,7 +24,7 @@ def frond(path, dry=False, W=1024, H=512, ss=2):
         if dry:
             base = np.array([0.55, 0.45, 0.30]) * rng.uniform(0.8, 1.1)
         else:
-            base = np.array([0.34, 0.48, 0.15]) * rng.uniform(0.82, 1.12) + rng.uniform(-0.03, 0.03, 3)
+            base = np.array([0.40, 0.57, 0.13]) * rng.uniform(0.84, 1.1) + rng.uniform(-0.03, 0.03, 3)   # sunlit yellow-green
         col = tuple(int(c * 255) for c in np.clip(base, 0, 1)) + (255,)
         d.polygon(poly, fill=col)
         # midrib highlight and a yellowed or browned tip on some leaflets
@@ -64,7 +64,7 @@ def bark(path_c, path_n, W=512, H=1024):
     fis = noise((H, W), 6, 3); fis = np.abs(np.sin((x * 40 + fis * 3) * np.pi)) ** 6
     n = noise((H, W), 24, 5)
     hgt = 0.6 - 0.45 * ring - 0.25 * fis * (0.5 + n) + 0.15 * n
-    base = np.array([0.47, 0.42, 0.36]); dark = np.array([0.27, 0.23, 0.19]); light = np.array([0.62, 0.58, 0.52])
+    base = np.array([0.56, 0.53, 0.48]); dark = np.array([0.33, 0.30, 0.26]); light = np.array([0.72, 0.70, 0.65])   # weathered grey
     t = np.clip(hgt, 0, 1)[..., None]
     col = dark * (1 - t) + base * t; col = col + (light - base) * np.clip(n[..., None] - 0.55, 0, 1) * 1.5
     col *= 0.9 + 0.2 * noise((H, W), 64, 2)[..., None]
