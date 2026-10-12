@@ -2,7 +2,8 @@
 
 Maldivian joinery and coral-stone carving, kept clean: a tileable teak grain for the bars, a pale honey grain for panel
 headers, a carved coral-stone frieze (the lozenge-and-dot chain cut round old mosque walls such as Hukuru Miskiy) that
-replaces the lacquer bands, and a 9-sliced panel frame of teak with a honey inlay line and brass studs at the corners.
+replaces the lacquer bands, and a 9-sliced panel frame of teak with a honey inlay line and brass studs at the corners (with a pale
+coral-stone field for panels, or a teak board for the build bar).
 Everything is drawn at 2x and shown at half size (-unity-slice-scale / background-size), so it stays sharp on HiDPI.
 
     python3 ui_tex.py            # writes into ../../Assets/IslandSim/Resources/IslandSim/UI
@@ -64,13 +65,13 @@ def blur_wrap_x(h, r):
     return out
 
 
-def frieze(wd=64, ht=24):
+def frieze(wd=72, ht=28):
     """Carved coral stone, tiling along x: raised fillets top and bottom, a lozenge with a sunk drilled eye between
     them, and small triangles in the spandrels. Lit from the top left like the sun on a carved wall."""
     y, x = np.mgrid[0:ht, 0:wd].astype(float)
     h = np.zeros((ht, wd))
     h[:] = .35                                                               # sunk ground
-    h[(y < 3.5) | (y >= ht - 3.5)] = 1.0                                     # fillets
+    h[(y < 4.5) | (y >= ht - 4.5)] = 1.0                                     # fillets
     cx, cy = wd / 2, ht / 2
     d = np.abs(x - cx) / (wd * .36) + np.abs(y - cy) / (ht * .36)
     h[d < 1] = .9                                                            # lozenge
@@ -82,16 +83,16 @@ def frieze(wd=64, ht=24):
     h = blur_wrap_x(h, 1)
     gx = (np.roll(h, -1, 1) - np.roll(h, 1, 1)) * .5
     gy = np.gradient(h, axis=0)
-    shade = 1 - 1.1 * (gx + gy)                                              # light from top-left
+    shade = 1 - 1.5 * (gx + gy)                                              # light from top-left
     occl = .86 + .14 * h                                                       # recesses a touch darker
     stone = np.array([236, 226, 207], float)
-    speck = (periodic_noise(64, ((13, 1.), (29, .6), (47, .4)))[:ht, :wd] * .5 + .5) ** 3
+    speck = (periodic_noise(wd, ((13, 1.), (29, .6), (47, .4)))[:ht, :wd] * .5 + .5) ** 3
     col = stone[None, None] * (shade * occl)[..., None] * (1 - .05 * speck[..., None])
     col[0] *= .78; col[-1] *= .72                                            # crisp edges against the wood
     return np.clip(col, 0, 255).astype(np.uint8)
 
 
-def frame(n=96, s=20, r=12):
+def frame(n=96, s=20, r=12, wood_field=False):
     """The panel: a rounded teak frame (grain follows each side), honey inlay, brass studs in the corners, and a clean
     pale coral-stone field. Slice at s px (2x)."""
     img = np.zeros((n, n, 4))
@@ -113,9 +114,13 @@ def frame(n=96, s=20, r=12):
     col = col * (.86 + .22 * bevel[..., None])
     col = np.where(((dist >= 13) & (dist < 15.2))[..., None], honey, col)    # inlay
     col = np.where(((dist >= 15.2) & (dist < 16.5))[..., None], walnut * 1.3, col)
-    col = np.where((dist >= 16.5)[..., None], field, col)
+    if wood_field:                                                           # a teak board inside the frame
+        fw = wood(128, (132, 86, 50), (84, 50, 26), (156, 106, 64), rings=9, fleck=.06)
+        col = np.where((dist >= 16.5)[..., None], fw[yi, xi], col)
+    else:
+        col = np.where((dist >= 16.5)[..., None], field, col)
     sh = np.clip(1 - (dist - 16.5) / 3, 0, 1) * (dist >= 16.5)              # soft inner shadow under the frame
-    col = col * (1 - .1 * sh[..., None])
+    col = col * (1 - (.25 if wood_field else .1) * sh[..., None])
     for cx, cy in ((8.2, 8.2), (n - 8.2, 8.2), (8.2, n - 8.2), (n - 8.2, n - 8.2)):
         rr = np.hypot(x - cx, y - cy)
         stud = np.clip(3.6 - rr, 0, 1)
@@ -131,4 +136,5 @@ if __name__ == "__main__":
     Image.fromarray(wood(256, (232, 206, 164), (196, 160, 112), (242, 222, 188), rings=7, warp=.7, fleck=.03).astype(np.uint8)).save(os.path.join(OUT, "ui_wood_light.png"))
     Image.fromarray(frieze()).save(os.path.join(OUT, "ui_frieze.png"))
     Image.fromarray(frame(), "RGBA").save(os.path.join(OUT, "ui_frame.png"))
+    Image.fromarray(frame(wood_field=True), "RGBA").save(os.path.join(OUT, "ui_frame_wood.png"))
     print("wrote", OUT)

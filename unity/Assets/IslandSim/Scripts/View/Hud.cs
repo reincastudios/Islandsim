@@ -99,13 +99,20 @@ namespace IslandSim.View
             Doc = go.AddComponent<UIDocument>();
             panelSettings = ScriptableObject.CreateInstance<PanelSettings>(); panelSettings.name = "Island Sim HUD";
             panelSettings.themeStyleSheet = Resources.Load<ThemeStyleSheet>("IslandSim/UI/Theme");
-            panelSettings.scaleMode = PanelScaleMode.ConstantPhysicalSize; panelSettings.referenceDpi = 96; panelSettings.fallbackDpi = 96;
+            panelSettings.scaleMode = PanelScaleMode.ConstantPixelSize;
             panelSettings.clearColor = false; panelSettings.sortingOrder = 10;
             Doc.panelSettings = panelSettings; go.SetActive(true);
             Build();
         }
 
-        public void SetUiScale(float v) { panelSettings.scale = v; foreach (var (b, x) in uiBtns) b.EnableInClassList("on", Mathf.Abs(x - v) < .01f); }
+        // the HUD grows with the screen (sized for about 1000 px of height), times the player's UI size
+        float uiUser = 1; int uiForH = -1;
+        public void SetUiScale(float v) { uiUser = v; uiForH = -1; FitScale(); foreach (var (b, x) in uiBtns) b.EnableInClassList("on", Mathf.Abs(x - v) < .01f); }
+        void FitScale()
+        {
+            if (Screen.height == uiForH) return; uiForH = Screen.height;
+            panelSettings.scale = uiUser * Mathf.Clamp(Screen.height / 1000f, .8f, 2f);
+        }
 
         // ------------------------------------------------------------ layout
         readonly UiKit K = new UiKit { Record = false };
@@ -164,11 +171,11 @@ namespace IslandSim.View
             var speed = K.E("speed");
             foreach (var (lbl, n) in new[] { ("II", 0), ("1×", 1), ("3×", 3), ("6×", 6) }) { var b = K.T(lbl, null, () => G.SetSpeed(n)); speedBtns.Add((b, n)); speed.Add(b); }
             var g1 = Gap(K.E("row", menuBtn, day, speed), 10);
-            var res = K.E(); res.name = "res"; RenderRes(res);
+            var res = K.E(); res.name = "res"; RenderRes(res); var mid = K.E("mid", res);
             logBtn = K.B("ib", () => TogglePop(logPop), K.I("bell")); badge = K.L("", "badge hidden"); logBtn.Add(badge);
             setBtn = K.B("ib", () => TogglePop(settings), K.I("gear"));
             var g2 = Gap(K.E("row", logBtn, setBtn), 10);
-            top.Add(g1); top.Add(res); top.Add(g2); Gap(top, 14);
+            top.Add(g1); top.Add(mid); top.Add(g2); Gap(top, 14);
         }
 
         void RenderRes(VisualElement res)
@@ -882,6 +889,7 @@ namespace IslandSim.View
 
         public void Frame(Vector2Int? hover, bool dragging, Vector2 mouse)
         {
+            FitScale();
             needle.style.rotate = new Rotate(new Angle(C.Yaw * Mathf.Rad2Deg, AngleUnit.Degree));
             UpdateLabels(); UpdateTag(hover, dragging, mouse);
         }

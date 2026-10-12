@@ -26,14 +26,15 @@ Button { margin: 0; padding: 0; border-width: 0; background-color: rgba(0, 0, 0,
 .pnl { background-image: resource("IslandSim/UI/ui_frame"); -unity-slice-left: 20; -unity-slice-right: 20; -unity-slice-top: 20; -unity-slice-bottom: 20; -unity-slice-scale: 0.5px; padding: 8px; background-color: rgba(0, 0, 0, 0); border-width: 0; }
 .hd { flex-direction: row; align-items: center; padding: 6px 8px 5px 8px; background-image: resource("IslandSim/UI/ui_wood_light"); background-size: 128px 128px; background-repeat: repeat; border-radius: 2px; }
 .hd .h2 { -unity-font: resource("IslandSim/Fonts/YoungSerif-Regular"); -unity-font-definition: initial; font-size: 18px; color: var(--walnut); }
-.band { height: 12px; flex-shrink: 0; background-image: resource("IslandSim/UI/ui_frieze"); background-size: 32px 12px; background-repeat: repeat-x; margin-bottom: 2px; }
+.band { flex-shrink: 0; background-image: resource("IslandSim/UI/ui_frieze"); background-size: 36px 14px; background-repeat: repeat-x; height: 14px; margin-bottom: 2px; }
 .x { margin-left: auto; font-size: 20px; padding: 0 4px; color: var(--ink-2); }
 .sub { color: var(--deep); font-size: 13px; white-space: normal; }
 .num { }
 
 /* top bar */
-#top { position: absolute; top: 0; left: 0; right: 0; height: 46px; flex-direction: row; align-items: center; padding: 0 10px; background-color: var(--teak); background-image: resource("IslandSim/UI/ui_wood"); background-size: 128px 128px; background-repeat: repeat; border-bottom-width: 1px; border-color: var(--walnut); color: var(--coral); }
-#topband { position: absolute; top: 47px; left: 0; right: 0; margin: 0; border-bottom-width: 1px; border-color: rgba(58, 36, 21, 0.6); }
+#top { position: absolute; top: 0; left: 0; right: 0; height: 46px; flex-direction: row; align-items: center; padding: 0 10px; background-color: var(--teak); background-image: resource("IslandSim/UI/ui_wood"); background-size: 160px 160px; background-repeat: repeat; border-bottom-width: 2px; border-color: var(--honey); color: var(--coral); }
+#topband { position: absolute; top: 48px; left: 0; right: 0; margin: 0; border-bottom-width: 1px; border-color: rgba(58, 36, 21, 0.7); }
+.mid { flex-grow: 1; flex-direction: row; justify-content: center; overflow: hidden; }
 .ib { width: 34px; height: 34px; border-radius: 6px; border-width: 1px; border-color: rgba(0, 0, 0, 0); align-items: center; justify-content: center; }
 .ib .i { -unity-background-image-tint-color: var(--honey-2); }
 .ib:hover { border-color: var(--honey); }
@@ -44,19 +45,19 @@ Button { margin: 0; padding: 0; border-width: 0; background-color: rgba(0, 0, 0,
 .speed { flex-direction: row; background-color: rgba(58, 36, 21, 0.45); border-radius: 12px; padding: 2px; border-width: 1px; border-color: rgba(243, 225, 189, 0.18); }
 .speed > Button { border-radius: 10px; padding: 3px 9px; font-size: 13px; color: var(--coral); min-width: 32px; }
 .speed > Button.on { background-color: var(--honey); color: var(--walnut); -unity-font: resource("IslandSim/Fonts/FamiljenGrotesk-Bold"); -unity-font-definition: initial; }
-#res { flex-grow: 1; flex-direction: row; align-items: center; justify-content: center; overflow: hidden; }
-.ctr { flex-direction: row; align-items: center; padding: 4px 9px; border-radius: 12px; font-size: 15px; color: var(--coral); }
+#res { flex-direction: row; align-items: center; flex-shrink: 1; overflow: hidden; height: 34px; padding: 0 6px 0 3px; border-radius: 17px; background-color: rgba(40, 23, 11, 0.42); border-width: 1px; border-color: rgba(20, 10, 4, 0.35); border-bottom-color: rgba(243, 225, 189, 0.22); }
+.ctr { flex-direction: row; align-items: center; padding: 4px 8px; border-radius: 12px; font-size: 15px; -unity-font: resource("IslandSim/Fonts/FamiljenGrotesk-Bold"); -unity-font-definition: initial; color: var(--coral); }
 .ctr .i { -unity-background-image-tint-color: var(--honey-2); margin-right: 5px; }
 .ctr .v { min-width: 18px; }
-.ctr .tr { font-size: 12px; color: #e4d3b6; margin-left: 5px; }
-.ctr .tr.up { color: #8fd48a; }
-.ctr .tr.dn { color: #f08a76; }
+.ctr .tr { -unity-font: resource("IslandSim/Fonts/FamiljenGrotesk-Regular"); -unity-font-definition: initial; font-size: 12px; color: #e4d3b6; margin-left: 5px; }
+.ctr .tr.up { color: #a6e39a; }
+.ctr .tr.dn { color: #ffa08c; }
 .ctr:hover { background-color: rgba(58, 36, 21, 0.35); }
 .ctr.out { background-color: rgba(208, 83, 63, 0.35); }
 .ctr.out.dim { background-color: rgba(208, 83, 63, 0.1); }
 .ctr.idle { display: none; }
-.isl-chip { flex-direction: row; align-items: center; padding: 4px 10px; margin-right: 4px; border-radius: 14px; border-width: 1px; border-color: rgba(210, 154, 76, 0.8); background-color: rgba(58, 36, 21, 0.35); color: var(--coral); font-size: 15px; -unity-font: resource("IslandSim/Fonts/YoungSerif-Regular"); -unity-font-definition: initial; }
-.isl-chip .i { -unity-background-image-tint-color: var(--honey-2); margin-right: 6px; }
+.isl-chip { flex-direction: row; align-items: center; padding: 3px 11px; margin-right: 6px; border-radius: 13px; border-width: 1px; border-bottom-width: 2px; border-color: #8a5f2c; background-color: var(--honey); color: var(--walnut) !important; color: var(--coral); font-size: 15px; -unity-font: resource("IslandSim/Fonts/YoungSerif-Regular"); -unity-font-definition: initial; }
+.isl-chip .i { -unity-background-image-tint-color: var(--walnut); margin-right: 6px; }
 .sep { width: 1px; height: 22px; background-color: rgba(243, 225, 189, 0.28); margin: 0 4px; }
 
 /* popovers */
@@ -131,18 +132,18 @@ Button { margin: 0; padding: 0; border-width: 0; background-color: rgba(0, 0, 0,
 
 /* build bar and cards */
 #build { position: absolute; left: 0; right: 0; bottom: 12px; align-items: center; }
-#bar { flex-direction: row; align-items: stretch; padding: 9px 10px; }
-.tab { flex-direction: column; align-items: center; min-width: 62px; padding: 5px 6px 4px 6px; border-radius: 5px; color: var(--walnut); font-size: 11.5px; margin-right: 2px; border-width: 1px; border-color: rgba(0, 0, 0, 0); }
-.tab .i { width: 26px; height: 26px; -unity-background-image-tint-color: var(--teak); margin-bottom: 2px; }
-.tab .k { position: absolute; top: 2px; right: 3px; color: #a8957c; font-size: 10px; }
-.tab:hover { background-color: var(--cream); border-color: var(--line); }
-.tab.on { background-color: var(--teak); background-image: resource("IslandSim/UI/ui_wood"); background-size: 96px 96px; background-repeat: repeat; border-color: var(--walnut); color: var(--coral); }
-.tab.on .i { -unity-background-image-tint-color: var(--honey-2); }
-.tab.on .k { color: var(--honey-2); }
-.tab.danger .i { -unity-background-image-tint-color: var(--red); }
-.tab.danger.on { background-color: var(--red); background-image: none; color: var(--coral); }
+#bar { flex-direction: row; align-items: stretch; padding: 9px 11px; background-image: resource("IslandSim/UI/ui_frame_wood"); }
+.tab { flex-direction: column; align-items: center; min-width: 66px; padding: 6px 6px 4px 6px; border-radius: 6px; color: var(--coral); font-size: 12px; margin-right: 3px; border-width: 1px; border-bottom-width: 3px; border-color: rgba(0, 0, 0, 0); }
+.tab .i { width: 28px; height: 28px; -unity-background-image-tint-color: var(--honey-2); margin-bottom: 3px; }
+.tab .k { position: absolute; top: 2px; right: 4px; color: rgba(243, 225, 189, 0.55); font-size: 10px; }
+.tab:hover { background-color: rgba(255, 240, 210, 0.12); border-color: rgba(243, 225, 189, 0.25); }
+.tab.on { background-color: var(--coral); border-color: var(--honey); color: var(--walnut); -unity-font: resource("IslandSim/Fonts/FamiljenGrotesk-Bold"); -unity-font-definition: initial; }
+.tab.on .i { -unity-background-image-tint-color: var(--teak); }
+.tab.on .k { color: #a8957c; }
+.tab.danger .i { -unity-background-image-tint-color: #ffab98; }
+.tab.danger.on { background-color: var(--red); border-color: #6e2416; color: var(--coral); }
 .tab.danger.on .i { -unity-background-image-tint-color: var(--coral); }
-.bsep { width: 1px; background-color: var(--line); margin: 4px 5px; }
+.bsep { width: 1px; background-color: rgba(243, 225, 189, 0.28); border-right-width: 1px; border-color: rgba(30, 16, 6, 0.4); margin: 6px 5px; }
 #cards { flex-direction: row; padding: 10px; align-items: stretch; margin-bottom: 6px; }
 .card { flex-direction: row; align-items: center; min-width: 150px; padding: 7px 10px 7px 8px; border-width: 1.5px; border-bottom-width: 2.5px; border-color: var(--line); border-radius: 6px; background-color: var(--paper); margin-right: 6px; -unity-text-align: middle-left; }
 .card > .i { width: 32px; height: 32px; -unity-background-image-tint-color: var(--teak); margin-right: 8px; }

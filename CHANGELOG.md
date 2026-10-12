@@ -4,6 +4,11 @@ Newest first. Each entry says what changed for the player and where the code liv
 
 ## 2026-10-12
 
+### Unity: richer top and build bars, HUD sized to the screen (PR #6)
+- **What changed:** the top bar now has a honey inlay line along its bottom edge, above a deeper carved coral-stone frieze. The island name is a honey plaque, and the resource counters sit in a recessed well with bold numbers. The build bar is now a teak board in the same frame as the panels, with cream labels and honey icons. The selected tab is a raised coral-stone tile with a honey edge. Tabs, icons and labels are a little larger.
+- **Fixed:** the HUD was drawn at a fixed physical size, so it looked small on bigger screens and in the Game view. It now scales with screen height (sized for about 1000 px, from 0.8× to 2×), times the UI size chosen in Settings.
+- **Where:** `Resources/IslandSim/UI/Hud.uss` (`#top`, `#res`, `.isl-chip`, `#bar`, `.tab`), `FitScale` and `BuildTop` in `Scripts/View/Hud.cs`, and the new `ui_frame_wood.png` plus a taller `ui_frieze.png` from `unity/Tools/UiGen/ui_tex.py`.
+
 ### Unity: wood-and-coral-stone HUD, a better terraform panel, and tree planting (PR #6)
 - **What changed:** the HUD is redesigned in clean Maldivian woodwork and coral-stone carving. The top bar is planed teak. Panels are framed in teak with a honey inlay line and brass corner studs round a pale coral-stone field. A carved coral-stone frieze (the lozenge-and-eye chain cut round old mosque walls) replaces the lacquer stripes under the top bar and every panel header. The build bar is a light framed panel with teak tabs.
 - **Terraform panel:** the default Unity slider is gone. Brush size is now a row of nine round pips that grow with the brush (click one, or drag along them; − and + still work, and so do [ and ]). The size shows in the label, and the Ctrl+Z hint sits under it. Level to is a tidy 3 × 2 grid with each height under its name, as on the web version.
