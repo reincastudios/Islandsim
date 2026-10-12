@@ -4,6 +4,10 @@ Newest first. Each entry says what changed for the player and where the code liv
 
 ## 2026-10-12
 
+### Wetlands, ponds and sandbanks are back (PR #5)
+- **Fixed:** since the Oivaru Atoll update a lost line break had commented out the line that lays ground types on the map, so no island had its mangrove wetland (kulhi), brackish pond, taro fields, seagrass meadows, shifting sandbanks (finolhu) or protected bird nesting ground. Mangroves never grew, and dhoni berths never got their nursery bonus.
+- They are back as designed: Raiveli Isle has its mangrove ring round a pond again, Huvamaru its two lakes, and the bird islets are protected. Code: `generate()` in index.html.
+
 ### Smoother all the time: buildings drawn in batches (PR #5)
 - **Why it lagged:** every part of every building (walls, roof, posts, fence, yard) was its own draw call, so a town of about 100 compounds asked the graphics card for 2,200 to 2,600 draws every frame, and again for the sun's shadow. The game logic itself only takes about 2 ms a frame.
 - **Now:** when a building goes up, its fixed parts are baked into place and merged with the same material in 64-tile chunks. The same town draws in 370 to 480 calls, about six times fewer, so frames are steadier on every preset.

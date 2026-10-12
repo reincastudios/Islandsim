@@ -613,7 +613,8 @@ function generate(){
       for(const[pa,hw]of A.passes)if(Math.abs(angDiff(a,pa))<hw&&v<=0&&r>inner-3*SC&&r<outer+3*SC) v=-2; // channels to the ocean
     }
     const hv=Math.max(MINH,Math.min(MAXH,Math.round(v)));
-    h[i]=hv;origin[i]=hv>=0?(owner===255?254:owner):255; // 254: reef sand that belongs to no named islandgt[i]=hv>=0||g===GT.pond?g:0;
+    h[i]=hv;origin[i]=hv>=0?(owner===255?254:owner):255; // 254: reef sand that belongs to no named island
+    gt[i]=hv>=0||g===GT.pond?g:0;
     if(hv<0&&g!==GT.pond)gt[i]=0;
   }
   for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=idx(x,y);
