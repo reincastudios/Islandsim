@@ -4,6 +4,9 @@ Newest first. Each entry says what changed for the player and where the code liv
 
 ## 2026-10-12
 
+### Unity: clicks on the island work again (PR #6)
+- **What changed:** in Unity the game drew and ran, but clicking, dragging and scrolling on the island did nothing. The check for "is the pointer over the HUD?" also counted the empty screen behind the HUD, so every click was treated as a HUD click. It now only counts real HUD panels and buttons (`Scripts/View/Hud.cs`, `Over`).
+
 ### The current game, rebuilt in Unity 6 (PR #6)
 - **What it is:** the Unity project in `unity/` now plays the same game as the web version: the Age of Cowries with its goods, buildings, traders, palace and charter, the 720 × 500 archipelago of four atolls and Huvamaru, the terraform panel (round 1–9 brush, Raise, Lower, Level to a height, Smooth, Ctrl+Z), 3×2 and 4×3 compounds, and the same HUD.
 - **Same rules, checked:** the rules were ported line for line to C# (`Scripts/Core`). A side-by-side run of the web code and the C# code builds the same map tile for tile and the same buildings, boats and stock after the same moves. EditMode tests cover a new game, growth, terraforming with undo, the open ocean, saves and the charter.

@@ -300,7 +300,9 @@ namespace IslandSim.View
             if (root?.panel == null) return false;
             var p = RuntimePanelUtils.ScreenToPanel(root.panel, screenTopLeft);
             var e = root.panel.Pick(p);
-            return e != null && e != root;
+            // the panel's own root (the parent of our document) also answers a pick over empty space, so only an element
+            // inside the HUD counts
+            return e != null && e != root && root.Contains(e);
         }
         public bool Typing => root?.panel?.focusController?.focusedElement is VisualElement f && (f is TextField || f.parent is TextField);
         public bool Blocking => Shown(help) || Shown(over);
