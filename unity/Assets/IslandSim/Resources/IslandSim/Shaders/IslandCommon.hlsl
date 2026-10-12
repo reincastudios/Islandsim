@@ -85,7 +85,9 @@ half3 IslandShadeFoliage(float3 positionWS, half3 normalWS, half3 albedo, half s
     AmbientOcclusionFactor ao = CreateAmbientOcclusionFactor(screenUV, occ);
     half3 sun = mainLight.color * ao.directAmbientOcclusion * CloudShadow(TileXZ(positionWS), _IsTime)
               * mainLight.shadowAttenuation * mainLight.distanceAttenuation;
-    half3 c = GlobalIllumination(brdf, SampleSH(normalWS), ao.indirectAmbientOcclusion * occ, positionWS, normalWS, viewDirWS);
+    // ambient sky light only: the reflected-sky term of GlobalIllumination turns thin leaf cards seen at a glancing
+    // angle (most of them, from the game's high camera) a frosted white-blue
+    half3 c = SampleSH(normalWS) * brdf.diffuse * ao.indirectAmbientOcclusion * occ;
     half nl = dot(normalWS, mainLight.direction);
     half wrapped = saturate((nl + 0.4) / 1.4);
     c += brdf.diffuse * sun * wrapped * lerp(0.55, 1.0, occ);

@@ -146,7 +146,7 @@ Shader "IslandSim/Lit"
                     half3 t = normalize(i.tangentWS.xyz) * sgn; half3 b = cross(n, t) * i.tangentWS.w;
                     n = normalize(t * tn.x + b * tn.y + n * tn.z);
                 #endif
-                #if defined(_FOLIAGE)
+                #if defined(_FOLIAGE) || defined(_ALPHATEST_ON)   // every leaf, frond and grass card
                     half3 c = IslandShadeFoliage(i.positionWS, n, alb.rgb, _Smoothness, GetNormalizedScreenSpaceUV(i.positionCS), i.occ);
                 #else
                     half3 c = IslandShade(i.positionWS, n, alb.rgb, _Metallic, _Smoothness, GetNormalizedScreenSpaceUV(i.positionCS), 1);

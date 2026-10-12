@@ -12,6 +12,25 @@ def ao_encode(UV, dark):
     k = np.clip(np.round(np.asarray(dark) * 15), 0, 15)
     UV = UV.copy(); UV[:, 0] = np.clip(UV[:, 0], 0.002, 0.998) + k; return UV
 
+TILT = np.radians(55)
+def nz(x): return x / (np.linalg.norm(x) + 1e-9)
+
+def tilt(v, o, centre, ang):
+    """ez-tree's leaf cards stand upright, so a camera looking down sees them edge-on. Tip each card over its base edge,
+    away from the canopy centre, so the canopy reads as leaves from above as well as from the side."""
+    a = nz(v[2] - v[1]); top = (v[0] + v[3]) / 2 - o; n = nz(np.cross(a, top))
+    w = o - centre; w[1] = 0
+    sgn = 1.0 if n @ w >= 0 else -1.0
+    th = ang * sgn; c, s_ = np.cos(th), np.sin(th)
+    r = v - o   # Rodrigues rotation about a through o
+    r = r * c + np.cross(a, r) * s_ + np.outer(r @ a, a) * (1 - c)
+    # pick the rotation direction that moves the card's top toward the outward normal
+    tn = r[0] + r[3]
+    if (tn @ (n * sgn)) < 0:
+        th = -th; c, s_ = np.cos(th), np.sin(th); r = v - o
+        r = r * c + np.cross(a, r) * s_ + np.outer(r @ a, a) * (1 - c)
+    return o + r
+
 def leaves_lod(L, keep, rng):
     P, N, UV = arr(L['pos'], 3), arr(L['nrm'], 3), arr(L['uv'], 2)
     nq = len(P) // 4; groups = []; q = 0
@@ -27,7 +46,9 @@ def leaves_lod(L, keep, rng):
     for g in sel:
         for qq in g:
             v = P[qq*4:qq*4+4].copy(); o = (v[1] + v[2]) / 2; v = o + (v - o) * s
-            n0 = N[qq*4]; out = v - centre; out /= np.linalg.norm(out, axis=1, keepdims=True) + 1e-6
+            v = tilt(v, o, centre, TILT); n0 = nz(np.cross(v[2] - v[1], v[0] - v[1]))
+            out = v - centre; out /= np.linalg.norm(out, axis=1, keepdims=True) + 1e-6
+            if n0 @ out.mean(0) < 0: n0 = -n0
             n = n0 * 0.4 + out * 0.6; n /= np.linalg.norm(n, axis=1, keepdims=True)
             # open at the canopy's skin, darker toward its core and its underside
             m = v.mean(0); r = np.linalg.norm((m - centre) / R); h = (m[1] - lo[1]) / max(hi[1] - lo[1], 1e-3)

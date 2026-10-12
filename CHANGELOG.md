@@ -4,6 +4,11 @@ Newest first. Each entry says what changed for the player and where the code liv
 
 ## 2026-10-12
 
+### Unity: no more frosted-white trees (PR #6)
+- **What changed:** forest trees, bushes and grass no longer look washed out or frosted white from the game camera, and tree canopies look full from above instead of showing gaps.
+- **Why it happened:** leaf cards seen at a glancing angle, which from a high camera is most of them, picked up a strong reflection of the bright sky, the same sheen water gets at the horizon. Foliage now takes only the sky's soft ambient light plus the sun, so it keeps its own green. The forest trees' leaf cards also stood upright, so from above you saw them edge-on. They now tip outward from the canopy at 55 degrees, which reads as leaves from both the side and above.
+- **Where:** `IslandShadeFoliage` in `IslandCommon.hlsl` (now used by every alpha-tested leaf, frond and grass material), `tilt` in `unity/Tools/PlantGen/build_trees.py`, and regenerated tree and bush models. Same triangle counts.
+
 ### Unity: Maldivian island vegetation (PR #6)
 - **What changed:** the plants now match an uninhabited Maldivian island. Coconut palms are taller and slimmer with fuller, brighter crowns, and there is a new palm leaning out over the beach. The forest is now sea hibiscus, tropical almond, Alexandrian laurel, ironwood and screw pine (on stilt roots, with orange fruit). The bushes are beach naupaka, which forms the bright green wall along the shore, and silvery octopus bush. Each species has its own painted leaves in rich tropical greens, and each plant gets a slight colour shift so a stand never looks stamped.
 - **Fixed:** some palm trunks were bent out of shape. The trunk's gentle wobble picked a new random phase at every point along it, so trunks zig-zagged; it now uses one phase per palm. The same fix keeps each palm's three levels of detail identical, so nothing pops as you zoom.
