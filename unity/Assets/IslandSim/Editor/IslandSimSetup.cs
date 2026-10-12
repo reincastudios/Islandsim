@@ -166,4 +166,20 @@ namespace IslandSim.EditorTools
             ti.maxTextureSize = 2048; ti.textureCompression = TextureImporterCompression.CompressedHQ; ti.crunchedCompression = false;
         }
     }
+
+    /// <summary>
+    /// Import settings for custom models (see CustomModels): readable meshes, so the game can merge them into its town
+    /// batches; Blender's axes baked in, so nothing arrives lying on its side; no cameras, lights or animation.
+    /// </summary>
+    sealed class IslandSimModels : AssetPostprocessor
+    {
+        void OnPreprocessModel()
+        {
+            if (!assetPath.Replace('\\', '/').Contains("/Resources/IslandSim/Models/")) return;
+            var mi = (ModelImporter)assetImporter;
+            mi.isReadable = true; mi.bakeAxisConversion = true;
+            mi.importCameras = false; mi.importLights = false; mi.importAnimation = false; mi.animationType = ModelImporterAnimationType.None;
+            mi.importNormals = ModelImporterNormals.Import; mi.importTangents = ModelImporterTangents.None;
+        }
+    }
 }

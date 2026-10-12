@@ -4,6 +4,11 @@ Newest first. Each entry says what changed for the player and where the code liv
 
 ## 2026-10-12
 
+### Unity: your own Blender models in the game (PR #6)
+- **What changed:** an FBX dropped into `unity/Assets/IslandSim/Resources/IslandSim/Models/`, named after a building (`house`, `fishery`, `palace`, `harbor`...), now replaces that building's built-in model. It is placed, turned, batched and shadowed like the built-in one, and its colours, textures and normal maps are carried onto the game's own lit material so it sits in the same light and haze. Compounds can have one model per plot size (`house_3x2`, `house_4x3`), or one `house` stretched to fit; the capital can have its own jetty (`harbor_capital`).
+- **Rules for a model:** 1 Blender metre is 1 tile, origin at the centre of the plot on the ground. The folder's README lists the names. Import settings are set automatically (readable meshes, Blender axes baked in). Code: `Scripts/View/CustomModels.cs`, `Mats.Custom`, `IslandSimModels` in the setup script.
+- **Unity is now the main version.** New features go into Unity first; the web version stays as a shareable demo.
+
 ### Unity: clicks on the island work again (PR #6)
 - **What changed:** in Unity the game drew and ran, but clicking, dragging and scrolling on the island did nothing. The check for "is the pointer over the HUD?" also counted the empty screen behind the HUD, so every click was treated as a HUD click. It now only counts real HUD panels and buttons (`Scripts/View/Hud.cs`, `Over`).
 

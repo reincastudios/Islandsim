@@ -71,7 +71,7 @@ namespace IslandSim.View
         {
             string k = baked ? key + "@b" : key;
             if (mats.TryGetValue(k, out var m)) return m;
-            var s = table[key];
+            if (!table.TryGetValue(key, out var s)) { Debug.LogError("[Island Sim] Unknown material " + key); return null; }
             m = new Material(Lit) { name = k, enableInstancing = true };
             m.SetColor("_BaseColor", World.Srgb(s.Col));
             m.SetFloat("_Smoothness", 1 - s.Rough); m.SetFloat("_Metallic", s.Metal);
@@ -81,6 +81,38 @@ namespace IslandSim.View
             if (s.Alpha) { m.EnableKeyword("_ALPHATEST_ON"); m.SetFloat("_Cutoff", .45f); m.renderQueue = (int)RenderQueue.AlphaTest; }
             if (s.Wind > 0) { m.EnableKeyword("_WIND"); m.SetFloat("_Wind", s.Wind); if (baked) m.EnableKeyword("_BAKEDHEIGHT"); }
             return mats[k] = m;
+        }
+
+        /// <summary>
+        /// A custom model's material (see CustomModels), turned into the game's own lit material so it gets the same sun,
+        /// haze, shadows and post effects: colour, albedo and normal maps, smoothness and metalness carry over. Returns its key.
+        /// </summary>
+        public static string Custom(Material src, string model)
+        {
+            string k = "custom/" + model + "/" + (src != null ? src.name : "default");
+            if (mats.ContainsKey(k)) return k;
+            var m = new Material(Lit) { name = k, enableInstancing = true };
+            if (src != null)
+            {
+                var c = src.HasProperty("_BaseColor") ? src.GetColor("_BaseColor") : src.HasProperty("_Color") ? src.GetColor("_Color") : Color.white;
+                m.SetColor("_BaseColor", c);
+                string mp = src.HasProperty("_BaseMap") && src.GetTexture("_BaseMap") != null ? "_BaseMap" : src.HasProperty("_MainTex") ? "_MainTex" : null;
+                if (mp != null && src.GetTexture(mp) != null)
+                {
+                    m.SetTexture("_BaseMap", src.GetTexture(mp));
+                    m.SetTextureScale("_BaseMap", src.GetTextureScale(mp)); m.SetTextureOffset("_BaseMap", src.GetTextureOffset(mp));
+                }
+                if (src.HasProperty("_BumpMap") && src.GetTexture("_BumpMap") != null) { m.SetTexture("_BumpMap", src.GetTexture("_BumpMap")); m.EnableKeyword("_NORMALMAP"); }
+                if (src.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", src.GetFloat("_Smoothness")); else if (src.HasProperty("_Glossiness")) m.SetFloat("_Smoothness", src.GetFloat("_Glossiness"));
+                if (src.HasProperty("_Metallic")) m.SetFloat("_Metallic", src.GetFloat("_Metallic"));
+                // leaves and other cut-outs: transparent in Blender becomes alpha-tested here, both sides drawn
+                if (c.a < .99f || src.renderQueue >= (int)RenderQueue.AlphaTest)
+                {
+                    m.EnableKeyword("_ALPHATEST_ON"); m.SetFloat("_Cutoff", .45f); m.renderQueue = (int)RenderQueue.AlphaTest; m.SetFloat("_Cull", (float)CullMode.Off);
+                    var cc = c; cc.a = 1; m.SetColor("_BaseColor", cc);
+                }
+            }
+            mats[k] = m; return k;
         }
 
         /// <summary>A copy of a part's material, for boat sails whose colour changes.</summary>

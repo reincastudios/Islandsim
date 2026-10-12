@@ -125,6 +125,7 @@ namespace IslandSim.View
         /// <summary>A building's parts per material, in tile space around its plot centre, scaled as the web game draws it.</summary>
         public static Dictionary<string, Geo> Building(BType type, bool capital, int seed = 0, int pw = 3, int pd = 2)
         {
+            var custom = CustomModels.For(type, capital, pw, pd); if (custom != null) return custom;   // a model made in Blender
             string key = $"{type}|{capital}|{seed % WALLS.Length}|{(seed >> 2) % SHUTTERS.Length}|{pw}|{pd}";
             if (!cache.TryGetValue(key, out var m)) cache[key] = m = MakeModel(type, capital, seed, pw, pd);
             return m;

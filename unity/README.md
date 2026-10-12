@@ -32,6 +32,17 @@ The same as the web game (F1 in game shows them):
 
 Saves: three slots and an autosave every minute, as web-format JSON in `Application.persistentDataPath` (the menu lists them). Settings: graphics Low / High / Ultra and UI size.
 
+## Your own models (Blender)
+
+Any building can use a model you make. Export it from Blender as FBX into `Assets/IslandSim/Resources/IslandSim/Models/`, named after the building, and press Play:
+
+- **Names:** `harbor`, `harbor_capital`, `house` (or `house_3x2` / `house_4x3`), `fishery`, `drying`, `grove`, `toddy`, `lumber`, `quarry`, `coir`, `cowrie`, `mosque`, `palace`.
+- **Size and origin:** 1 Blender metre is 1 tile. Put the origin at the centre of the plot, on the ground, at 0,0,0. A compound is 3 × 2 or 4 × 3 m; workshops are about 1 × 1 m.
+- **Export:** File > Export > FBX with Apply Transform on, and Path Mode set to Copy with the embed button on, so the textures come along.
+- **Materials:** colour, image texture, normal map, roughness and metalness carry over. Transparent materials become cut-outs, for leaves.
+
+Delete the file to go back to the built-in model.
+
 ## Layout
 
 ```
