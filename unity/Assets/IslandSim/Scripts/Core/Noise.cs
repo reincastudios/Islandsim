@@ -39,6 +39,22 @@ namespace IslandSim.Core
         }
 
         public static double Rad(double d) => d * Math.PI / 180.0;
+
+        /// <summary>JavaScript's Math.round: halves round up, also below zero.</summary>
+        public static double Round(double v) => Math.Floor(v + 0.5);
+
+        /// <summary>V8's Math.hypot for two values (scaled Kahan sum), so distances round exactly as in the browser.</summary>
+        public static double Hypot(double a, double b)
+        {
+            a = Math.Abs(a); b = Math.Abs(b);
+            double max = Math.Max(a, b);
+            if (double.IsInfinity(max)) return double.PositiveInfinity;
+            if (max == 0) return 0;
+            double sum = 0, comp = 0;
+            double n = a / max, summand = n * n - comp, pre = sum + summand; comp = (pre - sum) - summand; sum = pre;
+            n = b / max; summand = n * n - comp; pre = sum + summand; sum = pre;
+            return Math.Sqrt(sum) * max;
+        }
     }
 
     /// <summary>mulberry32, as in the web prototype.</summary>

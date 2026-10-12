@@ -4,6 +4,14 @@ Newest first. Each entry says what changed for the player and where the code liv
 
 ## 2026-10-12
 
+### The current game, rebuilt in Unity 6 (PR #6)
+- **What it is:** the Unity project in `unity/` now plays the same game as the web version: the Age of Cowries with its goods, buildings, traders, palace and charter, the 720 × 500 archipelago of four atolls and Huvamaru, the terraform panel (round 1–9 brush, Raise, Lower, Level to a height, Smooth, Ctrl+Z), 3×2 and 4×3 compounds, and the same HUD.
+- **Same rules, checked:** the rules were ported line for line to C# (`Scripts/Core`). A side-by-side run of the web code and the C# code builds the same map tile for tile and the same buildings, boats and stock after the same moves. EditMode tests cover a new game, growth, terraforming with undo, the open ocean, saves and the charter.
+- **Same look:** every building, boat and plant model, the material table and textures, the splat-mapped ground with wet sand and swash, the refracting sea with foam and caustics, cloud shadows, swaying palms, the physical sky, haze that recedes as you zoom out, bloom and vignette, and the Low / High / Ultra presets (Ultra adds ambient occlusion and tilt-shift). Buildings are merged per 64-tile chunk as in the web game, and plants are instanced and dropped with distance.
+- **Same HUD:** lacquer top bar with the warehouse of the island in view, the charter card, the katheeb's advisor feed and log, minimap and compass, build bar with cards, brush, level and plot pickers, building and island panels (trade post, palace list, rename), cursor tag, tooltips, F1 help, three save slots plus an autosave, settings and the game-over box. Built in UI Toolkit with the web game's fonts and icons.
+- **Not yet checked in the editor:** this session had no Unity editor, so the scripts were compile-checked against Unity's reference assemblies and the shaders were written against URP 17 but not compiled. The first open in Unity 6 may show shader or layout fixes to make.
+- Code: `unity/Assets/IslandSim/Scripts/View/` (one file per part, listed in `unity/README.md`), shaders in `Resources/IslandSim/Shaders`, HUD styles in `Resources/IslandSim/UI/Hud.uss`.
+
 ### Wetlands, ponds and sandbanks are back (PR #5)
 - **Fixed:** since the Oivaru Atoll update a lost line break had commented out the line that lays ground types on the map, so no island had its mangrove wetland (kulhi), brackish pond, taro fields, seagrass meadows, shifting sandbanks (finolhu) or protected bird nesting ground. Mangroves never grew, and dhoni berths never got their nursery bonus.
 - They are back as designed: Raiveli Isle has its mangrove ring round a pond again, Huvamaru its two lakes, and the bird islets are protected. Code: `generate()` in index.html.

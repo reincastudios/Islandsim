@@ -1,134 +1,258 @@
+using System.Collections.Generic;
 using IslandSim.Core;
 using UnityEngine;
 using UnityEngine.Rendering;
 using static IslandSim.Core.Defs;
+using static IslandSim.View.World;
 
 namespace IslandSim.View
 {
     /// <summary>
-    /// Heightfield mesh (shared corner vertices plus a centre vertex per tile) textured with a baked colour map:
-    /// height bands blended between tiles, rock on steep slopes, a wet-sand band at the waterline and fine grain.
+    /// The ground, as in the web game: 64×64-tile chunks of corner-and-centre vertices with per-vertex tint and seven layer
+    /// weights, rebuilt only where tiles changed; the coastline distance field the waves follow; the water-depth texture the
+    /// sea reads; and the seabed beyond the map.
     /// </summary>
     public sealed class TerrainView
     {
-        public const int Px = 6;                     // colour-map texels per tile
-        const int NC = (W + 1) * (H + 1);
-
-        static readonly string[] Band = { "#2b4f63", "#5f8f8c", "#d9c996", "#e6d3a0", "#86b35a", "#6a9c47", "#7d8a4b", "#8a7a5a", "#7c736b", "#9b958f", "#e9e8e4" }; // -3..7
-        static readonly Color Rock = World.Hex("#857a6c");
-
-        readonly Sim sim;
-        readonly Mesh mesh;
-        readonly MeshCollider col;
-        readonly Vector3[] pos = new Vector3[NC + W * H];
-        readonly Texture2D colorMap;
-        readonly Color32[] pixels;
-        readonly Color[] band = new Color[Band.Length];
-        readonly float[] tileCol = new float[W * H * 3];
-        public GameObject Go { get; }
-
-        public TerrainView(Sim sim, Transform parent)
+        readonly Sim S;
+        sealed class Chunk
         {
-            this.sim = sim;
-            for (int k = 0; k < Band.Length; k++) band[k] = World.Hex(Band[k]);
-
-            mesh = new Mesh { name = "atoll terrain", indexFormat = IndexFormat.UInt32 };
-            var uv = new Vector2[pos.Length];
-            for (int y = 0; y <= H; y++) for (int x = 0; x <= W; x++) { int v = y * (W + 1) + x; pos[v] = World.Pos(x, y, 0); uv[v] = new Vector2((float)x / W, 1 - (float)y / H); }
-            for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) { int v = NC + Sim.Idx(x, y); pos[v] = World.Pos(x + .5f, y + .5f, 0); uv[v] = new Vector2((x + .5f) / W, 1 - (y + .5f) / H); }
-            var tri = new int[W * H * 12];
-            int k2 = 0;
-            for (int y = 0; y < H; y++)
-                for (int x = 0; x < W; x++)
-                {
-                    int a = y * (W + 1) + x, b = a + 1, c = a + W + 1, d = c + 1, m = NC + Sim.Idx(x, y);
-                    // Rows run toward -Z, so this order is clockwise seen from above (front-facing in Unity).
-                    int[] q = { a, m, c, c, m, d, d, m, b, b, m, a };
-                    System.Array.Copy(q, 0, tri, k2, 12); k2 += 12;
-                }
-            mesh.vertices = pos; mesh.uv = uv; mesh.triangles = tri;
-
-            colorMap = new Texture2D(W * Px, H * Px, TextureFormat.RGBA32, true) { name = "atoll colour map", wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Trilinear, anisoLevel = 8 };
-            pixels = new Color32[W * Px * H * Px];
-
-            Go = new GameObject("Terrain");
-            Go.transform.SetParent(parent, false);
-            Go.AddComponent<MeshFilter>().sharedMesh = mesh;
-            var mr = Go.AddComponent<MeshRenderer>();
-            mr.sharedMaterial = Mats.Lit(Color.white, .06f, 0, colorMap);
-            mr.shadowCastingMode = ShadowCastingMode.On; mr.receiveShadows = true;
-            col = Go.AddComponent<MeshCollider>();
+            public int X0, Y0, W, H, NC, NV; public Mesh Mesh; public bool Dirty = true;
+            public Vector3[] Pos, Nrm; public Color[] Col; public Vector4[] S0, S1;
         }
+        readonly List<Chunk> chunks = new List<Chunk>();
+        public readonly float[] CornerY = new float[(W + 1) * (H + 1)];
+        readonly byte[] oceanMask = new byte[W * H];
+        HashSet<int> yardIds = new HashSet<int>();
+        public readonly Material Mat;
 
-        void TileColor(int x, int y, out float r, out float g, out float b)
-        {
-            int i = Sim.Idx(x, y), h = sim.Hgt[i]; var c = band[h + 3];
-            float n = ((float)Noise.Hash2(x, y, 5) - .5f) * 0.06f;
-            r = c.r + n; g = c.g + n; b = c.b + n * .6f;
-            if (h >= 1 && h <= 4 && sim.Tree[i] == 1) { r *= .82f; g *= .9f; b *= .8f; }
-        }
+        // coastline distance in tiles (negative on land) at 4× tile resolution, so surf follows a smooth shore
+        public const int SR = 4, SW = W * SR, SH = H * SR;
+        readonly byte[] shoreData = new byte[SW * SH];
+        public readonly Texture2D ShoreTex = new Texture2D(SW, SH, TextureFormat.R8, false, true) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear, name = "shore" };
+        // water depth (r), land (g) and open ocean (b) per tile, for the sea
+        readonly Color32[] depthData = new Color32[W * H];
+        public readonly Texture2D DepthTex = new Texture2D(W, H, TextureFormat.RGBA32, false, true) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear, name = "depth" };
+        int shoreVer = -1;
 
-        /// <summary>Rebuilds the mesh and the dirty part of the colour map.</summary>
-        public void Rebuild(int x0, int y0, int x1, int y1)
+        public TerrainView(Sim s, Transform parent)
         {
-            for (int y = 0; y <= H; y++)
-                for (int x = 0; x <= W; x++)
+            S = s;
+            Mat = Mats.Terrain();
+            if (Mat != null) { Mat.SetTexture("_Alb", Mats.Array("_albedo")); Mat.SetTexture("_Nor", Mats.Array("_normal")); }
+            for (int cy = 0; cy < CYN; cy++)
+                for (int cx = 0; cx < CXN; cx++)
                 {
-                    float sh = 0, landSum = 0; int n = 0, landN = 0;
-                    for (int dy = -1; dy <= 0; dy++)
-                        for (int dx = -1; dx <= 0; dx++)
+                    int x0 = cx * CH, y0 = cy * CH, w = Mathf.Min(CH, W - x0), h = Mathf.Min(CH, H - y0), nc = (w + 1) * (h + 1), nv = nc + w * h;
+                    var c = new Chunk { X0 = x0, Y0 = y0, W = w, H = h, NC = nc, NV = nv, Pos = new Vector3[nv], Nrm = new Vector3[nv], Col = new Color[nv], S0 = new Vector4[nv], S1 = new Vector4[nv] };
+                    var ix = new int[w * h * 12]; int k = 0;
+                    for (int y = 0; y < h; y++)
+                        for (int x = 0; x < w; x++)
                         {
-                            int tx = x + dx, ty = y + dy; if (!Sim.Inb(tx, ty)) continue;
-                            int h = sim.Hgt[Sim.Idx(tx, ty)]; float top = World.TopY(h);
-                            sh += top; n++; if (h >= 0) { landSum += top; landN++; }
+                            int a = y * (w + 1) + x, b = a + 1, cc = a + w + 1, d = cc + 1, m = nc + y * w + x;
+                            // the web game's fan [a,c,m, c,d,m, d,b,m, b,a,m], wound the other way for Unity
+                            ix[k++] = a; ix[k++] = m; ix[k++] = cc; ix[k++] = cc; ix[k++] = m; ix[k++] = d; ix[k++] = d; ix[k++] = m; ix[k++] = b; ix[k++] = b; ix[k++] = m; ix[k++] = a;
                         }
-                    float yy = n > 0 ? sh / n : World.TopY(-3);
-                    if (landN >= 2) yy = Mathf.Max(yy, Mathf.Min(landSum / landN, 0.12f)); // keep coasts crisp
-                    pos[y * (W + 1) + x].y = yy;
+                    for (int y = 0; y <= h; y++) for (int x = 0; x <= w; x++) c.Pos[y * (w + 1) + x] = U(x0 + x, 0, y0 + y);
+                    for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) c.Pos[nc + y * w + x] = U(x0 + x + .5f, 0, y0 + y + .5f);
+                    c.Mesh = new Mesh { name = $"terrain {cx},{cy}" }; c.Mesh.MarkDynamic();
+                    c.Mesh.vertices = c.Pos; c.Mesh.normals = c.Nrm; c.Mesh.colors = c.Col; c.Mesh.SetUVs(0, c.S0); c.Mesh.SetUVs(1, c.S1);
+                    c.Mesh.SetTriangles(ix, 0, false);
+                    c.Mesh.bounds = new Bounds(U(x0 + w / 2f, -1, y0 + h / 2f), new Vector3(w + 2, 6, h + 2));
+                    var go = new GameObject(c.Mesh.name); go.transform.SetParent(parent, false);
+                    go.AddComponent<MeshFilter>().sharedMesh = c.Mesh;
+                    var mr = go.AddComponent<MeshRenderer>(); mr.sharedMaterial = Mat; mr.shadowCastingMode = ShadowCastingMode.On; mr.receiveShadows = true;
+                    chunks.Add(c);
                 }
-            for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) pos[NC + Sim.Idx(x, y)].y = World.TopY(sim.Hgt[Sim.Idx(x, y)]);
-            mesh.vertices = pos;
-            mesh.RecalculateNormals();
-            mesh.RecalculateBounds();
-            col.sharedMesh = null; col.sharedMesh = mesh;
+            // outer seabed beyond the map: the same sand, seen through deep water
+            var sb = new GameObject("seabed"); sb.transform.SetParent(parent, false);
+            sb.AddComponent<MeshFilter>().sharedMesh = Geo.Plane(2400, 2400).RotateX(-Mathf.PI / 2).Translate(W / 2f, TopY(-3) - .05f, H / 2f).ToMesh("seabed");
+            var smr = sb.AddComponent<MeshRenderer>(); smr.sharedMaterial = Mats.Seabed(); smr.shadowCastingMode = ShadowCastingMode.Off; smr.receiveShadows = true;
+        }
 
-            // colour map, padded so blends at the edge of the change are refreshed too
-            x0 = Mathf.Max(0, x0 - 2); y0 = Mathf.Max(0, y0 - 2); x1 = Mathf.Min(W - 1, x1 + 2); y1 = Mathf.Min(H - 1, y1 + 2);
-            for (int y = Mathf.Max(0, y0 - 1); y <= Mathf.Min(H - 1, y1 + 1); y++)
-                for (int x = Mathf.Max(0, x0 - 1); x <= Mathf.Min(W - 1, x1 + 1); x++)
+        // ------------------------------------------------------------ per-tile look
+        static readonly Dictionary<int, Color> Tint = new Dictionary<int, Color>
+        {
+            [-3] = Lin("#8a9a9a"), [-2] = Lin("#b8b8a8"), [-1] = Lin("#f2ead6"), [0] = Lin("#ffffff"), [1] = Lin("#ffffff"), [2] = Lin("#f2f4e8"), [3] = Lin("#f0eadc"),
+        };
+        static readonly Dictionary<int, Color> GtTint = new Dictionary<int, Color>
+        { [GT.Kulhi] = Lin("#b9b48a"), [GT.Pond] = Lin("#8c9a74"), [GT.Taro] = Lin("#e6f0c4"), [GT.Seagrass] = Lin("#a9b88e") };
+
+        Color TileTint(int x, int y)
+        {
+            int i = Sim.Idx(x, y), h = S.Hgt[i];
+            if (!GtTint.TryGetValue(S.Gt[i], out var c)) c = Tint.TryGetValue(h, out var t) ? t : Color.white;
+            float n = (Hash(x, y, 5) - .5f) * 0.06f; c.r += n; c.g += n; c.b += n * .6f;
+            return c;
+        }
+        // ground layer weights for one tile: sand, grass, forest, rock, reef, soil, path
+        void TileSplat(int x, int y, float[] o)
+        {
+            int i = Sim.Idx(x, y), h = S.Hgt[i], g = S.Gt[i]; System.Array.Clear(o, 0, 7);
+            if (S.Road[i] != 0 && h >= 0) { o[6] = 1; return; }
+            if (g == GT.Kulhi) { o[5] = .55f; o[2] = .45f; return; }       // mangrove mud and leaf litter
+            if (g == GT.Pond) { o[5] = .6f; o[4] = .4f; return; }
+            if (g == GT.Seagrass) { o[1] = .7f; o[4] = .3f; return; }
+            if (g == GT.Taro && S.Bld[i] < 0) { o[5] = .6f; o[1] = .4f; return; }
+            if (h <= -2) o[0] = 1;                                        // lagoon floor: clean sand
+            else if (h == -1) o[4] = 1;                                   // reef flat: rubble, seagrass
+            else if (h == 0) o[0] = 1;
+            else if (h <= 2) { if (S.Tree[i] == 1) o[2] = 1; else { o[1] = 1; o[5] = Hash(x, y, 31) < .18f ? .6f : 0; } }
+            else if (h <= 4) { if (S.Tree[i] == 1) { o[2] = .7f; o[5] = .3f; } else { o[5] = .6f; o[1] = .4f; } }
+            else o[3] = 1;
+            if (yardIds.Contains(S.Bld[i]) && h >= 0) { System.Array.Clear(o, 0, 7); o[0] = 1; return; }   // compound yards: swept white sand
+            if (S.Bld[i] >= 0 && h >= 1) { o[1] *= .4f; o[5] += .8f; }    // trampled ground around buildings
+        }
+
+        float CornerHeight(int x, int y)
+        {
+            float sh = 0, landSum = 0; int n = 0, landN = 0;
+            for (int ty = y - 1; ty <= y; ty++)
+                for (int tx = x - 1; tx <= x; tx++)
                 {
-                    TileColor(x, y, out var r, out var g, out var b); int o = Sim.Idx(x, y) * 3;
-                    tileCol[o] = r; tileCol[o + 1] = g; tileCol[o + 2] = b;
+                    if (!Sim.Inb(tx, ty)) continue; int h = S.Hgt[Sim.Idx(tx, ty)]; float t = TopY(h); sh += t; n++; if (h >= 0) { landSum += t; landN++; }
                 }
-            int tw = W * Px;
-            for (int py = y0 * Px; py < (y1 + 1) * Px; py++)
-                for (int px = x0 * Px; px < (x1 + 1) * Px; px++)
+            float yy = n > 0 ? sh / n : TopY(-3); if (landN >= 2) yy = Mathf.Max(yy, Mathf.Min(landSum / landN, 0.12f)); // keep coasts crisp
+            return yy;
+        }
+        public float CAt(int x, int y) => CornerY[Mathf.Clamp(y, 0, H) * (W + 1) + Mathf.Clamp(x, 0, W)];
+
+        /// <summary>Height of the ground (or the sea surface) at any point, from the corner heights.</summary>
+        public float GroundY(float fx, float fy)
+        {
+            int x0 = Mathf.FloorToInt(fx), y0 = Mathf.FloorToInt(fy); float tx = fx - x0, ty = fy - y0;
+            float a = CAt(x0, y0), b = CAt(x0 + 1, y0), c = CAt(x0, y0 + 1), d = CAt(x0 + 1, y0 + 1);
+            return Mathf.Max(WATER_Y, a + (b - a) * tx + (c - a) * ty + (a - b - c + d) * tx * ty);
+        }
+
+        readonly float[] spl = new float[7], acc = new float[7];
+        void RebuildChunk(Chunk c)
+        {
+            int x0 = c.X0, y0 = c.Y0, w = c.W, h = c.H, nc = c.NC;
+            for (int y = 0; y <= h; y++)
+                for (int x = 0; x <= w; x++)
                 {
-                    float fx = (px + .5f) / Px, fy = (py + .5f) / Px;            // tile space
-                    float cx = fx - .5f, cy = fy - .5f;
-                    int ix = Mathf.Clamp(Mathf.FloorToInt(cx), 0, W - 2), iy = Mathf.Clamp(Mathf.FloorToInt(cy), 0, H - 2);
-                    float ux = Mathf.Clamp01(cx - ix), uy = Mathf.Clamp01(cy - iy);
-                    int i00 = Sim.Idx(ix, iy), i10 = i00 + 1, i01 = i00 + W, i11 = i01 + 1;
-                    float w00 = (1 - ux) * (1 - uy), w10 = ux * (1 - uy), w01 = (1 - ux) * uy, w11 = ux * uy;
-                    float r = tileCol[i00 * 3] * w00 + tileCol[i10 * 3] * w10 + tileCol[i01 * 3] * w01 + tileCol[i11 * 3] * w11;
-                    float g = tileCol[i00 * 3 + 1] * w00 + tileCol[i10 * 3 + 1] * w10 + tileCol[i01 * 3 + 1] * w01 + tileCol[i11 * 3 + 1] * w11;
-                    float b = tileCol[i00 * 3 + 2] * w00 + tileCol[i10 * 3 + 2] * w10 + tileCol[i01 * 3 + 2] * w01 + tileCol[i11 * 3 + 2] * w11;
-                    float h00 = World.TopY(sim.Hgt[i00]), h10 = World.TopY(sim.Hgt[i10]), h01 = World.TopY(sim.Hgt[i01]), h11 = World.TopY(sim.Hgt[i11]);
-                    float hgt = h00 * w00 + h10 * w10 + h01 * w01 + h11 * w11;
-                    float gx = (h10 - h00) * (1 - uy) + (h11 - h01) * uy, gy = (h01 - h00) * (1 - ux) + (h11 - h10) * ux;
-                    float slope = Mathf.Sqrt(gx * gx + gy * gy);
-                    // steep ground shows rock
-                    if (hgt > 0.05f) { float k = Mathf.Clamp01((slope - 0.75f) / 0.5f); r += (Rock.r - r) * k; g += (Rock.g - g) * k; b += (Rock.b - b) * k; }
-                    // wet sand at the waterline
-                    if (hgt > -0.2f && hgt < 0.4f) { float f = 1 - 0.3f * Mathf.Max(0, 1 - Mathf.Abs(hgt - 0.1f) / 0.3f); r *= f; g *= f; b *= f; }
-                    // grain so ground reads as soil and grass, not flat paint
-                    float grain = .86f + .1f * (float)Noise.VNoise(px * .5, py * .5, 1) + .08f * (float)Noise.Hash2(px, py, 3);
-                    r *= grain; g *= grain; b *= grain * .98f;
-                    int row = H * Px - 1 - py;                                        // texture rows run bottom-up
-                    pixels[row * tw + px] = new Color32((byte)(Mathf.Clamp01(r) * 255), (byte)(Mathf.Clamp01(g) * 255), (byte)(Mathf.Clamp01(b) * 255), 255);
+                    int X = x0 + x, Y = y0 + y, v = y * (w + 1) + x, n = 0; float r = 0, g = 0, b = 0; System.Array.Clear(acc, 0, 7);
+                    for (int ty = Y - 1; ty <= Y; ty++)
+                        for (int tx = X - 1; tx <= X; tx++)
+                        {
+                            if (!Sim.Inb(tx, ty)) continue; n++; var t = TileTint(tx, ty); r += t.r; g += t.g; b += t.b;
+                            TileSplat(tx, ty, spl); for (int k = 0; k < 7; k++) acc[k] += spl[k];
+                        }
+                    c.Pos[v].y = CAt(X, Y); c.Col[v] = new Color(r / n, g / n, b / n, 1);
+                    c.S0[v] = new Vector4(acc[0] / n, acc[1] / n, acc[2] / n, acc[3] / n); c.S1[v] = new Vector4(acc[4] / n, acc[5] / n, acc[6] / n, 0);
+                    float nx = -(CAt(X + 1, Y) - CAt(X - 1, Y)) / 2, nz = -(CAt(X, Y + 1) - CAt(X, Y - 1)) / 2;
+                    c.Nrm[v] = U(new Vector3(nx, 1, nz).normalized);
                 }
-            colorMap.SetPixels32(pixels);
-            colorMap.Apply(true);
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                {
+                    int X = x0 + x, Y = y0 + y, v = nc + y * w + x;
+                    c.Pos[v].y = TopY(S.Hgt[Sim.Idx(X, Y)]); c.Col[v] = TileTint(X, Y);
+                    TileSplat(X, Y, spl); c.S0[v] = new Vector4(spl[0], spl[1], spl[2], spl[3]); c.S1[v] = new Vector4(spl[4], spl[5], spl[6], 0);
+                    float nx = -(CAt(X + 1, Y) + CAt(X + 1, Y + 1) - CAt(X, Y) - CAt(X, Y + 1)) / 2, nz = -(CAt(X, Y + 1) + CAt(X + 1, Y + 1) - CAt(X, Y) - CAt(X + 1, Y)) / 2;
+                    c.Nrm[v] = U(new Vector3(nx, 1, nz).normalized);
+                }
+            // steep faces become rock whatever their height band (only real cliffs: beach slopes stay sand)
+            for (int v = 0; v < c.NV; v++)
+            {
+                float y = c.Pos[v].y, ny = c.Nrm[v].y;
+                if (y > 0.05f)
+                {
+                    float k = Mathf.Min(1, Mathf.Max(0, (0.6f - ny) / 0.2f));
+                    if (k > 0) { var s0 = c.S0[v]; var s1 = c.S1[v]; s0 *= 1 - k; s1.x *= 1 - k; s1.y *= 1 - k; s0.w += k; c.S0[v] = s0; c.S1[v] = s1; }
+                }
+            }
+            c.Mesh.vertices = c.Pos; c.Mesh.normals = c.Nrm; c.Mesh.colors = c.Col; c.Mesh.SetUVs(0, c.S0); c.Mesh.SetUVs(1, c.S1);
+            c.Dirty = false;
+        }
+
+        // open ocean: the deepest water reachable from the map's edge without crossing a reef (lagoon holes stay lagoon-coloured)
+        void ComputeOcean()
+        {
+            System.Array.Clear(oceanMask, 0, oceanMask.Length); var q = new int[W * H]; int qh = 0, qt = 0;
+            void Seed(int x, int y) { int i = Sim.Idx(x, y); if (S.Hgt[i] <= -3 && oceanMask[i] == 0) { oceanMask[i] = 1; q[qt++] = i; } }
+            for (int x = 0; x < W; x++) { Seed(x, 0); Seed(x, H - 1); }
+            for (int y = 0; y < H; y++) { Seed(0, y); Seed(W - 1, y); }
+            while (qh < qt)
+            {
+                int c = q[qh++], cx = c % W, cy = c / W;
+                for (int k = 0; k < 4; k++) { int nx = cx + Sim.DX[k], ny = cy + Sim.DY[k]; if (!Sim.Inb(nx, ny)) continue; int ni = Sim.Idx(nx, ny); if (oceanMask[ni] == 0 && S.Hgt[ni] <= -3) { oceanMask[ni] = 1; q[qt++] = ni; } }
+            }
+        }
+
+        /// <summary>Rebuilds whatever the game changed since the last frame. Returns true if anything was redone.</summary>
+        public bool Sync()
+        {
+            var r = S.DirtyLook.Take(); var sd = S.DirtyShore.Take();
+            if (r.Empty && sd.Empty) return false;
+            if (r.Empty) r = sd;
+            yardIds = new HashSet<int>(); foreach (var b in S.Buildings) if (b.Type == BType.House) yardIds.Add(b.Id);
+            bool full = r.X0 == 0 && r.Y0 == 0 && r.X1 == W - 1 && r.Y1 == H - 1;
+            if (full) { foreach (var c in chunks) c.Dirty = true; ComputeOcean(); }
+            else foreach (var c in chunks) if (c.X0 <= r.X1 + 2 && c.X0 + c.W >= r.X0 - 2 && c.Y0 <= r.Y1 + 2 && c.Y0 + c.H >= r.Y0 - 2) c.Dirty = true;  // a tile's look reaches its corners, and their normals one corner further
+            for (int y = Mathf.Max(0, r.Y0 - 1); y <= Mathf.Min(H, r.Y1 + 2); y++) for (int x = Mathf.Max(0, r.X0 - 1); x <= Mathf.Min(W, r.X1 + 2); x++) CornerY[y * (W + 1) + x] = CornerHeight(x, y);
+            foreach (var c in chunks) if (c.Dirty) RebuildChunk(c);
+            for (int y = Mathf.Max(0, r.Y0 - 1); y <= Mathf.Min(H - 1, r.Y1 + 1); y++)
+                for (int x = Mathf.Max(0, r.X0 - 1); x <= Mathf.Min(W - 1, r.X1 + 1); x++)
+                {
+                    int i = Sim.Idx(x, y), h = S.Hgt[i];
+                    depthData[i] = new Color32((byte)(h >= 0 ? 0 : Mathf.Floor(Mathf.Min(1, (WATER_Y - TopY(h)) / 2.2f) * 255 + .5f)), (byte)(h >= 0 ? 255 : 0), (byte)(h <= -3 && oceanMask[i] != 0 ? 255 : 0), 255);
+                }
+            DepthTex.SetPixels32(depthData); DepthTex.Apply(false);
+            if (full && shoreVer != S.TerrainVer) ComputeShore(0, 0, W - 1, H - 1);
+            else if (!sd.Empty) ComputeShore(sd.X0, sd.Y0, sd.X1, sd.Y1);
+            shoreVer = S.TerrainVer;
+            return true;
+        }
+
+        // The field only matters within a few tiles of the coast (it is clamped to -3..6), so an edit recomputes a window
+        // around it with a margin wide enough that the clamped values inside come out the same as a full pass.
+        void ComputeShore(int tx0, int ty0, int tx1, int ty1)
+        {
+            const int M = 8;
+            int wx0 = Mathf.Max(0, (tx0 - M) * SR), wy0 = Mathf.Max(0, (ty0 - M) * SR), wx1 = Mathf.Min(SW, (tx1 + 1 + M) * SR), wy1 = Mathf.Min(SH, (ty1 + 1 + M) * SR);
+            int ww = wx1 - wx0, wh = wy1 - wy0, N = ww * wh;
+            var land = new byte[N]; var din = new float[N]; var dout = new float[N];
+            int Mk(int x, int y) => S.Hgt[Sim.Idx(Mathf.Clamp(x, 0, W - 1), Mathf.Clamp(y, 0, H - 1))] >= 0 ? 1 : 0;
+            for (int sy = 0; sy < wh; sy++)
+                for (int sx = 0; sx < ww; sx++)
+                {
+                    float wx = (sx + wx0 + .5f) / SR - .5f, wy = (sy + wy0 + .5f) / SR - .5f; int x0 = Mathf.FloorToInt(wx), y0 = Mathf.FloorToInt(wy); float fx = wx - x0, fy = wy - y0;
+                    float v = (Mk(x0, y0) * (1 - fx) + Mk(x0 + 1, y0) * fx) * (1 - fy) + (Mk(x0, y0 + 1) * (1 - fx) + Mk(x0 + 1, y0 + 1) * fx) * fy;
+                    land[sy * ww + sx] = (byte)(v >= .5f ? 1 : 0);
+                }
+            const float INF = 1e6f, D = 1.41421356f;
+            for (int i = 0; i < N; i++) { din[i] = land[i] != 0 ? INF : 0; dout[i] = land[i] != 0 ? 0 : INF; }
+            foreach (var d in new[] { din, dout })   // two-pass chamfer distance transform
+            {
+                for (int y = 0; y < wh; y++)
+                    for (int x = 0; x < ww; x++)
+                    {
+                        int i = y * ww + x; float v = d[i]; if (v == 0) continue;
+                        if (x > 0) v = Mathf.Min(v, d[i - 1] + 1);
+                        if (y > 0) { v = Mathf.Min(v, d[i - ww] + 1); if (x > 0) v = Mathf.Min(v, d[i - ww - 1] + D); if (x < ww - 1) v = Mathf.Min(v, d[i - ww + 1] + D); }
+                        d[i] = v;
+                    }
+                for (int y = wh - 1; y >= 0; y--)
+                    for (int x = ww - 1; x >= 0; x--)
+                    {
+                        int i = y * ww + x; float v = d[i]; if (v == 0) continue;
+                        if (x < ww - 1) v = Mathf.Min(v, d[i + 1] + 1);
+                        if (y < wh - 1) { v = Mathf.Min(v, d[i + ww] + 1); if (x < ww - 1) v = Mathf.Min(v, d[i + ww + 1] + D); if (x > 0) v = Mathf.Min(v, d[i + ww - 1] + D); }
+                        d[i] = v;
+                    }
+            }
+            // write back only the part the margin makes exact
+            int ix0 = Mathf.Max(0, (tx0 - 1) * SR) - wx0, iy0 = Mathf.Max(0, (ty0 - 1) * SR) - wy0, ix1 = Mathf.Min(SW, (tx1 + 2) * SR) - wx0, iy1 = Mathf.Min(SH, (ty1 + 2) * SR) - wy0;
+            bool full = wx0 == 0 && wy0 == 0 && wx1 == SW && wy1 == SH;
+            for (int y = full ? 0 : iy0; y < (full ? wh : iy1); y++)
+                for (int x = full ? 0 : ix0; x < (full ? ww : ix1); x++)
+                {
+                    int i = y * ww + x; float sd = (land[i] != 0 ? -(din[i] - .5f) : dout[i] - .5f) / SR;
+                    shoreData[(y + wy0) * SW + x + wx0] = (byte)Mathf.Floor(Mathf.Clamp01((sd + 3) / 9) * 255 + .5f);
+                }
+            ShoreTex.SetPixelData(shoreData, 0); ShoreTex.Apply(false);
         }
     }
 }

@@ -1,20 +1,19 @@
+using System;
 using System.IO;
+using System.Reflection;
 using IslandSim.View;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Rendering;
-#if ISIM_URP
-using System.Reflection;
 using UnityEngine.Rendering.Universal;
-#endif
 
 namespace IslandSim.EditorTools
 {
     /// <summary>
-    /// One-time project setup, run automatically when the project first opens (and from the Island Sim menu):
-    /// linear colour space, a URP pipeline asset tuned for the atoll, an instancing-ready lit material,
-    /// and the Atoll scene added to the build.
+    /// One-time project setup, run automatically when the project opens (and from the Island Sim menu): linear colour,
+    /// a URP pipeline asset set up for the atoll (HDR, four shadow cascades, the scene colour and depth the water refracts,
+    /// an ambient-occlusion feature that Ultra switches on), the game's settings asset, and the Atoll scene in the build.
     /// </summary>
     [InitializeOnLoad]
     static class IslandSimSetup
@@ -22,8 +21,8 @@ namespace IslandSim.EditorTools
         const string Root = "Assets/IslandSim";
         const string SettingsDir = Root + "/Settings";
         const string ScenePath = Root + "/Scenes/Atoll.unity";
-        const string LitPath = Root + "/Resources/IslandSim/IslandLit.mat";
-        const string DoneKey = "IslandSim.SetupDone.v1";
+        const string GameSettingsPath = Root + "/Resources/IslandSim/Settings.asset";
+        const string DoneKey = "IslandSim.SetupDone.v2";
 
         static IslandSimSetup()
         {
@@ -45,67 +44,86 @@ namespace IslandSim.EditorTools
             if (EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) EditorSceneManager.OpenScene(ScenePath);
         }
 
+        [MenuItem("Island Sim/Reimport Textures")]
+        static void Reimport() => AssetDatabase.ImportAsset(Root + "/Resources/IslandSim/Textures", ImportAssetOptions.ImportRecursive | ImportAssetOptions.ForceUpdate);
+
         static void Run(bool verbose)
         {
-            if (PlayerSettings.colorSpace != ColorSpace.Linear)
-            {
-                PlayerSettings.colorSpace = ColorSpace.Linear;
-                Debug.Log("[Island Sim] Switched the project to linear colour space.");
-            }
-#if ISIM_URP
-            EnsureUrp(verbose);
-#else
-            if (verbose) Debug.LogWarning("[Island Sim] URP package not found; the game will run on the built-in pipeline without post-processing.");
-#endif
-            EnsureLitMaterial();
+            if (PlayerSettings.colorSpace != ColorSpace.Linear) { PlayerSettings.colorSpace = ColorSpace.Linear; Debug.Log("[Island Sim] Switched the project to linear colour space."); }
+            var ssao = EnsureUrp(verbose);
+            EnsureGameSettings(ssao);
             EnsureScene();
             AssetDatabase.SaveAssets();
             if (verbose) Debug.Log("[Island Sim] Project set up. Open Assets/IslandSim/Scenes/Atoll.unity and press Play.");
         }
 
-#if ISIM_URP
-        static void EnsureUrp(bool force)
+        static ScriptableRendererFeature EnsureUrp(bool force)
         {
-            if (GraphicsSettings.defaultRenderPipeline is UniversalRenderPipelineAsset && !force) return;
             Directory.CreateDirectory(SettingsDir);
-            var assetPath = SettingsDir + "/IslandSim_URP.asset";
+            var assetPath = SettingsDir + "/IslandSim_URP.asset"; var rendererPath = SettingsDir + "/IslandSim_Renderer.asset";
             var asset = AssetDatabase.LoadAssetAtPath<UniversalRenderPipelineAsset>(assetPath);
-            if (asset == null)
+            var rendererData = AssetDatabase.LoadAssetAtPath<UniversalRendererData>(rendererPath);
+            if (asset == null || rendererData == null)
             {
-                var rendererData = ScriptableObject.CreateInstance<UniversalRendererData>();
+                rendererData = ScriptableObject.CreateInstance<UniversalRendererData>();
                 // post-processing needs the default PostProcessData; it is internal in some URP versions, so look it up softly
                 try
                 {
                     var get = typeof(PostProcessData).GetMethod("GetDefaultPostProcessData", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
                     if (get != null && rendererData.postProcessData == null) rendererData.postProcessData = (PostProcessData)get.Invoke(null, null);
                 }
-                catch (System.Exception e) { Debug.LogWarning("[Island Sim] Could not attach default post-process data: " + e.Message); }
-                AssetDatabase.CreateAsset(rendererData, SettingsDir + "/IslandSim_Renderer.asset");
-
+                catch (Exception e) { Debug.LogWarning("[Island Sim] Could not attach default post-process data: " + e.Message); }
+                AssetDatabase.CreateAsset(rendererData, rendererPath);
                 asset = UniversalRenderPipelineAsset.Create(rendererData);
-                asset.shadowDistance = 220;
-                asset.shadowCascadeCount = 4;
-                asset.msaaSampleCount = 4;
-                asset.supportsHDR = true;
                 AssetDatabase.CreateAsset(asset, assetPath);
             }
-            GraphicsSettings.defaultRenderPipeline = asset;
-            QualitySettings.renderPipeline = asset;
-            Debug.Log("[Island Sim] Using the Universal Render Pipeline asset at " + assetPath + ".");
-        }
-#endif
+            asset.supportsHDR = true; asset.shadowDistance = 220; asset.shadowCascadeCount = 4; asset.msaaSampleCount = 4;
+            asset.supportsCameraOpaqueTexture = true; asset.supportsCameraDepthTexture = true;
+            SetField(asset, "m_MainLightShadowmapResolution", 4096); SetField(asset, "m_SoftShadowsSupported", true);
+            EditorUtility.SetDirty(asset);
 
-        static void EnsureLitMaterial()
+            // ambient occlusion for Ultra: URP's own SSAO feature (its class is internal, so it is found by name)
+            ScriptableRendererFeature ssao = null;
+            foreach (var f in rendererData.rendererFeatures) if (f != null && f.GetType().Name == "ScreenSpaceAmbientOcclusion") ssao = f;
+            if (ssao == null)
+            {
+                var type = typeof(UniversalRendererData).Assembly.GetType("UnityEngine.Rendering.Universal.ScreenSpaceAmbientOcclusion");
+                if (type != null)
+                {
+                    ssao = (ScriptableRendererFeature)ScriptableObject.CreateInstance(type); ssao.name = "SSAO";
+                    AssetDatabase.AddObjectToAsset(ssao, rendererData);
+                    rendererData.rendererFeatures.Add(ssao);
+                    // keep URP's feature map in step with the list
+                    var map = typeof(ScriptableRendererData).GetField("m_RendererFeatureMap", BindingFlags.Instance | BindingFlags.NonPublic);
+                    if (map != null && map.GetValue(rendererData) is System.Collections.Generic.List<long> ids && AssetDatabase.TryGetGUIDAndLocalFileIdentifier(ssao, out string _, out long lid)) ids.Add(lid);
+                    ssao.SetActive(false);
+                    EditorUtility.SetDirty(rendererData);
+                }
+                else Debug.LogWarning("[Island Sim] URP's ambient occlusion feature was not found; Ultra will run without it.");
+            }
+            if (force || GraphicsSettings.defaultRenderPipeline != asset)
+            {
+                GraphicsSettings.defaultRenderPipeline = asset;
+                int keep = QualitySettings.GetQualityLevel();
+                for (int i = 0; i < QualitySettings.names.Length; i++) { QualitySettings.SetQualityLevel(i, false); QualitySettings.renderPipeline = asset; }
+                QualitySettings.SetQualityLevel(keep, false);
+                Debug.Log("[Island Sim] Using the Universal Render Pipeline asset at " + assetPath + ".");
+            }
+            return ssao;
+        }
+
+        static void SetField(object o, string name, object value)
         {
-            Shader shader = null;
-            var rp = GraphicsSettings.currentRenderPipeline;
-            if (rp != null && rp.defaultMaterial != null) shader = rp.defaultMaterial.shader;
-            if (shader == null) shader = Shader.Find("Standard");
-            var mat = AssetDatabase.LoadAssetAtPath<Material>(LitPath);
-            if (mat != null && mat.shader == shader) return;
-            Directory.CreateDirectory(Path.GetDirectoryName(LitPath));
-            if (mat == null) { mat = new Material(shader) { name = "IslandLit", enableInstancing = true }; AssetDatabase.CreateAsset(mat, LitPath); }
-            else { mat.shader = shader; mat.enableInstancing = true; EditorUtility.SetDirty(mat); }
+            var f = o.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+            if (f == null) return;
+            try { f.SetValue(o, f.FieldType.IsEnum ? Enum.ToObject(f.FieldType, value) : value); } catch (Exception) { }
+        }
+
+        static void EnsureGameSettings(ScriptableRendererFeature ssao)
+        {
+            var s = AssetDatabase.LoadAssetAtPath<IslandSimSettings>(GameSettingsPath);
+            if (s == null) { s = ScriptableObject.CreateInstance<IslandSimSettings>(); AssetDatabase.CreateAsset(s, GameSettingsPath); }
+            if (s.Ssao != ssao) { s.Ssao = ssao; EditorUtility.SetDirty(s); }
         }
 
         static void EnsureScene()
@@ -124,6 +142,28 @@ namespace IslandSim.EditorTools
             foreach (var s in scenes) if (s.path == ScenePath) return;
             var list = new System.Collections.Generic.List<EditorBuildSettingsScene>(scenes) { new EditorBuildSettingsScene(ScenePath, true) };
             EditorBuildSettings.scenes = list.ToArray();
+        }
+    }
+
+    /// <summary>
+    /// Import settings for the game's textures, matching the web game: colour maps in sRGB, normal maps as normal maps,
+    /// tiling and 8× anisotropic filtering, the foliage cut-outs clamped. The seven ground layers must share size and
+    /// format, since they are stacked into one texture array at run time.
+    /// </summary>
+    sealed class IslandSimTextures : AssetPostprocessor
+    {
+        void OnPreprocessTexture()
+        {
+            if (!assetPath.Replace('\\', '/').Contains("/Resources/IslandSim/Textures/")) return;
+            var ti = (TextureImporter)assetImporter; string name = Path.GetFileNameWithoutExtension(assetPath);
+            bool normal = name.EndsWith("_normal"), cutout = assetPath.EndsWith(".png");
+            ti.textureType = normal ? TextureImporterType.NormalMap : TextureImporterType.Default;
+            ti.sRGBTexture = !normal;
+            ti.mipmapEnabled = true; ti.isReadable = false; ti.anisoLevel = 8; ti.filterMode = FilterMode.Trilinear;
+            ti.wrapMode = cutout ? TextureWrapMode.Clamp : TextureWrapMode.Repeat;
+            ti.alphaSource = cutout ? TextureImporterAlphaSource.FromInput : TextureImporterAlphaSource.None;
+            ti.alphaIsTransparency = cutout; ti.mipMapsPreserveCoverage = cutout; if (cutout) ti.alphaTestReferenceValue = .45f;
+            ti.maxTextureSize = 2048; ti.textureCompression = TextureImporterCompression.CompressedHQ; ti.crunchedCompression = false;
         }
     }
 }

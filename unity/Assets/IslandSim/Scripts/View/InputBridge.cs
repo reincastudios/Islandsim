@@ -1,61 +1,92 @@
 using UnityEngine;
 #if ENABLE_INPUT_SYSTEM && ISIM_INPUTSYS
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Controls;
 #endif
 
 namespace IslandSim.View
 {
-    public enum K { W, A, S, D, Q, E, R, F, T, V, X, H, B, N1, N2, N3, N4, N5, N6, Space, Escape, F5, F9, Up, Down, Left, Right, Shift }
-
-    /// <summary>Reads keyboard and mouse through whichever input backend the project has active.</summary>
+    /// <summary>
+    /// Keyboard, mouse and touch, read through Unity's built-in Input Manager by default, or the Input System package when
+    /// the project defines ISIM_INPUTSYS. Positions are in pixels from the top-left corner (as in the browser), and the
+    /// wheel reads like the browser's deltaY (positive = toward you = zoom out).
+    /// </summary>
     public static class InputBridge
     {
+        public enum Sp { Esc, Tab, F1, Up, Down, Left, Right, Shift, Ctrl, Alt, Enter, Backspace }
+
 #if ENABLE_INPUT_SYSTEM && ISIM_INPUTSYS
-        static Key Map(K k)
+        static KeyControl K(char c)
         {
-            switch (k)
+            var kb = Keyboard.current; if (kb == null) return null;
+            if (c >= 'a' && c <= 'z') return kb[(Key)System.Enum.Parse(typeof(Key), char.ToUpperInvariant(c).ToString())];
+            if (c >= '0' && c <= '9') return kb[(Key)System.Enum.Parse(typeof(Key), "Digit" + c)];
+            return c == '[' ? kb[Key.LeftBracket] : c == ']' ? kb[Key.RightBracket] : c == ' ' ? kb[Key.Space] : null;
+        }
+        static KeyControl K(Sp s)
+        {
+            var kb = Keyboard.current; if (kb == null) return null;
+            switch (s)
             {
-                case K.W: return Key.W; case K.A: return Key.A; case K.S: return Key.S; case K.D: return Key.D;
-                case K.Q: return Key.Q; case K.E: return Key.E; case K.R: return Key.R; case K.F: return Key.F;
-                case K.T: return Key.T; case K.V: return Key.V; case K.X: return Key.X; case K.H: return Key.H; case K.B: return Key.B;
-                case K.N1: return Key.Digit1; case K.N2: return Key.Digit2; case K.N3: return Key.Digit3;
-                case K.N4: return Key.Digit4; case K.N5: return Key.Digit5; case K.N6: return Key.Digit6;
-                case K.Space: return Key.Space; case K.Escape: return Key.Escape; case K.F5: return Key.F5; case K.F9: return Key.F9;
-                case K.Up: return Key.UpArrow; case K.Down: return Key.DownArrow; case K.Left: return Key.LeftArrow; case K.Right: return Key.RightArrow;
-                default: return Key.LeftShift;
+                case Sp.Esc: return kb[Key.Escape]; case Sp.Tab: return kb[Key.Tab]; case Sp.F1: return kb[Key.F1];
+                case Sp.Up: return kb[Key.UpArrow]; case Sp.Down: return kb[Key.DownArrow]; case Sp.Left: return kb[Key.LeftArrow]; case Sp.Right: return kb[Key.RightArrow];
+                case Sp.Shift: return kb[Key.LeftShift]; case Sp.Ctrl: return kb[Key.LeftCtrl]; case Sp.Alt: return kb[Key.LeftAlt];
+                case Sp.Enter: return kb[Key.Enter]; default: return kb[Key.Backspace];
             }
         }
-        public static bool Held(K k) => Keyboard.current != null && Keyboard.current[Map(k)].isPressed;
-        public static bool Pressed(K k) => Keyboard.current != null && Keyboard.current[Map(k)].wasPressedThisFrame;
-        public static Vector2 MousePos => Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.zero;
-        static UnityEngine.InputSystem.Controls.ButtonControl Btn(int b) =>
-            Mouse.current == null ? null : b == 0 ? Mouse.current.leftButton : b == 1 ? Mouse.current.rightButton : Mouse.current.middleButton;
-        public static bool MouseHeld(int b) { var c = Btn(b); return c != null && c.isPressed; }
-        public static bool MouseDown(int b) { var c = Btn(b); return c != null && c.wasPressedThisFrame; }
-        public static bool MouseUp(int b) { var c = Btn(b); return c != null && c.wasReleasedThisFrame; }
-        public static float Scroll => Mouse.current != null ? Mathf.Clamp(Mouse.current.scroll.ReadValue().y / 120f, -3, 3) : 0;
+        public static bool Held(char c) { var k = K(c); return k != null && k.isPressed; }
+        public static bool Pressed(char c) { var k = K(c); return k != null && k.wasPressedThisFrame; }
+        public static bool Held(Sp s)
+        {
+            var kb = Keyboard.current; if (kb == null) return false;
+            if (s == Sp.Shift) return kb[Key.LeftShift].isPressed || kb[Key.RightShift].isPressed;
+            if (s == Sp.Ctrl) return kb[Key.LeftCtrl].isPressed || kb[Key.RightCtrl].isPressed || kb[Key.LeftCommand].isPressed || kb[Key.RightCommand].isPressed;
+            if (s == Sp.Alt) return kb[Key.LeftAlt].isPressed || kb[Key.RightAlt].isPressed;
+            var k = K(s); return k != null && k.isPressed;
+        }
+        public static bool Pressed(Sp s) { var k = K(s); return k != null && k.wasPressedThisFrame; }
+        static ButtonControl B(int b) { var m = Mouse.current; return m == null ? null : b == 0 ? m.leftButton : b == 1 ? m.rightButton : m.middleButton; }
+        public static Vector2 MousePos { get { var m = Mouse.current; var p = m != null ? m.position.ReadValue() : Vector2.zero; return new Vector2(p.x, Screen.height - p.y); } }
+        public static bool MouseHeld(int b) { var c = B(b); return c != null && c.isPressed; }
+        public static bool MouseDown(int b) { var c = B(b); return c != null && c.wasPressedThisFrame; }
+        public static bool MouseUp(int b) { var c = B(b); return c != null && c.wasReleasedThisFrame; }
+        public static float Scroll { get { var m = Mouse.current; return m != null ? -m.scroll.ReadValue().y / 120f * 100f : 0; } }
+        public static int TouchCount => 0;
+        public static Vector2 TouchPos(int i) => Vector2.zero;
 #else
-        static KeyCode Map(K k)
+        static KeyCode C(char c)
         {
-            switch (k)
+            if (c >= 'a' && c <= 'z') return KeyCode.A + (c - 'a');
+            if (c >= '0' && c <= '9') return KeyCode.Alpha0 + (c - '0');
+            return c == '[' ? KeyCode.LeftBracket : c == ']' ? KeyCode.RightBracket : c == ' ' ? KeyCode.Space : KeyCode.None;
+        }
+        static KeyCode C(Sp s)
+        {
+            switch (s)
             {
-                case K.W: return KeyCode.W; case K.A: return KeyCode.A; case K.S: return KeyCode.S; case K.D: return KeyCode.D;
-                case K.Q: return KeyCode.Q; case K.E: return KeyCode.E; case K.R: return KeyCode.R; case K.F: return KeyCode.F;
-                case K.T: return KeyCode.T; case K.V: return KeyCode.V; case K.X: return KeyCode.X; case K.H: return KeyCode.H; case K.B: return KeyCode.B;
-                case K.N1: return KeyCode.Alpha1; case K.N2: return KeyCode.Alpha2; case K.N3: return KeyCode.Alpha3;
-                case K.N4: return KeyCode.Alpha4; case K.N5: return KeyCode.Alpha5; case K.N6: return KeyCode.Alpha6;
-                case K.Space: return KeyCode.Space; case K.Escape: return KeyCode.Escape; case K.F5: return KeyCode.F5; case K.F9: return KeyCode.F9;
-                case K.Up: return KeyCode.UpArrow; case K.Down: return KeyCode.DownArrow; case K.Left: return KeyCode.LeftArrow; case K.Right: return KeyCode.RightArrow;
-                default: return KeyCode.LeftShift;
+                case Sp.Esc: return KeyCode.Escape; case Sp.Tab: return KeyCode.Tab; case Sp.F1: return KeyCode.F1;
+                case Sp.Up: return KeyCode.UpArrow; case Sp.Down: return KeyCode.DownArrow; case Sp.Left: return KeyCode.LeftArrow; case Sp.Right: return KeyCode.RightArrow;
+                case Sp.Shift: return KeyCode.LeftShift; case Sp.Ctrl: return KeyCode.LeftControl; case Sp.Alt: return KeyCode.LeftAlt;
+                case Sp.Enter: return KeyCode.Return; default: return KeyCode.Backspace;
             }
         }
-        public static bool Held(K k) => Input.GetKey(Map(k));
-        public static bool Pressed(K k) => Input.GetKeyDown(Map(k));
-        public static Vector2 MousePos => Input.mousePosition;
-        public static bool MouseHeld(int b) => Input.GetMouseButton(b);
-        public static bool MouseDown(int b) => Input.GetMouseButtonDown(b);
-        public static bool MouseUp(int b) => Input.GetMouseButtonUp(b);
-        public static float Scroll => Mathf.Clamp(Input.mouseScrollDelta.y, -3, 3);
+        public static bool Held(char c) => Input.GetKey(C(c));
+        public static bool Pressed(char c) => Input.GetKeyDown(C(c));
+        public static bool Held(Sp s)
+        {
+            if (s == Sp.Shift) return Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+            if (s == Sp.Ctrl) return Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl) || Input.GetKey(KeyCode.LeftCommand) || Input.GetKey(KeyCode.RightCommand);
+            if (s == Sp.Alt) return Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt);
+            return Input.GetKey(C(s));
+        }
+        public static bool Pressed(Sp s) => Input.GetKeyDown(C(s));
+        public static Vector2 MousePos { get { var p = Input.mousePosition; return new Vector2(p.x, Screen.height - p.y); } }
+        public static bool MouseHeld(int b) => Input.GetMouseButton(b == 1 ? 1 : b == 2 ? 2 : 0);
+        public static bool MouseDown(int b) => Input.GetMouseButtonDown(b == 1 ? 1 : b == 2 ? 2 : 0);
+        public static bool MouseUp(int b) => Input.GetMouseButtonUp(b == 1 ? 1 : b == 2 ? 2 : 0);
+        public static float Scroll => -Input.mouseScrollDelta.y * 100f;
+        public static int TouchCount => Input.touchSupported ? Input.touchCount : 0;
+        public static Vector2 TouchPos(int i) { var p = Input.GetTouch(i).position; return new Vector2(p.x, Screen.height - p.y); }
 #endif
     }
 }

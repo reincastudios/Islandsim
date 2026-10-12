@@ -6,246 +6,191 @@ using static IslandSim.Core.Defs;
 namespace IslandSim.Core
 {
     public enum ToastKind { Info, Good, Bad }
-    public enum BoatState { Idle, Sail, Blocked }
+
+    /// <summary>A compound's needs this tick: food (fish, or rice when fish runs out), coconuts, a mosque nearby, and sweet toddy.</summary>
+    public sealed class Needs { public bool Food, Rice, Coco, Faith, Toddy; }
 
     public sealed class Building
     {
-        public int Id; public BType Type; public int X, Y;
-        public float Res, Eff, Rate; public string Status = "";
-        public float[] Stock;            // harbors only
-        public bool Merged; public int Isl = -1;
-        public bool HasRate;
+        public int Id; public BType Type; public int X, Y, W = 1, D = 1;
+        public double Res, Eff, Rate, Staff, Cap, Tax; public string Status = "";
+        public double[] Stock;            // jetties only
+        public bool Merged, Off, Road; public int Isl = -1;
+        public Needs Need;
+        public BuildingDef Def => Defs.Def(Type);
     }
 
     public sealed class Island
     {
-        public int Id, N; public string Name; public List<int> Parts = new List<int>();
-        public Building Harbor; public float Res; public int Jobs; public float Eff = 1; public float Cx, Cy;
+        public int Id, N, Atoll; public string Name, AutoName, Key; public List<int> Parts = new List<int>();
+        public Building Harbor; public double Res, Jobs, Filled, Eff = 1, Cx, Cy;
     }
 
     public sealed class Boat
     {
-        public int Home; public float X, Y, Ang; public List<int> Path; public int Pi;
-        public bool Out = true; public float[] Cargo = new float[GoodCount];
-        public BoatState State = BoatState.Idle; public string Why = ""; public int Ver = -1, Trips;
+        public int Home; public double X, Y, Ang; public List<(int x, int y)> Path; public int Pi;
+        public bool Out = true; public double[] Cargo = new double[GoodCount];
+        public string State = "idle", Why = ""; public int Ver = -1, Trips;
         public bool HasCargo { get { foreach (var c in Cargo) if (c > 0) return true; return false; } }
     }
 
-    public struct TerraResult { public bool Ok, Noop, Coast; public string Why; }
-    public struct PlaceCheck { public bool Ok; public string Why; }
-
-    public sealed class Goal
+    public struct Check
     {
-        public string Id, Title, Hint; public Func<Sim, bool> Ok;
+        public bool Ok; public string Why; public int X, Y, W, D;
+        public static Check No(string why) => new Check { Ok = false, Why = why };
     }
 
+    public struct Flow { public double Make, Use; }
+
     /// <summary>
-    /// The whole game rules: atoll generation, islands and warehouses, boats, economy, terraforming and charter goals.
-    /// Pure C# with no UnityEngine dependency, so it can be tested outside the editor.
+    /// The whole game rules: the five-atoll map, islands and their warehouses, placement, roads, terraforming, the Age 1
+    /// economy, dhoni boats, trading ships, the charter and saves. A line-by-line port of the web game (index.html), pure C#
+    /// with no UnityEngine, so it can be tested outside the editor and checked against the browser tile for tile.
     /// </summary>
-    public sealed class Sim
+    public sealed partial class Sim
     {
-        public sbyte[] Hgt; public byte[] Tree; public int[] Bld; public byte[] Origin;
+        // ------------------------------------------------------------ state (the web game's S)
+        public sbyte[] Hgt; public byte[] Tree, Gt, Road, Origin = new byte[W * H]; public int[] Bld;
         public List<Building> Buildings = new List<Building>();
+        public double Gold, T, Rate, Unrest; public int NextId = 1, Capital, Age = 1; public bool AgeDone;
+        public double StatRope; public int StatLinkTrip;
+        public HashSet<string> Goals = new HashSet<string>();
+        public Dictionary<string, string> Names = new Dictionary<string, string>();
+        public TradeState Trade = new TradeState();
+        public string Over;                  // null, "bankrupt" or "unrest"
+
         public List<Island> Islands = new List<Island>();
         public short[] Comp;
+        public (int x, int y)?[] IslAnchor = new (int, int)?[Defs.Islands.Length];
         public List<Boat> Boats = new List<Boat>();
-        public float Gold, T, Rate; public int NextId = 1, Capital;
-        public float StatRum; public int StatSugarTrip;
-        public HashSet<string> GoalsDone = new HashSet<string>();
         public int TerrainVer;
 
-        // Change tracking for the view.
-        public bool DirtyTrees = true, DirtyBuildings = true;
-        public int DirtyX0 = 0, DirtyY0 = 0, DirtyX1 = W - 1, DirtyY1 = H - 1; // inclusive; X0 > X1 means clean
+        /// <summary>Compound plot size picked in the Homes cards: 0 = 3×2, 1 = 4×3.</summary>
+        public int Plot;
+        /// <summary>Gold and stone spent by the current stroke, for the cursor tag.</summary>
+        public double SpendGold, SpendStone;
 
-        public event Action<string, ToastKind> Toast;
-        readonly Random rnd = new Random(7);
+        // Change tracking for the view: tiles whose look changed (roads, plots, trees), tiles whose height changed (also redo
+        // the coastline), a new buildings list, and the minimap's ground layer.
+        public DirtyRect DirtyLook = DirtyRect.All(), DirtyShore = DirtyRect.All(), DirtyTrees = DirtyRect.All();
+        public bool MiniDirty = true; public int BuildingsVer;
+
+        public event Action<string, ToastKind, (int x, int y)?> Toast;
+        /// <summary>Called when a tool is refused, with the reason for the cursor tag.</summary>
+        public event Action<string> Refused;
+        /// <summary>Random numbers for tree regrowth; tests swap it for a fixed source.</summary>
+        public Func<double> Random;
+        /// <summary>Real time in seconds, for the 10-second undo window.</summary>
+        public Func<double> Now = () => Environment.TickCount / 1000.0;
+
+        public Sim() { var r = new System.Random(); Random = r.NextDouble; }
 
         public static int Idx(int x, int y) => y * W + x;
         public static bool Inb(int x, int y) => x >= 0 && y >= 0 && x < W && y < H;
-        static readonly int[] DX = { 1, -1, 0, 0 }, DY = { 0, 0, 1, -1 };
+        public static readonly int[] DX = { 1, -1, 0, 0 }, DY = { 0, 0, 1, -1 };
+        static double Hypot(double a, double b) => Noise.Hypot(a, b);
 
-        void Say(string msg, ToastKind k = ToastKind.Info) => Toast?.Invoke(msg, k);
+        public void Say(string msg, ToastKind k = ToastKind.Info, (int x, int y)? at = null) => Toast?.Invoke(msg, k, at);
+        public void Refuse(string why) => Refused?.Invoke(why);
 
-        public void MarkDirty(int x, int y)
+        public void MarkTrees(int x0, int y0, int x1, int y1) { DirtyTrees.Add(x0, y0, x1, y1); MiniDirty = true; }
+        public void MarkTrees(int x, int y) => MarkTrees(x, y, x, y);
+        public void MarkTerrain(int x0, int y0, int x1, int y1) { DirtyLook.Add(x0, y0, x1, y1); MiniDirty = true; }
+        public void MarkTerrain(int x, int y) => MarkTerrain(x, y, x, y);
+        public void MarkShore(int x, int y) { DirtyShore.Add(x, y, x, y); DirtyLook.Add(x - 1, y - 1, x + 1, y + 1); MiniDirty = true; }
+        public void MarkAll() { DirtyLook = DirtyRect.All(); DirtyShore = DirtyRect.All(); DirtyTrees = DirtyRect.All(); MiniDirty = true; BuildingsVer++; }
+
+        // ------------------------------------------------------------ buildings
+        public Building ById(int id) { foreach (var b in Buildings) if (b.Id == id) return b; return null; }
+        public Building BAt(int x, int y) { int id = Bld[Idx(x, y)]; return id >= 0 ? ById(id) : null; }
+        public Building CapitalHarbor => ById(Capital);
+        public Island CapitalIsland { get { var c = CapitalHarbor; return c != null ? IslandAtComp(Comp[Idx(c.X, c.Y)]) : null; } }
+        Island IslandAtComp(int c) => c >= 0 && c < Islands.Count ? Islands[c] : null;
+        public Island IslandOf(int x, int y) => IslandAtComp(Comp[Idx(x, y)]);
+        public Island IslandOfB(Building b) => IslandAtComp(b.Isl);
+        public static double[] NoStock() => new double[GoodCount];
+        public double[] StockOf(Island isl) => isl != null && isl.Harbor != null ? isl.Harbor.Stock : null;
+        public string IslandName(Building b) { var isl = IslandOf(b.X, b.Y); return isl != null ? isl.Name : "?"; }
+        public double TotalPop { get { double n = 0; foreach (var b in Buildings) if (b.Type == BType.House) n += b.Res; return n; } }
+        public int Day => 1 + (int)Math.Floor(T / 30);
+
+        public Building AddBuilding(BType type, int x, int y, int w = 1, int d = 1)
         {
-            if (DirtyX0 > DirtyX1) { DirtyX0 = DirtyX1 = x; DirtyY0 = DirtyY1 = y; return; }
-            DirtyX0 = Math.Min(DirtyX0, x); DirtyX1 = Math.Max(DirtyX1, x);
-            DirtyY0 = Math.Min(DirtyY0, y); DirtyY1 = Math.Max(DirtyY1, y);
-        }
-        public void ClearDirty() { DirtyX0 = 1; DirtyX1 = 0; }
-        public void MarkAllDirty() { DirtyX0 = 0; DirtyY0 = 0; DirtyX1 = W - 1; DirtyY1 = H - 1; }
-        public bool TerrainDirty => DirtyX0 <= DirtyX1;
-
-        // ---------------------------------------------------------------- map
-        public static double RimR(double a)
-        {
-            double t = Noise.Rad(a);
-            return AcR + 5.5 * Math.Sin(2 * t + 0.7) + 3.2 * Math.Sin(3 * t + 2.1) + 1.6 * Math.Sin(5 * t + 4)
-                 + (Noise.Fbm(Math.Cos(t) * 1.6 + 5, Math.Sin(t) * 1.6 + 5, 4) - .5) * 6;
-        }
-
-        public static void IslandCentre(IslandSpec I, out double x, out double y)
-        {
-            double R = RimR(I.Ang) - I.Off;
-            x = AcX + Math.Cos(Noise.Rad(I.Ang)) * R; y = AcY + Math.Sin(Noise.Rad(I.Ang)) * R;
-        }
-
-        int NearestSpec(int x, int y)
-        {
-            double bd = 1e9; int o = 0;
-            for (int k = 0; k < Defs.Islands.Length; k++)
-            {
-                IslandCentre(Defs.Islands[k], out var cx, out var cy);
-                double d = Math.Sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
-                if (d < bd) { bd = d; o = k; }
-            }
-            return o;
-        }
-
-        public void Generate()
-        {
-            Hgt = new sbyte[W * H]; Tree = new byte[W * H]; Origin = new byte[W * H];
-            var r32 = new Mulberry32(20261010);
-            for (int y = 0; y < H; y++)
-                for (int x = 0; x < W; x++)
-                {
-                    // domain-warp the coordinates so edges meander instead of tracing arcs
-                    double wx = x + (Noise.Fbm(x * .035, y * .035, 40) - .5) * 12, wy = y + (Noise.Fbm(x * .035, y * .035, 41) - .5) * 12;
-                    double dx = wx - AcX, dy = wy - AcY, d = Math.Sqrt(dx * dx + dy * dy);
-                    double a = Math.Atan2(dy, dx) * 180 / Math.PI; if (a < 0) a += 360;
-                    double r = d - RimR(a);
-                    double inner = -2.5 - Noise.Fbm(a * .05, 1, 42) * 4, outer = 6 + Noise.Fbm(a * .05, 2, 43) * 6; // reef flat width varies around the ring
-                    double v;
-                    if (r > outer + 2.5) v = -3;
-                    else if (r > outer) v = -2;
-                    else if (r > inner) v = -1;                                           // reef flat on the rim
-                    else v = -2 - (Noise.Fbm(x * .08, y * .08, 6) > .62 ? 1 : 0);         // deep lagoon
-                    if (v == -2 && r < inner - 5 && Noise.Fbm(x * .21, y * .21, 8) > .74) v = -1;   // scattered coral heads
-                    if (v == -1 && Math.Abs(r) < 2.4 && Noise.VNoise(a * .11, 3, 50) > .74) v = 0; // sandy motus along the rim
-                    for (int k = 0; k < Defs.Islands.Length; k++)
-                    {
-                        var I = Defs.Islands[k];
-                        double rw = I.Rw * (.8 + .45 * Noise.Fbm(a * .06, k * 3, 44));
-                        double u = (r + I.Off) / rw, w = Noise.AngDiff(a, I.Ang) / I.Ext;
-                        double e = Math.Sqrt(u * u + w * w) + (Noise.Fbm(x * .16, y * .16, 11 + k) - .5) * .5;
-                        if (e < 1.15)
-                        {
-                            double t = Math.Max(0, 1 - e);
-                            double hv0 = -1 + (I.Peak + 1.6) * Math.Pow(t, .7) + (Noise.Fbm(x * .3, y * .3, 21 + k) - .5) * (I.Peak > 3 ? 1.3 : .5);
-                            if (hv0 > -0.5 && hv0 > v) v = hv0;                           // islands rise straight out of the lagoon
-                        }
-                        // Sugar Cay sits behind broad lagoon flats: too shallow for boats
-                        if (k == 2 && r < 1 && r > -20 && Math.Abs(Noise.AngDiff(a, I.Ang)) < I.Ext + 10 && v < -1) v = -1;
-                    }
-                    if (Math.Abs(Noise.AngDiff(a, PassAng)) < 2.4 && v <= 0 && r > inner - 3 && r < outer + 3) v = -2; // natural pass to the ocean
-                    int hv = Math.Max(MinH, Math.Min(MaxH, (int)Math.Floor(v + 0.5))); // JS Math.round: halves round up
-                    Hgt[Idx(x, y)] = (sbyte)hv;
-                    Origin[Idx(x, y)] = hv >= 0 ? (byte)NearestSpec(x, y) : (byte)255;
-                }
-            for (int y = 0; y < H; y++)
-                for (int x = 0; x < W; x++)
-                {
-                    int i = Idx(x, y), hv = Hgt[i], o = Origin[i];
-                    double f = Noise.Fbm(x * .22, y * .22, 99);
-                    double dens = o == 0 ? .44 : o == 1 ? .5 : .66;
-                    if (hv >= 1 && hv <= 4 && f > dens) Tree[i] = (byte)(hv <= 1 && r32.Next() < .5 ? 2 : 1);
-                    else if (hv == 0 && r32.Next() < .12) Tree[i] = 2;
-                }
-        }
-
-        public void NewGame()
-        {
-            Generate();
-            Bld = new int[W * H]; for (int i = 0; i < Bld.Length; i++) Bld[i] = -1;
-            Buildings.Clear(); Boats.Clear(); GoalsDone.Clear();
-            Gold = 1200; T = 0; NextId = 1; StatRum = 0; StatSugarTrip = 0; Capital = 0; Rate = 0;
-            ComputeIslands();
-            int bx = -1, by = -1; double bs = 1e9;
-            var palm = Defs.Islands[0];
-            for (int y = 1; y < H - 1; y++)
-                for (int x = 1; x < W - 1; x++)
-                {
-                    int i = Idx(x, y); if (Origin[i] != 0 || Hgt[i] != 0 || !BerthOf(x, y, out _, out _)) continue;
-                    double s = Math.Sqrt((x - AcX) * (x - AcX) + (y - AcY) * (y - AcY)) + Math.Abs(Noise.AngDiff(Math.Atan2(y - AcY, x - AcX) * 180 / Math.PI, palm.Ang + 8)) * 0.4;
-                    if (s < bs) { bs = s; bx = x; by = y; }
-                }
-            if (bx < 0)
-            { // guarantee a berth: take Palm's lagoon-side beach and dredge beside it
-                for (int y = 1; y < H - 1; y++)
-                    for (int x = 1; x < W - 1; x++)
-                    {
-                        int i = Idx(x, y); if (Origin[i] != 0 || Hgt[i] != 0 || !AdjWater(x, y)) continue;
-                        double s = Math.Sqrt((x - AcX) * (x - AcX) + (y - AcY) * (y - AcY)); if (s < bs) { bs = s; bx = x; by = y; }
-                    }
-                for (int k = 0; k < 4; k++) { int i = Idx(bx + DX[k], by + DY[k]); if (Hgt[i] < 0) Hgt[i] = -2; }
-            }
-            var hb = AddBuilding(BType.Harbor, bx, by);
-            hb.Stock[(int)Good.Wood] = 30; hb.Stock[(int)Good.Stone] = 24; hb.Stock[(int)Good.Fish] = 20;
-            Capital = hb.Id; ComputeIslands();
-            foreach (var type in new[] { BType.House, BType.House, BType.House, BType.House, BType.Fishery, BType.Lumber })
-            {
-                int px = -1, py = -1; double pd = 1e9;
-                for (int y = by - 12; y <= by + 12; y++)
-                    for (int x = bx - 12; x <= bx + 12; x++)
-                    {
-                        if (!CanPlace(type, x, y, true).Ok) continue;
-                        double d = Math.Sqrt((x - bx) * (x - bx) + (y - by) * (y - by));
-                        double score = d - (type == BType.Lumber ? CountAround(x, y, 2, i => Tree[i] > 0) * 0.6 : 0)
-                                         - (type == BType.Fishery ? CountAround(x, y, 2, i => Hgt[i] == -1) * 0.4 : 0);
-                        if (score < pd) { pd = score; px = x; py = y; }
-                    }
-                if (px >= 0) { var b = AddBuilding(type, px, py); if (type == BType.House) b.Res = 3; }
-            }
-            ComputeIslands();
-            DirtyTrees = true; DirtyBuildings = true; MarkAllDirty(); TerrainVer++;
-        }
-
-        Building AddBuilding(BType type, int x, int y)
-        {
-            int i = Idx(x, y);
-            var b = new Building { Id = NextId++, Type = type, X = x, Y = y, Res = type == BType.House ? 2 : 0, Stock = type == BType.Harbor ? new float[GoodCount] : null };
-            Buildings.Add(b); Bld[i] = b.Id; Tree[i] = 0; DirtyTrees = true; DirtyBuildings = true;
+            MiniDirty = true; BuildingsVer++;
+            var b = new Building { Id = NextId++, Type = type, X = x, Y = y, W = w, D = d, Res = type == BType.House ? 2 : 0, Stock = type == BType.Harbor ? NoStock() : null };
+            Buildings.Add(b);
+            for (int ty = y; ty < y + d; ty++) for (int tx = x; tx < x + w; tx++) { int i = Idx(tx, ty); Bld[i] = b.Id; Tree[i] = 0; Road[i] = 0; }
+            if (type == BType.House) { var t = YardPalmTile(b); if (t.HasValue) Tree[Idx(t.Value.x, t.Value.y)] = 2; }   // a coconut palm in the yard
+            MarkTrees(x, y, x + w - 1, y + d - 1); MarkTerrain(x - 1, y - 1, x + w, y + d);
             return b;
         }
 
-        public Building ById(int id) { foreach (var b in Buildings) if (b.Id == id) return b; return null; }
-        public Building At(int x, int y) { int id = Bld[Idx(x, y)]; return id >= 0 ? ById(id) : null; }
+        // Compounds face their gate along local +z; long plots turn 0/180°, deep plots ±90°.
+        public static double PlotRot(Building b) { double flip = Noise.Hash2(b.X, b.Y, 1) < .5 ? 0 : Math.PI; return (b.W >= b.D ? 0 : Math.PI / 2) + flip; }
+        public static (double x, double y) PlotCentre(Building b) => (b.X + b.W / 2.0, b.Y + b.D / 2.0);
+        public static double PlotFactor(Building b) => b.W * b.D / 6.0;   // a 4×3 compound holds twice the families of a 3×2 one
+        (int x, int y)? YardPalmTile(Building b)
+        {
+            var c = PlotCentre(b); double r = PlotRot(b); bool big = b.W * b.D > 6; double lx = big ? .55 : 1, lz = big ? Math.Min(b.W, b.D) / 2.0 - .45 : .5; // front, away from the well
+            double wx = c.x + lx * Math.Cos(r) + lz * Math.Sin(r), wz = c.y - lx * Math.Sin(r) + lz * Math.Cos(r); int tx = (int)Math.Floor(wx), ty = (int)Math.Floor(wz);
+            return Inb(tx, ty) && Bld[Idx(tx, ty)] == b.Id ? (tx, ty) : ((int, int)?)null;
+        }
 
-        // ---------------------------------------------------------------- islands
+        // ------------------------------------------------------------ islands
         public void ComputeIslands()
         {
             Comp = new short[W * H]; for (int i = 0; i < Comp.Length; i++) Comp[i] = -1;
-            Islands.Clear();
-            var q = new int[W * H];
-            for (int i = 0; i < W * H; i++) if (Hgt[i] >= 0 && Origin[i] == 255) Origin[i] = (byte)NearestSpec(i % W, i / W);
+            Islands = new List<Island>();
+            var q = new int[W * H]; int nIsl = Defs.Islands.Length;
+            for (int i = 0; i < W * H; i++)
+                if (Hgt[i] >= 0 && Origin[i] == 255)
+                {
+                    int x = i % W, y = i / W; double bd = 1e9; int o = 0;
+                    for (int k = 0; k < nIsl; k++) { var c = IslC[k]; double d = Hypot(x - c.x, y - c.y); if (d < bd) { bd = d; o = k; } }
+                    Origin[i] = (byte)o;
+                }
+            var counts = new List<int[]>(); var starts = new List<int>();
             for (int s = 0; s < W * H; s++)
             {
                 if (Hgt[s] < 0 || Comp[s] >= 0) continue;
-                int id = Islands.Count, qh = 0, qt = 0; q[qt++] = s; Comp[s] = (short)id;
-                var cnt = new int[3]; int n = 0; long sx = 0, sy = 0;
+                int id = Islands.Count, qh = 0, qt = 0; q[qt++] = s; Comp[s] = (short)id; var cnt = new int[nIsl]; int n = 0; double sx = 0, sy = 0;
                 while (qh < qt)
                 {
-                    int c = q[qh++]; n++; int o = Origin[c]; if (o < 3) cnt[o]++;
-                    int cx = c % W, cy = c / W; sx += cx; sy += cy;
+                    int c = q[qh++]; n++; int o = Origin[c]; if (o < nIsl) cnt[o]++; int cx = c % W, cy = c / W; sx += cx; sy += cy;
                     for (int k = 0; k < 4; k++)
                     {
-                        int nx = cx + DX[k], ny = cy + DY[k]; if (!Inb(nx, ny)) continue;
-                        int ni = Idx(nx, ny); if (Hgt[ni] >= 0 && Comp[ni] < 0) { Comp[ni] = (short)id; q[qt++] = ni; }
+                        int nx = cx + DX[k], ny = cy + DY[k]; if (!Inb(nx, ny)) continue; int ni = Idx(nx, ny);
+                        if (Hgt[ni] >= 0 && Comp[ni] < 0) { Comp[ni] = (short)id; q[qt++] = ni; }
                     }
                 }
-                var isl = new Island { Id = id, N = n, Cx = (float)sx / n, Cy = (float)sy / n };
-                for (int k = 0; k < 3; k++) if (cnt[k] > Math.Max(6, n * 0.08)) isl.Parts.Add(k);
-                string name = isl.Parts.Count > 0 ? string.Join("-", isl.Parts.Select(k => Defs.Islands[k].Name.Split(' ')[0])) : "Islet";
-                if (isl.Parts.Count == 1) name = Defs.Islands[isl.Parts[0]].Name;
-                if (n < 60) name = "Islet";
-                isl.Name = name;
-                Islands.Add(isl);
+                Islands.Add(new Island { Id = id, N = n, Cx = sx / n, Cy = sy / n, Atoll = AtollAt(sx / n, sy / n) });
+                counts.Add(cnt); starts.Add(s);
+            }
+            // a named island's name goes to the piece holding most of it; stray fragments are islets
+            var owner = new int[nIsl];
+            for (int k = 0; k < nIsl; k++) { int b = -1, bc = 0; foreach (var isl in Islands) if (counts[isl.Id][k] > bc) { bc = counts[isl.Id][k]; b = isl.Id; } owner[k] = b; }
+            foreach (var isl in Islands)
+            {
+                int n = isl.N; var cnt = counts[isl.Id];
+                var parts = new List<int>(); for (int k = 0; k < nIsl; k++) if (owner[k] == isl.Id && cnt[k] > Math.Max(6, n * 0.08)) parts.Add(k);
+                string name = parts.Count > 0 ? string.Join("–", parts.Select(k => Defs.Islands[k].Name.Split(' ')[0])) : "Islet";
+                if (parts.Count == 1) name = Defs.Islands[parts[0]].Name;
+                if (n < 12) name = "Islet";
+                // a player's name sticks to the island's biggest named piece (or, for an islet, its first tile)
+                int main = -1; foreach (var k in parts) if (main < 0 || cnt[k] > cnt[main]) main = k;
+                isl.Key = main >= 0 ? "k" + main : "t" + starts[isl.Id]; isl.AutoName = name;
+                isl.Name = Names.TryGetValue(isl.Key, out var nm) ? nm : name; isl.Parts = parts;
+            }
+            // each named island's label sits on its land tile nearest the island's centre
+            IslAnchor = new (int, int)?[nIsl]; var ad = new double[nIsl]; for (int k = 0; k < nIsl; k++) ad[k] = 1e9;
+            for (int i = 0; i < W * H; i++)
+            {
+                int o = Origin[i]; if (o >= nIsl || Hgt[i] < 0) continue; int x = i % W, y = i / W; var c = IslC[o];
+                double d = Hypot(x - c.x, y - c.y); if (d < ad[o]) { ad[o] = d; IslAnchor[o] = (x, y); }
             }
             foreach (var b in Buildings.Where(b => b.Type == BType.Harbor).OrderBy(b => b.Id))
             {
-                var isl = IslandAt(b.X, b.Y); if (isl == null) continue;
+                var isl = IslandAtComp(Comp[Idx(b.X, b.Y)]); if (isl == null) continue;
                 if (isl.Harbor == null) { isl.Harbor = b; b.Merged = false; }
                 else { for (int g = 0; g < GoodCount; g++) { isl.Harbor.Stock[g] += b.Stock[g]; b.Stock[g] = 0; } b.Merged = true; }
             }
@@ -253,182 +198,111 @@ namespace IslandSim.Core
             SyncBoats();
         }
 
-        public Island IslandAt(int x, int y) { int c = Comp[Idx(x, y)]; return c >= 0 ? Islands[c] : null; }
-        public Island IslandOf(Building b) => b.Isl >= 0 && b.Isl < Islands.Count ? Islands[b.Isl] : null;
-        public Building CapitalHarbor => ById(Capital);
-        public Island CapitalIsland { get { var c = CapitalHarbor; return c != null ? IslandAt(c.X, c.Y) : null; } }
-        public float[] StockOf(Island isl) => isl?.Harbor?.Stock;
-
         public int CountAround(int x, int y, int r, Func<int, bool> fn)
         {
             int n = 0;
-            for (int dy = -r; dy <= r; dy++)
-                for (int dx = -r; dx <= r; dx++)
+            for (int dy = -r; dy <= r; dy++) for (int dx = -r; dx <= r; dx++)
                 {
                     int nx = x + dx, ny = y + dy; if (!Inb(nx, ny) || (dx == 0 && dy == 0)) continue;
                     if (fn(Idx(nx, ny))) n++;
                 }
             return n;
         }
-
         public bool AdjWater(int x, int y)
         {
             for (int k = 0; k < 4; k++) { int nx = x + DX[k], ny = y + DY[k]; if (Inb(nx, ny) && Hgt[Idx(nx, ny)] < 0) return true; }
             return false;
         }
-
-        public bool BerthOf(int x, int y, out int bx, out int by)
+        public (int x, int y)? BerthOf(int x, int y)
         {
-            for (int k = 0; k < 4; k++)
-            {
-                int nx = x + DX[k], ny = y + DY[k];
-                if (Inb(nx, ny) && Hgt[Idx(nx, ny)] <= -2) { bx = nx; by = ny; return true; }
-            }
-            bx = by = -1; return false;
+            for (int k = 0; k < 4; k++) { int nx = x + DX[k], ny = y + DY[k]; if (Inb(nx, ny) && Hgt[Idx(nx, ny)] <= -2) return (nx, ny); }
+            return null;
+        }
+        public Island NearestHarborIsland(double x, double y)
+        {
+            Island best = null; double bd = 1e9;
+            foreach (var isl in Islands) { var h = isl.Harbor; if (h == null) continue; double d = Math.Abs(h.X - x) + Math.Abs(h.Y - y); if (d < bd) { bd = d; best = isl; } }
+            return best;
         }
 
-        public string IslandName(Building b) { var isl = b != null ? IslandAt(b.X, b.Y) : null; return isl != null ? isl.Name : "?"; }
+        // ------------------------------------------------------------ placement
+        public Cost CostOf(BType type) => type == BType.House && Plot == 1 ? BigHouse : Def(type).Cost;
+        public static Cost CostOfB(Building b) => b.Type == BType.House && b.W * b.D > 6 ? BigHouse : b.Def.Cost;
 
-        // ---------------------------------------------------------------- boats
-        void SyncBoats()
+        /// <summary>A building's tiles: the hovered tile sits at (or just before) the middle; multi-tile plots may be turned 90°.</summary>
+        public Check Footprint(BType type, int x, int y, bool turned = false)
         {
-            var cap = CapitalHarbor; var capIsl = CapitalIsland; var keep = new List<Boat>();
-            foreach (var isl in Islands)
-            {
-                var hb = isl.Harbor; if (hb == null || cap == null || isl == capIsl) continue;
-                var bt = Boats.FirstOrDefault(b => b.Home == hb.Id);
-                if (bt == null)
+            var d0 = Def(type); var sz = d0.Sizes != null ? d0.Sizes[Plot] : d0.Size;
+            if (sz == null) return new Check { X = x, Y = y, W = 1, D = 1 };
+            int w = turned ? sz[1] : sz[0], d = turned ? sz[0] : sz[1];
+            return new Check { X = x - ((w - 1) >> 1), Y = y - ((d - 1) >> 1), W = w, D = d };
+        }
+
+        public Check CanPlace(BType type, int x, int y, bool free = false)
+        {
+            if (Def(type).Size == null) return CanPlaceAt(type, Footprint(type, x, y), free);
+            var a = CanPlaceAt(type, Footprint(type, x, y, false), free); if (a.Ok) return a;    // try both ways round
+            var b = CanPlaceAt(type, Footprint(type, x, y, true), free); return b.Ok ? b : a;
+        }
+
+        Check CanPlaceAt(BType type, Check fp, bool free)
+        {
+            int x = fp.X, y = fp.Y; var d = Def(type);
+            if (!Inb(x, y) || !Inb(x + fp.W - 1, y + fp.D - 1)) return Check.No("");
+            int hv = Hgt[Idx(x, y)];
+            for (int ty = y; ty < y + fp.D; ty++) for (int tx = x; tx < x + fp.W; tx++)
                 {
-                    int px = hb.X, py = hb.Y; if (BerthOf(hb.X, hb.Y, out var bx, out var by)) { px = bx; py = by; }
-                    bt = new Boat { Home = hb.Id, X = px, Y = py };
+                    int i = Idx(tx, ty), h = Hgt[i];
+                    if (Bld[i] >= 0) return Check.No(fp.W > 1 ? "The plot overlaps another building" : "Tile is occupied");
+                    int g = Gt[i];
+                    if (g == GT.Kulhi || g == GT.Pond) return Check.No("Kulhi wetland. Raise it to fill it in, or leave it as a fish nursery.");
+                    if (g == GT.Bird) return Check.No("Birds nest here. The island is protected.");
+                    if (g == GT.Finolhu && type != BType.Fishery && type != BType.Harbor) return Check.No("Finolhu sand shifts with the monsoon. Only a fishery or harbor can stand here.");
+                    if (h < 0) return Check.No("Needs land. Raise this tile first.");
+                    if (h < d.MinH || h > d.MaxH) return Check.No($"{d.Name} needs height {d.MinH}–{d.MaxH} (this tile is {h})");
+                    if (h != hv) return Check.No($"The {fp.W}×{fp.D} plot must be level. Use Level first.");
                 }
-                keep.Add(bt);
-            }
-            foreach (var b in Boats)
-                if (!keep.Contains(b))
-                {
-                    var hb = ById(b.Home);
-                    if (hb != null && IslandOf(hb) == capIsl) Say($"Land bridge made the {IslandName(hb)} boat unnecessary; goods now move overland.", ToastKind.Good);
-                }
-            Boats = keep;
-        }
-
-        List<int> BfsPath(int sx, int sy, int tx, int ty)
-        {
-            if (!Inb(sx, sy) || Hgt[Idx(sx, sy)] > -2) return null;
-            var prev = new int[W * H]; for (int i = 0; i < prev.Length; i++) prev[i] = -1;
-            var q = new int[W * H]; int qh = 0, qt = 0; int s = Idx(sx, sy), t = Idx(tx, ty);
-            q[qt++] = s; prev[s] = s;
-            while (qh < qt)
-            {
-                int c = q[qh++]; if (c == t) break; int cx = c % W, cy = c / W;
-                for (int k = 0; k < 4; k++)
-                {
-                    int nx = cx + DX[k], ny = cy + DY[k]; if (!Inb(nx, ny)) continue;
-                    int ni = Idx(nx, ny); if (prev[ni] < 0 && Hgt[ni] <= -2) { prev[ni] = c; q[qt++] = ni; }
-                }
-            }
-            if (prev[t] < 0) return null;
-            var path = new List<int>(); for (int c = t; c != s; c = prev[c]) path.Add(c); path.Add(s); path.Reverse();
-            return path;
-        }
-
-        void PlanBoat(Boat bt)
-        {
-            var hb = ById(bt.Home); var cap = CapitalHarbor; bt.Ver = TerrainVer;
-            if (!BerthOf(hb.X, hb.Y, out var hbx, out var hby)) { bt.State = BoatState.Blocked; bt.Why = $"No deep water beside the {IslandName(hb)} harbor"; bt.Path = null; return; }
-            if (!BerthOf(cap.X, cap.Y, out var cbx, out var cby)) { bt.State = BoatState.Blocked; bt.Why = "No deep water beside the capital harbor"; bt.Path = null; return; }
-            int sx = (int)Math.Round(bt.X), sy = (int)Math.Round(bt.Y);
-            if (!Inb(sx, sy) || Hgt[Idx(sx, sy)] > -2)
-            {
-                if (bt.State == BoatState.Sail) { Say($"The {IslandName(hb)} boat ran aground and lost its cargo.", ToastKind.Bad); Array.Clear(bt.Cargo, 0, GoodCount); }
-                sx = hbx; sy = hby; bt.X = sx; bt.Y = sy; bt.Out = true;
-            }
-            int tx = bt.Out ? cbx : hbx, ty = bt.Out ? cby : hby;
-            var p = BfsPath(sx, sy, tx, ty);
-            if (p == null) { bt.State = BoatState.Blocked; bt.Path = null; bt.Why = $"No deep-water route to {(bt.Out ? "the capital" : IslandName(hb))}. Shallows block boats."; return; }
-            bt.Path = p; bt.Pi = 0; bt.State = BoatState.Sail; bt.Why = "";
-        }
-
-        static void Unload(float[] to, Boat bt) { for (int g = 0; g < GoodCount; g++) { to[g] += bt.Cargo[g]; bt.Cargo[g] = 0; } }
-        static void Load(float[] from, float[] to, Boat bt)
-        {
-            for (int g = 0; g < GoodCount; g++)
-            {
-                float amt = Math.Min(25, (float)Math.Floor((from[g] - to[g]) / 2));
-                if (amt > 0) { from[g] -= amt; bt.Cargo[g] = amt; }
-            }
-        }
-
-        void StepBoats(float dt)
-        {
-            if (CapitalHarbor == null) return;
-            foreach (var bt in Boats.ToArray())
-            {
-                var hb = ById(bt.Home); if (hb == null) continue;
-                var home = IslandOf(hb)?.Harbor; var capH = CapitalIsland?.Harbor; if (home == null || capH == null) continue;
-                if (bt.Ver != TerrainVer) PlanBoat(bt);
-                if (bt.State != BoatState.Sail || bt.Path == null) continue;
-                float move = 5 * dt;
-                while (move > 0 && bt.Pi < bt.Path.Count - 1)
-                {
-                    int n = bt.Path[bt.Pi + 1]; float nx = n % W, ny = n / W;
-                    float dx = nx - bt.X, dy = ny - bt.Y, d = (float)Math.Sqrt(dx * dx + dy * dy);
-                    if (d > 0) bt.Ang = (float)Math.Atan2(dy, dx);
-                    if (d <= move) { bt.X = nx; bt.Y = ny; bt.Pi++; move -= d; }
-                    else { bt.X += dx / d * move; bt.Y += dy / d * move; move = 0; }
-                }
-                if (bt.Pi >= bt.Path.Count - 1)
-                {
-                    if (bt.Out) { Unload(capH.Stock, bt); Load(capH.Stock, home.Stock, bt); bt.Out = false; }
-                    else { Unload(home.Stock, bt); Load(home.Stock, capH.Stock, bt); bt.Out = true; bt.Trips++; if (Origin[Idx(hb.X, hb.Y)] == 2) StatSugarTrip++; }
-                    PlanBoat(bt);
-                }
-            }
-        }
-
-        // ---------------------------------------------------------------- placement
-        public PlaceCheck CanPlace(BType type, int x, int y, bool free = false)
-        {
-            if (!Inb(x, y)) return new PlaceCheck { Why = "" };
-            int i = Idx(x, y), hv = Hgt[i]; var d = Def(type);
-            if (Bld[i] >= 0) return new PlaceCheck { Why = "Tile is occupied" };
-            if (hv < 0) return new PlaceCheck { Why = "Needs land. Raise this tile first." };
-            if (hv < d.MinH || hv > d.MaxH) return new PlaceCheck { Why = $"{d.Name} needs height {d.MinH}-{d.MaxH} (this tile is {hv})" };
-            var isl = IslandAt(x, y);
+            var isl = IslandOf(x, y);
             if (type == BType.Harbor)
             {
-                if (!AdjWater(x, y)) return new PlaceCheck { Why = "Harbor must touch the sea" };
-                if (isl.Harbor != null) return new PlaceCheck { Why = $"{isl.Name} already has a harbor" };
+                if (!AdjWater(x, y)) return Check.No("Harbor must touch the sea");
+                if (isl.Harbor != null) return Check.No($"{isl.Name} already has a jetty");
             }
             else
             {
-                if (isl.Harbor == null) return new PlaceCheck { Why = $"{isl.Name} has no harbor yet. Build one first." };
-                if (type == BType.Fishery && !AdjWater(x, y)) return new PlaceCheck { Why = "Fishery must touch the sea" };
+                if (isl.Harbor == null) return Check.No($"{isl.Name} has no jetty yet. Build one first.");
+                if (type == BType.Fishery && !AdjWater(x, y)) return Check.No("A dhoni berth must touch the sea");
+                if (type == BType.Coir && CountAround(x, y, 2, i => Hgt[i] < 0) == 0) return Check.No("The rope yard soaks husks in the lagoon: build it within 2 tiles of water");
+                if (type == BType.Palace)
+                {
+                    if (Buildings.Any(b => b.Type == BType.Palace)) return Check.No("There is only one Sultan's palace");
+                    if (isl != CapitalIsland) return Check.No("The palace must stand on the capital island");
+                }
             }
-            if (free) return new PlaceCheck { Ok = true };
-            var st = type == BType.Harbor ? CapitalIsland?.Harbor?.Stock : StockOf(isl);
-            if (Gold < d.Gold) return new PlaceCheck { Why = $"Need {d.Gold} gold" };
+            fp.Ok = true;
+            if (free) return fp;
+            var st = type == BType.Harbor ? CapitalIsland?.Harbor?.Stock : StockOf(isl); var cost = CostOf(type);
+            if (Gold < cost.Gold) return Check.No($"Need {cost.Gold} gold");
             foreach (var g in new[] { Good.Wood, Good.Stone })
             {
-                int c = d.Cost(g); if (c <= 0) continue;
-                if (st == null || st[(int)g] < c) return new PlaceCheck { Why = $"Need {c} {GoodNames[(int)g].ToLower()} in {(type == BType.Harbor ? "the capital" : isl.Name)} stock" };
+                int c = cost.Of(g); if (c == 0) continue;
+                if (st == null || st[(int)g] < c) return Check.No($"Need {c} {GoodLabel[(int)g].ToLowerInvariant()} in {(type == BType.Harbor ? "the capital" : isl.Name)} stock");
             }
-            return new PlaceCheck { Ok = true };
+            return fp;
         }
 
         public bool Place(BType type, int x, int y)
         {
-            var r = CanPlace(type, x, y); if (!r.Ok) { if (!string.IsNullOrEmpty(r.Why)) Say(r.Why, ToastKind.Bad); return false; }
-            var isl = IslandAt(x, y); var d = Def(type);
+            var r = CanPlace(type, x, y); if (!r.Ok) { if (!string.IsNullOrEmpty(r.Why)) Refuse(r.Why); return false; }
+            var isl = IslandOf(x, y); var cost = CostOf(type);
             var st = type == BType.Harbor ? CapitalIsland.Harbor.Stock : StockOf(isl);
-            Gold -= d.Gold; st[(int)Good.Wood] -= d.Wood; st[(int)Good.Stone] -= d.Stone;
-            var b = AddBuilding(type, x, y);
+            Gold -= cost.Gold; st[(int)Good.Wood] -= cost.Wood; st[(int)Good.Stone] -= cost.Stone;
+            var b = AddBuilding(type, r.X, r.Y, r.W, r.D);
             if (type == BType.Harbor)
             {
                 ComputeIslands();
-                if (!BerthOf(x, y, out _, out _)) Say("Harbor built, but no deep water touches it. Lower a neighbouring shallow so boats can dock.", ToastKind.Bad);
-                else Say($"Harbor founded on {isl.Name}. Its boat will try to sail for the capital.", ToastKind.Good);
+                if (BerthOf(x, y) == null) Say("Jetty built, but no deep water touches it. Lower a neighbouring shallow so boats can dock.", ToastKind.Bad, (x, y));
+                else Say($"Jetty founded on {isl.Name}. Its dhoni will try to sail for the capital.", ToastKind.Good, (x, y));
             }
             else b.Isl = Comp[Idx(x, y)];
             return true;
@@ -436,206 +310,120 @@ namespace IslandSim.Core
 
         public void Demolish(int x, int y)
         {
-            var b = At(x, y); if (b == null) return;
-            if (b.Id == Capital) { Say("The capital harbor cannot be demolished", ToastKind.Bad); return; }
-            Gold += Def(b.Type).Gold / 2;
+            var b = BAt(x, y); if (b == null) return;
+            if (b.Id == Capital) { Refuse("The capital jetty cannot be demolished"); return; }
+            Gold += Math.Floor(CostOfB(b).Gold / 2.0);
             if (b.Type == BType.Harbor && !b.Merged)
             {
                 var other = Buildings.FirstOrDefault(o => o != b && o.Type == BType.Harbor && o.Isl == b.Isl);
                 if (other != null) for (int g = 0; g < GoodCount; g++) other.Stock[g] += b.Stock[g];
             }
-            Buildings.Remove(b); Bld[Idx(x, y)] = -1; DirtyTrees = true; DirtyBuildings = true;
+            Buildings.Remove(b); BuildingsVer++;
+            for (int ty = b.Y; ty < b.Y + b.D; ty++) for (int tx = b.X; tx < b.X + b.W; tx++) Bld[Idx(tx, ty)] = -1;
+            MarkTrees(b.X, b.Y, b.X + b.W - 1, b.Y + b.D - 1); MarkTerrain(b.X - 1, b.Y - 1, b.X + b.W, b.Y + b.D);
             if (b.Type == BType.Harbor) ComputeIslands();
-            Say($"{Def(b.Type).Name} demolished");
         }
 
-        // ---------------------------------------------------------------- terraforming
-        Island NearestHarborIsland(int x, int y)
+        // ------------------------------------------------------------ sand roads
+        public Check BuildRoad(int x, int y)
         {
-            Island best = null; int bd = int.MaxValue;
-            foreach (var isl in Islands)
-            {
-                var h = isl.Harbor; if (h == null) continue;
-                int d = Math.Abs(h.X - x) + Math.Abs(h.Y - y); if (d < bd) { bd = d; best = isl; }
-            }
-            return best;
+            if (!Inb(x, y)) return Check.No(null); int i = Idx(x, y);
+            if (Road[i] != 0) return new Check { Ok = true };
+            if (Hgt[i] < 0) return Check.No("Roads need land");
+            if (Gt[i] == GT.Kulhi) return Check.No("Roads cannot cross a kulhi. Fill it in first.");
+            if (Gt[i] == GT.Bird) return Check.No("Birds nest here. The island is protected.");
+            if (Bld[i] >= 0) return new Check { Ok = true };                    // roads simply run up to a building
+            if (Gold < 2) return Check.No("Need 2 gold per road tile");
+            Gold -= 2; SpendGold += 2; Road[i] = 1; if (Tree[i] != 0) Tree[i] = 0; MarkTrees(x, y); MarkTerrain(x, y); return new Check { Ok = true };
+        }
+        public void RemoveRoad(int x, int y)
+        {
+            if (!Inb(x, y)) return; int i = Idx(x, y); if (Road[i] == 0) return;
+            Road[i] = 0; Gold += 1; MarkTrees(x, y); MarkTerrain(x, y);
+        }
+        /// <summary>A road tile touching any side of the footprint.</summary>
+        public bool RoadBeside(Building b)
+        {
+            for (int x = b.X; x < b.X + b.W; x++) foreach (var y in new[] { b.Y - 1, b.Y + b.D }) if (Inb(x, y) && Road[Idx(x, y)] != 0) return true;
+            for (int y = b.Y; y < b.Y + b.D; y++) foreach (var x in new[] { b.X - 1, b.X + b.W }) if (Inb(x, y) && Road[Idx(x, y)] != 0) return true;
+            return false;
         }
 
-        public TerraResult Terraform(int x, int y, TerraMode mode, int target = 0)
+        // ------------------------------------------------------------ what the HUD reads
+        /// <summary>What an island's buildings make and use, per second.</summary>
+        public Flow[] Flows(Island isl)
         {
-            if (!Inb(x, y)) return new TerraResult();
-            int i = Idx(x, y), cur = Hgt[i], to = cur;
-            if (mode == TerraMode.Raise) to = Math.Min(MaxH, cur + 1);
-            else if (mode == TerraMode.Lower) to = Math.Max(MinH, cur - 1);
-            else to = target;
-            if (to == cur) return new TerraResult { Ok = true, Noop = true };
-            var b = At(x, y); if (b != null) return new TerraResult { Why = $"Demolish the {Def(b.Type).Name} before reshaping its tile" };
-            int steps = Math.Abs(to - cur); bool up = to > cur;
-            var src = NearestHarborIsland(x, y); var st = src?.Harbor?.Stock; int gold = 4 * steps;
-            if (Gold < gold) return new TerraResult { Why = "Not enough gold to move earth" };
-            if (up && (st == null || st[(int)Good.Stone] < steps)) return new TerraResult { Why = $"Need {steps} stone at {(src != null ? src.Name : "a harbor")} to raise land" };
-            Gold -= gold; if (up) st[(int)Good.Stone] -= steps; else if (st != null) st[(int)Good.Stone] += steps * 0.5f;
-            bool wasLand = cur >= 0, isLand = to >= 0;
-            Hgt[i] = (sbyte)to; if (Tree[i] != 0) { Tree[i] = 0; DirtyTrees = true; }
-            if (wasLand != isLand) Origin[i] = 255;
-            TerrainVer++; MarkDirty(x, y);
-            return new TerraResult { Ok = true, Coast = wasLand != isLand };
-        }
-
-        /// <summary>Apply a brush stroke; recomputes islands if a coastline changed and reports joins and splits.</summary>
-        public void TerraformBrush(int cx, int cy, int radius, TerraMode mode, int target, HashSet<int> done)
-        {
-            bool coast = false; string err = null;
-            for (int dy = -radius; dy <= radius; dy++)
-                for (int dx = -radius; dx <= radius; dx++)
-                {
-                    int x = cx + dx, y = cy + dy; if (!Inb(x, y)) continue; int k = Idx(x, y);
-                    if (done != null && done.Contains(k)) continue;
-                    var r = Terraform(x, y, mode, target);
-                    if (r.Ok) { done?.Add(k); if (r.Coast) coast = true; }
-                    else if (r.Why != null) err = r.Why;
-                }
-            if (err != null) Say(err, ToastKind.Bad);
-            if (coast)
-            {
-                int before = Islands.Count; ComputeIslands(); DirtyBuildings = true;
-                if (Islands.Count != before)
-                    Say(Islands.Count < before ? "Islands joined by land. Their warehouses now share stock." : "Land split apart. Each piece needs its own harbor.",
-                        Islands.Count < before ? ToastKind.Good : ToastKind.Info);
-            }
-        }
-
-        // ---------------------------------------------------------------- simulation
-        public void Step(float dt)
-        {
-            T += dt;
-            foreach (var isl in Islands) { isl.Res = 0; isl.Jobs = 0; }
-            foreach (var b in Buildings) { var isl = IslandOf(b); if (isl == null) continue; if (b.Type == BType.House) isl.Res += b.Res; else isl.Jobs += Def(b.Type).Jobs; }
-            foreach (var isl in Islands) isl.Eff = isl.Jobs > 0 ? Math.Min(1, isl.Res / isl.Jobs) : 1;
-            float income = 0, upkeep = 0;
+            var f = new Flow[GoodCount]; if (isl == null) return f;
             foreach (var b in Buildings)
             {
-                var d = Def(b.Type); upkeep += d.Upkeep;
-                var isl = IslandOf(b); var st = StockOf(isl);
-                if (b.Type == BType.Harbor) { b.Status = b.Merged ? $"Merged into the {isl?.Name} warehouse" : (BerthOf(b.X, b.Y, out _, out _) ? "Berth open" : "No deep-water berth"); continue; }
-                if (st == null) { b.Eff = 0; b.Status = "No harbor on this island"; continue; }
-                float e = isl.Eff; b.Eff = e; b.HasRate = true;
+                if (b.Isl != isl.Id || b.Off) continue; double r = b.Rate;
                 switch (b.Type)
                 {
+                    case BType.Fishery: f[(int)Good.Fish].Make += r; break;
+                    case BType.Lumber: f[(int)Good.Wood].Make += r; break;
+                    case BType.Quarry: f[(int)Good.Stone].Make += r; break;
+                    case BType.Grove: f[(int)Good.Coconut].Make += r; break;
+                    case BType.Toddy: f[(int)Good.Toddy].Make += r; break;
+                    case BType.Cowrie: f[(int)Good.Cowrie].Make += r; break;
+                    case BType.Drying: f[(int)Good.Hikimas].Make += r; f[(int)Good.Fish].Use += r * 2; f[(int)Good.Wood].Use += r * .4; break;
+                    case BType.Coir: f[(int)Good.Rope].Make += r; f[(int)Good.Coconut].Use += r / .4; break;
                     case BType.House:
                         {
-                            b.HasRate = false;
-                            float need = 0.012f * b.Res * dt; bool fed = false, lux = false;
-                            if (st[(int)Good.Fish] >= need) { st[(int)Good.Fish] -= need; fed = true; }
-                            float rn = 0.005f * b.Res * dt; if (fed && st[(int)Good.Rum] >= rn) { st[(int)Good.Rum] -= rn; lux = true; }
-                            float cap = lux ? 8 : 4;
-                            if (fed) b.Res = b.Res < cap ? Math.Min(cap, b.Res + 0.06f * dt) : Math.Max(cap, b.Res - 0.04f * dt);
-                            else b.Res = Math.Max(1, b.Res - 0.04f * dt);
-                            if (fed) income += 0.1f * b.Res * (lux ? 2 : 1);
-                            b.Status = !fed ? "Hungry: needs fish" : lux ? "Fed and enjoying rum" : "Fed (rum would double tax)"; b.Eff = fed ? 1 : 0.3f;
+                            var n = b.Need ?? new Needs();
+                            if (n.Food) f[(int)(n.Rice ? Good.Rice : Good.Fish)].Use += 0.012 * b.Res; else f[(int)Good.Fish].Use += 0.012 * b.Res;
+                            if (n.Coco) f[(int)Good.Coconut].Use += 0.006 * b.Res;
+                            if (n.Toddy) f[(int)Good.Toddy].Use += 0.004 * b.Res;
                             break;
                         }
-                    case BType.Fishery:
-                        {
-                            int n = CountAround(b.X, b.Y, 2, i => Hgt[i] == -1); float r = (0.06f + 0.035f * Math.Min(n, 10)) * e;
-                            st[(int)Good.Fish] += r * dt; b.Rate = r; b.Status = $"{n} reef tiles nearby"; break;
-                        }
-                    case BType.Lumber:
-                        {
-                            int n = CountAround(b.X, b.Y, 2, i => Tree[i] > 0); float r = 0.03f * Math.Min(n, 12) * e;
-                            st[(int)Good.Wood] += r * dt; b.Rate = r; b.Status = n > 0 ? $"{n} trees in reach" : "No trees in reach"; if (n == 0) b.Eff = 0; break;
-                        }
-                    case BType.Quarry:
-                        {
-                            int hv = Hgt[Idx(b.X, b.Y)]; float r = (0.15f + 0.05f * (hv - 3)) * e;
-                            st[(int)Good.Stone] += r * dt; b.Rate = r; b.Status = $"Height {hv} rock"; break;
-                        }
-                    case BType.Plantation:
-                        {
-                            bool near = CountAround(b.X, b.Y, 2, i => Hgt[i] < 0) > 0; float r = 0.12f * (near ? 1.5f : 1) * e;
-                            st[(int)Good.Sugar] += r * dt; b.Rate = r; b.Status = near ? "Coastal soil, +50%" : "Inland soil"; break;
-                        }
-                    case BType.Distillery:
-                        {
-                            float want = 0.2f * e * dt; float take = Math.Min(want, st[(int)Good.Sugar]);
-                            st[(int)Good.Sugar] -= take; st[(int)Good.Rum] += take / 2; StatRum += take / 2; b.Rate = dt > 0 ? take / 2 / dt : 0;
-                            bool idle = take < want * 0.5f; b.Status = idle ? "Waiting for sugar" : "Distilling"; if (idle) b.Eff = 0; break;
-                        }
                 }
-                if (d.Jobs > 0 && e < 1) b.Status += $" · {Math.Round(e * 100)}% staffed";
             }
-            Gold += (income - upkeep) * dt;
-            Rate = Rate * 0.9f + (income - upkeep) * 0.1f;
-            StepBoats(dt);
-            if (rnd.NextDouble() < dt * 3)
+            return f;
+        }
+
+        /// <summary>Residents of an island's compounds within walking distance of a tile (the cursor tag shows it before placing).</summary>
+        public double WorkersNear(int x, int y, int isl)
+        {
+            double n = 0;
+            foreach (var b in Buildings) if (b.Type == BType.House && b.Isl == isl) { var c = PlotCentre(b); if (Hypot(c.x - x - .5, c.y - y - .5) <= Walk) n += b.Res; }
+            return n;
+        }
+
+        readonly Dictionary<string, double> alerted = new Dictionary<string, double>();
+        void WarnOnce(string k, string msg, (int, int)? at) { if (alerted.TryGetValue(k, out var t0) && T - t0 < 120) return; alerted[k] = T; Say(msg, ToastKind.Bad, at); }
+        public void ClearAlerts() => alerted.Clear();
+        /// <summary>The katheeb's warnings, checked every 3 seconds: empty stores, idle rope yards, unstaffed buildings, debt, stuck boats.</summary>
+        public void CheckAlerts()
+        {
+            foreach (var isl in Islands)
             {
-                int x = rnd.Next(W), y = rnd.Next(H), i = Idx(x, y);
-                if (Tree[i] == 0 && Bld[i] < 0 && Hgt[i] >= 1 && Hgt[i] <= 4 && CountAround(x, y, 1, j => Tree[j] == 1) >= 2) { Tree[i] = 1; DirtyTrees = true; }
+                var hb = isl.Harbor; if (hb == null) continue; var st = hb.Stock; var f = Flows(isl); var at = (hb.X, hb.Y);
+                if (f[(int)Good.Fish].Use > 0 && st[(int)Good.Fish] < 1) WarnOnce(isl.Name + ":fish", $"{isl.Name} is out of fish. Its compounds go hungry and stop paying tax.", at);
+                if (Buildings.Any(b => b.Isl == isl.Id && b.Type == BType.Coir && !b.Off && b.Status.Contains("Waiting"))) WarnOnce(isl.Name + ":coco", $"The rope yard on {isl.Name} is waiting for coconuts. Plant more coconut groves.", at);
+                if (Buildings.Any(b => b.Isl == isl.Id && b.Type == BType.House && b.Need != null && b.Need.Food && !b.Need.Coco) && st[(int)Good.Coconut] < 1) WarnOnce(isl.Name + ":cocoh", $"Families on {isl.Name} have no coconuts. A coconut grove would let their compounds grow.", at);
             }
+            var cap = CapitalHarbor; (int, int)? cat = cap != null ? (cap.X, cap.Y) : ((int, int)?)null;
+            if (Gold < 0) WarnOnce("debt", $"The treasury is empty. If the debt passes {-DebtLimit} gold, the sultan takes the atoll from you.", cat);
+            if (Unrest >= 40) WarnOnce("unrest", $"Unrest is at {Noise.Round(Unrest)}%. Hungry families are angry; feed them before it reaches 100%.", cat);
+            foreach (var b in Buildings) if (b.Def.Jobs > 0 && !b.Off && b.Staff <= 0) WarnOnce("staff" + b.Id, $"The {b.Def.Name.ToLowerInvariant()} on {IslandName(b)} has no one within walking distance. Build a compound nearby.", (b.X, b.Y));
+            foreach (var bt in Boats) if (bt.State == "blocked") { var hb = ById(bt.Home); if (hb != null) WarnOnce("boat" + bt.Home, $"The {IslandName(hb)} boat is stuck. {bt.Why}", ((int)Noise.Round(bt.X), (int)Noise.Round(bt.Y))); }
         }
+    }
 
-        // ---------------------------------------------------------------- goals
-        public float TotalPop { get { float s = 0; foreach (var b in Buildings) if (b.Type == BType.House) s += b.Res; return s; } }
-
-        public static readonly Goal[] Goals =
+    /// <summary>An inclusive tile rectangle of pending changes; empty when X0 > X1.</summary>
+    public struct DirtyRect
+    {
+        public int X0, Y0, X1, Y1;
+        public bool Empty => X0 > X1;
+        public static DirtyRect None() => new DirtyRect { X0 = 1, X1 = 0 };
+        public static DirtyRect All() => new DirtyRect { X0 = 0, Y0 = 0, X1 = Defs.W - 1, Y1 = Defs.H - 1 };
+        public void Add(int x0, int y0, int x1, int y1)
         {
-            new Goal { Id = "grow",   Title = "Grow Palm Isle to 30 residents", Hint = "Houses need fish. Fisheries love reef shallows.", Ok = s => (s.CapitalIsland?.Res ?? 0) >= 30 },
-            new Goal { Id = "basalt", Title = "Quarry stone on Basalt Isle", Hint = "Settle it with a harbor across the lagoon, or raise a land bridge along the reef.",
-                       Ok = s => s.Buildings.Any(b => b.Type == BType.Quarry && s.Origin[Idx(b.X, b.Y)] == 1 && b.Eff > 0 && s.StockOf(s.IslandOf(b)) != null) },
-            new Goal { Id = "sugar",  Title = "Link Sugar Cay to the capital", Hint = "Broad lagoon flats keep boats away. Dredge a channel to its harbor.",
-                       Ok = s => s.StatSugarTrip > 0 || ((s.CapitalIsland?.Parts.Contains(2) ?? false) && s.Buildings.Any(b => b.Type == BType.Plantation && s.Origin[Idx(b.X, b.Y)] == 2)) },
-            new Goal { Id = "rum",    Title = "Distil 25 barrels of rum", Hint = "Sugar fields feed distilleries. Rum doubles house tax.", Ok = s => s.StatRum >= 25 },
-            new Goal { Id = "pop",    Title = "Reach 200 residents across the atoll", Hint = "", Ok = s => s.TotalPop >= 200 },
-        };
-
-        public void CheckGoals()
-        {
-            foreach (var g in Goals)
-                if (!GoalsDone.Contains(g.Id) && g.Ok(this))
-                {
-                    GoalsDone.Add(g.Id); Say($"Charter goal met: {g.Title}", ToastKind.Good);
-                    if (Goals.All(x => GoalsDone.Contains(x.Id))) Say("Every charter goal met. The atoll thrives.", ToastKind.Good);
-                }
+            x0 = Math.Max(0, x0); y0 = Math.Max(0, y0); x1 = Math.Min(Defs.W - 1, x1); y1 = Math.Min(Defs.H - 1, y1);
+            if (x0 > x1 || y0 > y1) return;
+            if (Empty) { X0 = x0; Y0 = y0; X1 = x1; Y1 = y1; return; }
+            X0 = Math.Min(X0, x0); Y0 = Math.Min(Y0, y0); X1 = Math.Max(X1, x1); Y1 = Math.Max(Y1, y1);
         }
-
-        // ---------------------------------------------------------------- save / load
-        [Serializable]
-        public sealed class SaveBuilding { public int id, type, x, y; public float res; public float[] stock; }
-
-        [Serializable]
-        public sealed class SaveData
-        {
-            public int v = 1;
-            public int[] h, tree, origin;   // int arrays keep JsonUtility happy
-            public SaveBuilding[] buildings;
-            public float gold, t, statRum; public int nextId, capital, statSugarTrip;
-            public string[] goals;
-        }
-
-        public SaveData ToSave() => new SaveData
-        {
-            h = Hgt.Select(x => (int)x).ToArray(), tree = Tree.Select(x => (int)x).ToArray(), origin = Origin.Select(x => (int)x).ToArray(),
-            buildings = Buildings.Select(b => new SaveBuilding { id = b.Id, type = (int)b.Type, x = b.X, y = b.Y, res = b.Res, stock = b.Stock != null ? (float[])b.Stock.Clone() : new float[0] }).ToArray(),
-            gold = Gold, t = T, statRum = StatRum, nextId = NextId, capital = Capital, statSugarTrip = StatSugarTrip, goals = GoalsDone.ToArray(),
-        };
-
-        public bool FromSave(SaveData d)
-        {
-            if (d == null || d.h == null || d.h.Length != W * H || d.tree == null || d.tree.Length != W * H || d.origin == null || d.origin.Length != W * H || d.buildings == null) return false;
-            Hgt = d.h.Select(x => (sbyte)x).ToArray(); Tree = d.tree.Select(x => (byte)x).ToArray(); Origin = d.origin.Select(x => (byte)x).ToArray();
-            Bld = new int[W * H]; for (int i = 0; i < Bld.Length; i++) Bld[i] = -1;
-            Buildings.Clear(); Boats.Clear();
-            foreach (var sb in d.buildings)
-            {
-                var b = new Building { Id = sb.id, Type = (BType)sb.type, X = sb.x, Y = sb.y, Res = sb.res };
-                if (b.Type == BType.Harbor) { b.Stock = new float[GoodCount]; if (sb.stock != null) Array.Copy(sb.stock, b.Stock, Math.Min(GoodCount, sb.stock.Length)); }
-                Buildings.Add(b); Bld[Idx(b.X, b.Y)] = b.Id;
-            }
-            Gold = d.gold; T = d.t; StatRum = d.statRum; NextId = d.nextId; Capital = d.capital; StatSugarTrip = d.statSugarTrip;
-            GoalsDone = new HashSet<string>(d.goals ?? new string[0]);
-            ComputeIslands(); TerrainVer++;
-            DirtyTrees = true; DirtyBuildings = true; MarkAllDirty();
-            return true;
-        }
+        /// <summary>Hands the rectangle to the view and starts a fresh one.</summary>
+        public DirtyRect Take() { var r = this; this = None(); return r; }
     }
 }

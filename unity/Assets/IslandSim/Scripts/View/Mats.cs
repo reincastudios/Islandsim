@@ -1,85 +1,137 @@
 using System.Collections.Generic;
-using IslandSim.Core;
 using UnityEngine;
+using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 
 namespace IslandSim.View
 {
-    /// <summary>World-space conventions shared by every view: one tile is one unit, map row y runs toward -Z.</summary>
-    public static class World
-    {
-        public const float Lvl = 0.62f;     // world units per height level
-        public const float WaterY = 0.02f;
-
-        public static float TopY(int h) => h >= 0 ? 0.28f + h * Lvl : h * Lvl - 0.12f;
-
-        /// <summary>Tile-space point (continuous, 0..W / 0..H) to world XZ. Rows are flipped so the atoll reads as in the web prototype.</summary>
-        public static Vector3 Pos(float tx, float ty, float y) => new Vector3(tx, y, Defs.H - ty);
-
-        public static Vector3 TileCentre(Sim s, int x, int y) => Pos(x + .5f, y + .5f, TopY(s.Hgt[Sim.Idx(x, y)]));
-
-        public static bool ToTile(Vector3 p, out int x, out int y)
-        {
-            x = Mathf.FloorToInt(p.x); y = Mathf.FloorToInt(Defs.H - p.z);
-            return Sim.Inb(x, y);
-        }
-
-        public static Color Hex(string hex) { ColorUtility.TryParseHtmlString(hex, out var c); return c; }
-    }
-
-    /// <summary>Material factory that works under URP (preferred) and the built-in pipeline.</summary>
+    /// <summary>
+    /// Textures and materials, matching the web game's material table: colour, roughness, metalness and texture maps per
+    /// part, the foliage cards with their wind, and the ground's seven texture layers stacked into one texture array.
+    /// </summary>
     public static class Mats
     {
-        static Material template;
-        static readonly Dictionary<string, Material> cache = new Dictionary<string, Material>();
-        public static bool Urp { get; private set; }
-
-        public static void Init()
+        const string Tex = "IslandSim/Textures/";
+        static readonly Dictionary<string, Texture2D> textures = new Dictionary<string, Texture2D>();
+        public static Texture2D T(string name)
         {
-            Urp = GraphicsSettings.currentRenderPipeline != null;
-            cache.Clear();
-            template = Resources.Load<Material>("IslandSim/IslandLit");
-            if (template == null)
+            if (!textures.TryGetValue(name, out var t))
             {
-                Shader sh = null;
-                if (Urp) sh = Shader.Find("Universal Render Pipeline/Lit");
-                if (sh == null) sh = Shader.Find("Standard");
-                template = new Material(sh);
+                t = Resources.Load<Texture2D>(Tex + name);
+                if (t == null) Debug.LogError("[Island Sim] Missing texture " + name + ". Run Island Sim > Set Up Project.");
+                textures[name] = t;
             }
+            return t;
         }
 
-        public static Material Lit(Color c, float smoothness = .12f, float metallic = 0, Texture tex = null)
+        static Shader Find(string name)
         {
-            var m = new Material(template) { enableInstancing = true };
-            m.color = c;
-            if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", c);
-            if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", smoothness);
-            if (m.HasProperty("_Glossiness")) m.SetFloat("_Glossiness", smoothness);
-            if (m.HasProperty("_Metallic")) m.SetFloat("_Metallic", metallic);
-            if (tex != null)
+            var s = Shader.Find(name);
+            if (s == null) Debug.LogError("[Island Sim] Shader " + name + " is missing or failed to compile.");
+            return s;
+        }
+        static Shader lit;
+        public static Shader Lit => lit != null ? lit : lit = Find("IslandSim/Lit");
+
+        // ------------------------------------------------------------ the material table
+        struct Spec
+        {
+            public uint Col; public float Rough, Metal; public string Map, Nor; public bool Double; public float Wind; public bool Alpha;
+        }
+        static Spec S(uint c, float r = .85f, string map = null, string nor = null, float metal = 0, bool dbl = false) => new Spec { Col = c, Rough = r, Metal = metal, Map = map, Nor = nor, Double = dbl };
+        static Spec Leaf(string map, float wind) => new Spec { Col = 0xffffff, Rough = .72f, Map = map, Double = true, Wind = wind, Alpha = true };
+
+        static readonly Dictionary<string, Spec> table = new Dictionary<string, Spec>
+        {
+            ["plank"] = S(0xc9a27a, .85f, "wood_albedo", "wood_normal"), ["wood"] = S(0x9a7454, .9f, "wood_albedo", "wood_normal"),
+            ["roof"] = S(0xffffff, .75f, "roof_albedo", "roof_normal"), ["roofGreen"] = S(0x8fb8a8, .7f, "roof_albedo", "roof_normal"),
+            ["thatch"] = S(0xffffff, .95f, "thatch_albedo", "thatch_normal"), ["stone"] = S(0xb8b0a6, .9f, "rock_albedo", "rock_normal"), ["stoneD"] = S(0x8a847c, .92f, "rock_albedo", "rock_normal"),
+            ["dark"] = S(0x2e2620, .9f), ["glass"] = S(0x1d2a30, .15f, metal: .2f), ["copper"] = S(0xd8915a, .32f, metal: 1),
+            ["capFlag"] = S(0xff7a4a, .8f, dbl: true), ["flag"] = S(0x2fb8a8, .8f, dbl: true), ["cloth"] = S(0xf2ead8, .9f, dbl: true),
+            ["rope"] = S(0xb89a6a, .95f), ["fish"] = S(0x9aa6ac, .4f, metal: .3f), ["soil"] = S(0x8a6a48, 1, "soil_albedo", "soil_normal"),
+            ["coral"] = S(0xf4efe4, .96f, "rock_albedo", "rock_normal"), ["lime"] = S(0xf3eee2, .94f, "plaster_albedo", "plaster_normal"),
+            ["clay"] = S(0xa8583a, .8f), ["husk"] = S(0x8a5a32, .95f), ["shell"] = S(0xf6efe0, .35f),
+            ["wall0"] = S(0xf6ead2, .92f, "plaster_albedo", "plaster_normal"), ["wall1"] = S(0xf7cfae, .92f, "plaster_albedo", "plaster_normal"),
+            ["wall2"] = S(0xc4e4da, .92f, "plaster_albedo", "plaster_normal"), ["wall3"] = S(0xf8e8a6, .92f, "plaster_albedo", "plaster_normal"),
+            ["wall4"] = S(0xeebdb4, .92f, "plaster_albedo", "plaster_normal"), ["wall5"] = S(0xcfdcf2, .92f, "plaster_albedo", "plaster_normal"),
+            ["wall6"] = S(0xfaf4ea, .92f, "plaster_albedo", "plaster_normal"),
+            ["shut0"] = S(0x2f7f7a, .8f, "wood_albedo", "wood_normal"), ["shut1"] = S(0x3a5f9a, .8f, "wood_albedo", "wood_normal"), ["shut2"] = S(0x9a3a2f, .8f, "wood_albedo", "wood_normal"),
+            ["shut3"] = S(0x5a8a3a, .8f, "wood_albedo", "wood_normal"), ["shut4"] = S(0x2f6f9a, .8f, "wood_albedo", "wood_normal"),
+            ["bark"] = S(0x8a7a66, .95f, "bark_albedo", "bark_normal"), ["palmBark"] = S(0xbfae94, .95f, "bark_albedo", "bark_normal"), ["nut"] = S(0x5a4a2a, .7f),
+            ["rock"] = S(0xffffff, .9f, "rock_albedo", "rock_normal"), ["root"] = S(0x6a5a48, .95f, "bark_albedo", "bark_normal"),
+            ["sailOchre"] = S(0xd9a441, .9f, dbl: true),
+            ["leaf"] = Leaf("leaf_cluster", .04f), ["frond"] = Leaf("palm_frond", .03f), ["tuft"] = Leaf("grass_tuft", .6f), ["cane"] = Leaf("grass_tuft", .22f),
+        };
+
+        public static bool IsFoliage(string key) => table.TryGetValue(key, out var s) && s.Wind > 0;
+
+        static readonly Dictionary<string, Material> mats = new Dictionary<string, Material>();
+        /// <summary>A part's material. baked = foliage merged into a batch, which sways by the height kept in its second UV set.</summary>
+        public static Material Get(string key, bool baked = false)
+        {
+            string k = baked ? key + "@b" : key;
+            if (mats.TryGetValue(k, out var m)) return m;
+            var s = table[key];
+            m = new Material(Lit) { name = k, enableInstancing = true };
+            m.SetColor("_BaseColor", World.Srgb(s.Col));
+            m.SetFloat("_Smoothness", 1 - s.Rough); m.SetFloat("_Metallic", s.Metal);
+            if (s.Map != null) m.SetTexture("_BaseMap", T(s.Map));
+            if (s.Nor != null) { m.SetTexture("_BumpMap", T(s.Nor)); m.EnableKeyword("_NORMALMAP"); }
+            m.SetFloat("_Cull", s.Double ? (float)CullMode.Off : (float)CullMode.Back);
+            if (s.Alpha) { m.EnableKeyword("_ALPHATEST_ON"); m.SetFloat("_Cutoff", .45f); m.renderQueue = (int)RenderQueue.AlphaTest; }
+            if (s.Wind > 0) { m.EnableKeyword("_WIND"); m.SetFloat("_Wind", s.Wind); if (baked) m.EnableKeyword("_BAKEDHEIGHT"); }
+            return mats[k] = m;
+        }
+
+        /// <summary>A copy of a part's material, for boat sails whose colour changes.</summary>
+        public static Material Own(string key) { var m = new Material(Get(key)); return m; }
+
+        // ------------------------------------------------------------ other shaders
+        static Material Make(string shader) { var s = Find(shader); return s != null ? new Material(s) : null; }
+
+        public static Material Overlay(Color c, bool depthTest, int queueOffset = 0)
+        {
+            var m = Make("IslandSim/Overlay"); if (m == null) return null;
+            m.SetColor("_Color", c); m.SetFloat("_ZTest", depthTest ? (float)CompareFunction.LessEqual : (float)CompareFunction.Always);
+            m.renderQueue = (int)RenderQueue.Transparent + 20 + queueOffset; m.enableInstancing = true;
+            return m;
+        }
+        public static Material Terrain() => Make("IslandSim/Terrain");
+        public static Material Water() => Make("IslandSim/Water");
+        public static Material Sky() => Make("IslandSim/Sky");
+        public static Material Cursor() => Make("IslandSim/Cursor");
+
+        /// <summary>The seabed beyond the map: the same sand, seen through deep water.</summary>
+        public static Material Seabed()
+        {
+            var m = new Material(Lit) { name = "seabed" };
+            m.SetColor("_BaseColor", World.Srgb(0x9a9278)); m.SetFloat("_Smoothness", 0);
+            m.SetTexture("_BaseMap", T("sand_albedo")); m.SetTextureScale("_BaseMap", new Vector2(180, 180));
+            m.SetTexture("_BumpMap", T("sand_normal")); m.SetTextureScale("_BumpMap", new Vector2(180, 180)); m.EnableKeyword("_NORMALMAP");
+            return m;
+        }
+
+        // ------------------------------------------------------------ the ground's texture array
+        public static readonly string[] Layers = { "sand", "grass", "forest", "rock", "reef", "soil", "path" };   // splat order
+
+        /// <summary>Stacks same-size images into one texture array (one sampler for every ground layer), mipmaps included.</summary>
+        public static Texture2DArray Array(string suffix)
+        {
+            var src = new Texture2D[Layers.Length];
+            for (int k = 0; k < src.Length; k++) src[k] = T(Layers[k] + suffix);
+            var a0 = src[0]; if (a0 == null) return null;
+            var arr = new Texture2DArray(a0.width, a0.height, src.Length, a0.graphicsFormat, TextureCreationFlags.MipChain, a0.mipmapCount)
+            { wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Trilinear, anisoLevel = 8, name = "ground" + suffix };
+            for (int k = 0; k < src.Length; k++)
             {
-                m.mainTexture = tex;
-                if (m.HasProperty("_BaseMap")) m.SetTexture("_BaseMap", tex);
+                var t = src[k];
+                if (t == null || t.width != a0.width || t.graphicsFormat != a0.graphicsFormat || t.mipmapCount != a0.mipmapCount)
+                { Debug.LogError($"[Island Sim] Ground texture {Layers[k]}{suffix} does not match the others; run Island Sim > Set Up Project."); continue; }
+                if (SystemInfo.copyTextureSupport != CopyTextureSupport.None) Graphics.CopyTexture(t, 0, arr, k);
+                else if (t.isReadable) { for (int mip = 0; mip < t.mipmapCount; mip++) arr.SetPixels32(t.GetPixels32(mip), k, mip); }
             }
-            return m;
-        }
-
-        /// <summary>Shared lit material by sRGB hex colour.</summary>
-        public static Material Get(string hex, float smoothness = .12f, float metallic = 0)
-        {
-            string key = hex + "/" + smoothness + "/" + metallic;
-            if (!cache.TryGetValue(key, out var m)) { m = Lit(World.Hex(hex), smoothness, metallic); m.name = "isim " + hex; cache[key] = m; }
-            return m;
-        }
-
-        public static Material Overlay(Color c, float frame = 0, bool onTop = false)
-        {
-            var sh = Shader.Find("IslandSim/Overlay");
-            var m = new Material(sh);
-            m.SetColor("_Color", c);
-            m.SetFloat("_Frame", frame);
-            m.SetFloat("_ZTest", onTop ? (float)CompareFunction.Always : (float)CompareFunction.LessEqual);
-            return m;
+            if (SystemInfo.copyTextureSupport == CopyTextureSupport.None) arr.Apply(false, true);
+            return arr;
         }
     }
 }

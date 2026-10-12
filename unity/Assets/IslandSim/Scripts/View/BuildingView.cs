@@ -1,161 +1,147 @@
 using System.Collections.Generic;
 using IslandSim.Core;
 using UnityEngine;
+using UnityEngine.Rendering;
+using static IslandSim.Core.Defs;
+using static IslandSim.View.World;
 
 namespace IslandSim.View
 {
-    /// <summary>Keeps building and boat GameObjects in step with the simulation, and draws the cursor and placement ghost.</summary>
+    /// <summary>
+    /// Buildings, boats and the trading ship. Static building parts are baked into world space and merged per material in
+    /// 64-tile chunks, so a grown town draws in a few dozen calls instead of one per part per building (as in the web game).
+    /// Jetties turn toward their berth, so they stay separate, as do the warning pips, the dhonis and the ship.
+    /// </summary>
     public sealed class BuildingView
     {
-        sealed class BObj { public GameObject Go; public GameObject Pip; public BType Type; }
-        sealed class BoatObj { public GameObject Go; public MeshRenderer Sail; public Vector3 Pos; public float Yaw; }
+        readonly Sim S; readonly Transform root;
+        sealed class Baked { public string Key; public Dictionary<string, Geo> Parts; public BType Type; public int X, Y; public float Scale; public Vector3 Pip; }
+        readonly Dictionary<int, Baked> live = new Dictionary<int, Baked>();
+        readonly Dictionary<string, List<GameObject>> batches = new Dictionary<string, List<GameObject>>();
+        readonly HashSet<string> dirty = new HashSet<string>();
+        int seenVer = -1;
 
-        readonly Sim sim;
-        readonly Transform root;
-        readonly Dictionary<int, BObj> bObjs = new Dictionary<int, BObj>();
-        readonly Dictionary<int, BoatObj> boatObjs = new Dictionary<int, BoatObj>();
-        readonly Dictionary<BType, GameObject> ghosts = new Dictionary<BType, GameObject>();
-        readonly Material ghostOk, ghostBad, sailOk, sailBad;
-        readonly GameObject cursor, range;
-        readonly Material cursorMat;
+        readonly Dictionary<string, Dictionary<string, Mesh>> meshCache = new Dictionary<string, Dictionary<string, Mesh>>();
+        readonly Mesh pipMesh; readonly Material pipMat;
+        readonly Dictionary<string, Mesh> boatMeshes, shipMeshes;
+        readonly Material sailMat, sailBlocked;
 
-        public BuildingView(Sim sim, Transform parent)
+        public BuildingView(Sim s, Transform parent)
         {
-            this.sim = sim;
-            root = new GameObject("Buildings").transform; root.SetParent(parent, false);
-            ghostOk = Mats.Overlay(World.Hex("#7ef0d8") * new Color(1, 1, 1, .6f));
-            ghostBad = Mats.Overlay(World.Hex("#ff6b6b") * new Color(1, 1, 1, .6f));
-            sailOk = Mats.Lit(World.Hex("#f6efe0"), .1f); sailBad = Mats.Lit(World.Hex("#ff7a6b"), .1f);
-
-            cursorMat = Mats.Overlay(new Color(.95f, .9f, .77f, .9f), .06f, true);
-            cursor = Overlay("Cursor", cursorMat);
-            range = Overlay("Range", Mats.Overlay(new Color(1f, .96f, .85f, .16f), 0, true));
-            range.transform.localScale = new Vector3(5, 1, 5);
+            S = s; root = new GameObject("buildings").transform; root.SetParent(parent, false);
+            pipMesh = Geo.Sphere(.07f, 10, 8).ToMesh("pip"); pipMat = Mats.Overlay(Lin(0xff5a4f), true, 1); if (pipMat != null) { pipMat.SetFloat("_ZWrite", 1); pipMat.renderQueue = (int)RenderQueue.Geometry + 10; }
+            boatMeshes = ToMeshes(Models.Boat(), "boat"); shipMeshes = ToMeshes(Models.Ship(), "ship");
+            sailMat = Mats.Own("cloth"); sailBlocked = Mats.Own("cloth"); sailBlocked.SetColor("_BaseColor", Srgb("#ff8a7a"));
         }
 
-        GameObject Overlay(string name, Material m)
+        static Dictionary<string, Mesh> ToMeshes(Dictionary<string, Geo> parts, string name)
         {
-            var go = new GameObject(name); go.transform.SetParent(root, false);
-            go.AddComponent<MeshFilter>().sharedMesh = MeshKit.Quad(1);
-            var mr = go.AddComponent<MeshRenderer>(); mr.sharedMaterial = m; mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; mr.receiveShadows = false;
-            go.SetActive(false);
-            return go;
+            var o = new Dictionary<string, Mesh>();
+            foreach (var kv in parts) { var m = kv.Value.ToMesh(name + " " + kv.Key); m.RecalculateTangents(); o[kv.Key] = m; }
+            return o;
         }
 
-        public void Sync()
-        {
-            var live = new HashSet<int>();
-            foreach (var b in sim.Buildings)
-            {
-                live.Add(b.Id);
-                if (!bObjs.TryGetValue(b.Id, out var o) || o.Type != b.Type)
-                {
-                    if (o != null) Object.Destroy(o.Go);
-                    var go = Models.Building(b.Type, b.Id == sim.Capital, (int)(Noise.Hash2(b.X, b.Y, 2) * 997));
-                    go.transform.SetParent(root, false);
-                    go.transform.position = World.TileCentre(sim, b.X, b.Y);
-                    go.transform.rotation = Quaternion.Euler(0, (int)(Noise.Hash2(b.X, b.Y, 1) * 4) * 90, 0);
-                    o = new BObj { Go = go, Type = b.Type, Pip = Models.AlertPip(go.transform) };
-                    bObjs[b.Id] = o;
-                }
-                if (b.Type == BType.Harbor)
-                {
-                    float fx = 0, fz = -1;
-                    if (sim.BerthOf(b.X, b.Y, out var bx, out var by)) { fx = bx - b.X; fz = -(by - b.Y); }
-                    o.Go.transform.rotation = Quaternion.Euler(0, Mathf.Atan2(fx, fz) * Mathf.Rad2Deg - 45, 0);
-                }
-                bool bad = b.Type == BType.Harbor ? (!b.Merged && !sim.BerthOf(b.X, b.Y, out _, out _))
-                                                  : (b.Eff < 0.5f || b.Status.StartsWith("Hungry") || b.Status.StartsWith("No "));
-                if (o.Pip.activeSelf != bad) o.Pip.SetActive(bad);
-                if (b.Type == BType.House) o.Go.transform.localScale = new Vector3(1, b.Res > 4.2f ? 1.3f : 1, 1);
-            }
-            var dead = new List<int>();
-            foreach (var kv in bObjs) if (!live.Contains(kv.Key)) { Object.Destroy(kv.Value.Go); dead.Add(kv.Key); }
-            foreach (var id in dead) bObjs.Remove(id);
-        }
+        static string ChunkKey(Building b) { var c = Sim.PlotCentre(b); return ((int)(c.x / CH)) + "," + ((int)(c.y / CH)); }
+        static float Rot(Building b) => b.Type == BType.House ? (float)Sim.PlotRot(b) : ((int)(Hash(b.X, b.Y, 1) * 4)) * Mathf.PI / 2;
+        static int Seed(Building b) => (int)(Hash(b.X, b.Y, 2) * 997);
+        Dictionary<string, Geo> Model(Building b) => Models.Building(b.Type, b.Id == S.Capital, Seed(b), Mathf.Max(b.W, b.D), Mathf.Min(b.W, b.D));
 
-        /// <summary>Drop every building and boat object (after a new game or a load, when ids are reused).</summary>
         public void Clear()
         {
-            foreach (var o in bObjs.Values) Object.Destroy(o.Go);
-            foreach (var o in boatObjs.Values) Object.Destroy(o.Go);
-            bObjs.Clear(); boatObjs.Clear();
-            sim.DirtyBuildings = true;
+            foreach (var l in batches.Values) foreach (var go in l) Destroy(go);
+            batches.Clear(); live.Clear(); dirty.Clear(); seenVer = -1;
         }
+        static void Destroy(GameObject go) { var mf = go.GetComponent<MeshFilter>(); if (mf != null) Object.Destroy(mf.sharedMesh); Object.Destroy(go); }
 
-        /// <summary>Re-seat buildings after terraforming changed tile heights next to them.</summary>
-        public void Reseat()
+        void Sync()
         {
-            foreach (var b in sim.Buildings) if (bObjs.TryGetValue(b.Id, out var o)) o.Go.transform.position = World.TileCentre(sim, b.X, b.Y);
-        }
-
-        public void UpdateBoats(float dt, float t)
-        {
-            var live = new HashSet<int>();
-            foreach (var bt in sim.Boats)
+            if (seenVer == S.BuildingsVer) return; seenVer = S.BuildingsVer;
+            var ids = new HashSet<int>();
+            foreach (var b in S.Buildings)
             {
-                live.Add(bt.Home);
-                var target = World.Pos(bt.X + .5f, bt.Y + .5f, World.WaterY + .05f);
-                if (!boatObjs.TryGetValue(bt.Home, out var o))
+                ids.Add(b.Id); if (live.ContainsKey(b.Id)) continue;
+                var c = Sim.PlotCentre(b); float scale = b.Type == BType.House || b.Def.Unit ? 1 : 1.25f;
+                var at = new Vector3((float)c.x, TopY(S.Hgt[Sim.Idx(b.X, b.Y)]), (float)c.y);
+                var bk = new Baked { Key = ChunkKey(b), Type = b.Type, X = b.X, Y = b.Y, Scale = scale, Pip = at + new Vector3(0, 1.05f * scale, 0) };
+                if (b.Type != BType.Harbor)
                 {
-                    var go = Models.Boat(out var sail); go.transform.SetParent(root, false);
-                    o = new BoatObj { Go = go, Sail = sail, Pos = target, Yaw = bt.Ang * Mathf.Rad2Deg };
-                    boatObjs[bt.Home] = o;
+                    var m = Matrix4x4.Translate(at) * RotY(Rot(b)); bk.Parts = new Dictionary<string, Geo>();
+                    foreach (var kv in Model(b)) bk.Parts[kv.Key] = kv.Value.Clone().Apply(m);
+                    dirty.Add(bk.Key);
                 }
-                // the sim ticks at 10 Hz; ease toward its position so motion stays smooth
-                if ((o.Pos - target).sqrMagnitude > 9) o.Pos = target; else o.Pos = Vector3.Lerp(o.Pos, target, Mathf.Clamp01(dt * 12));
-                o.Yaw = Mathf.LerpAngle(o.Yaw, bt.Ang * Mathf.Rad2Deg, Mathf.Clamp01(dt * 8));
-                o.Go.transform.position = o.Pos + Vector3.up * Mathf.Sin(t * 2 + bt.Home) * .03f;
-                o.Go.transform.rotation = Quaternion.Euler(0, o.Yaw, Mathf.Sin(t * 1.7f + bt.Home) * 3f);
-                var m = bt.State == BoatState.Blocked ? sailBad : sailOk;
-                if (o.Sail.sharedMaterial != m) o.Sail.sharedMaterial = m;
+                live[b.Id] = bk;
             }
-            var dead = new List<int>();
-            foreach (var kv in boatObjs) if (!live.Contains(kv.Key)) { Object.Destroy(kv.Value.Go); dead.Add(kv.Key); }
-            foreach (var id in dead) boatObjs.Remove(id);
+            var gone = new List<int>(); foreach (var id in live.Keys) if (!ids.Contains(id)) gone.Add(id);
+            foreach (var id in gone) { var bk = live[id]; if (bk.Parts != null) dirty.Add(bk.Key); live.Remove(id); }
+            foreach (var key in dirty) RebuildBatch(key);
+            dirty.Clear();
         }
 
-        GameObject Ghost(BType t)
+        void RebuildBatch(string key)
         {
-            if (!ghosts.TryGetValue(t, out var g))
+            if (batches.TryGetValue(key, out var old)) foreach (var go in old) Destroy(go);
+            var groups = new Dictionary<string, List<Geo>>();
+            foreach (var bk in live.Values)
             {
-                g = Models.Building(t, false, 0, ghostOk); g.transform.SetParent(root, false);
-                foreach (var r in g.GetComponentsInChildren<MeshRenderer>()) r.receiveShadows = false;
-                ghosts[t] = g;
+                if (bk.Key != key || bk.Parts == null) continue;
+                foreach (var kv in bk.Parts) { if (!groups.TryGetValue(kv.Key, out var l)) groups[kv.Key] = l = new List<Geo>(); l.Add(kv.Value); }
             }
-            return g;
-        }
-
-        public void HideHover()
-        {
-            foreach (var g in ghosts.Values) if (g.activeSelf) g.SetActive(false);
-            cursor.SetActive(false); range.SetActive(false);
-        }
-
-        public void ShowGhost(BType t, int x, int y, bool ok)
-        {
-            float gy = Mathf.Max(World.WaterY, World.TopY(sim.Hgt[Sim.Idx(x, y)]));
-            var g = Ghost(t); g.SetActive(true);
-            g.transform.position = World.Pos(x + .5f, y + .5f, gy);
-            var m = ok ? ghostOk : ghostBad;
-            foreach (var r in g.GetComponentsInChildren<MeshRenderer>()) if (r.sharedMaterial != m) r.sharedMaterial = m;
-            if (t == BType.Fishery || t == BType.Lumber || t == BType.Plantation)
+            var list = new List<GameObject>();
+            foreach (var kv in groups)
             {
-                range.SetActive(true); range.transform.position = World.Pos(x + .5f, y + .5f, gy + .05f);
+                bool fol = Mats.IsFoliage(kv.Key);
+                var mesh = Geo.Merge(kv.Value).ToMesh($"town {key} {kv.Key}"); mesh.RecalculateTangents();
+                var go = new GameObject(mesh.name); go.transform.SetParent(root, false);
+                go.AddComponent<MeshFilter>().sharedMesh = mesh;
+                var mr = go.AddComponent<MeshRenderer>(); mr.sharedMaterial = Mats.Get(kv.Key, fol); mr.shadowCastingMode = ShadowCastingMode.On; mr.receiveShadows = true;
+                list.Add(go);
             }
+            batches[key] = list;
         }
 
-        public void ShowCursor(int x, int y, int radius, Color c)
+        Dictionary<string, Mesh> HarborMeshes(Building b)
         {
-            float gy = World.WaterY;
-            for (int dy = -radius; dy <= radius; dy++)
-                for (int dx = -radius; dx <= radius; dx++)
-                    if (Sim.Inb(x + dx, y + dy)) gy = Mathf.Max(gy, World.TopY(sim.Hgt[Sim.Idx(x + dx, y + dy)]));
-            cursor.SetActive(true);
-            cursor.transform.position = World.Pos(x + .5f, y + .5f, gy + .04f);
-            cursor.transform.localScale = new Vector3(2 * radius + 1, 1, 2 * radius + 1);
-            cursorMat.SetColor("_Color", c);
-            cursorMat.SetFloat("_Frame", .06f / (2 * radius + 1));
+            string k = $"h{b.Id == S.Capital}{Seed(b) % 7}{(Seed(b) >> 2) % 5}";
+            if (!meshCache.TryGetValue(k, out var m)) meshCache[k] = m = ToMeshes(Model(b), "jetty");
+            return m;
+        }
+
+        static void Draw(Mesh mesh, Material mat, Matrix4x4 m, bool shadow = true)
+        {
+            if (mat == null) return;
+            var rp = new RenderParams(mat) { shadowCastingMode = shadow ? ShadowCastingMode.On : ShadowCastingMode.Off, receiveShadows = true };
+            Graphics.RenderMesh(rp, mesh, 0, m);
+        }
+
+        /// <summary>Keeps buildings in step with the game and draws the moving parts: jetties, pips, boats and the ship.</summary>
+        public void Update(float t)
+        {
+            Sync();
+            foreach (var b in S.Buildings)
+            {
+                if (!live.TryGetValue(b.Id, out var bk)) continue;
+                if (b.Type == BType.Harbor)
+                {
+                    var h = S.BerthOf(b.X, b.Y); float fx = h.HasValue ? h.Value.x - b.X : 0, fz = h.HasValue ? h.Value.y - b.Y : 1;
+                    var c = Sim.PlotCentre(b);
+                    var m = U(Matrix4x4.Translate(new Vector3((float)c.x, TopY(S.Hgt[Sim.Idx(b.X, b.Y)]), (float)c.y)) * RotY(Mathf.Atan2(fx, fz)));
+                    foreach (var kv in HarborMeshes(b)) Draw(kv.Value, Mats.Get(kv.Key), m);
+                }
+                bool bad = b.Type == BType.Harbor ? (!b.Merged && !S.BerthOf(b.X, b.Y).HasValue) : !b.Off && (b.Eff < 0.5 || b.Status.StartsWith("Hungry") || b.Status.Contains("No "));
+                if (bad) Draw(pipMesh, pipMat, U(Matrix4x4.Translate(bk.Pip + new Vector3(0, Mathf.Sin(t * 3) * .05f * bk.Scale, 0)) * Sc(bk.Scale)), false);
+            }
+            // trading ship
+            var tr = S.Trader;
+            if (tr != null)
+            {
+                var m = U(Matrix4x4.Translate(new Vector3((float)tr.X + .5f, WATER_Y + .05f + Mathf.Sin(t * 1.4f) * .04f, (float)tr.Y + .5f)) * RotX(Mathf.Sin(t * 1.1f) * .04f) * RotY(-(float)tr.Ang));
+                foreach (var kv in shipMeshes) Draw(kv.Value, Mats.Get(kv.Key), m);
+            }
+            foreach (var bt in S.Boats)
+            {
+                var m = U(Matrix4x4.Translate(new Vector3((float)bt.X + .5f, WATER_Y + .03f + Mathf.Sin(t * 2 + bt.Home) * .03f, (float)bt.Y + .5f)) * RotX(Mathf.Sin(t * 1.7f + bt.Home) * .05f) * RotY(-(float)bt.Ang));
+                foreach (var kv in boatMeshes) Draw(kv.Value, kv.Key == "sail" ? (bt.State == "blocked" ? sailBlocked : sailMat) : Mats.Get(kv.Key), m);
+            }
         }
     }
 }
