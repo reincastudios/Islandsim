@@ -4,6 +4,12 @@ Newest first. Each entry says what changed for the player and where the code liv
 
 ## 2026-10-12
 
+### Unity: thicker, jungle-like vegetation (PR #6)
+- **What changed:** the islands are much greener and denser, like the real Maldives photos. Where the forest is thick, a second, younger tree or palm shares many tiles. Undergrowth crowds round the trunks, bushes thicken toward the forest edge, and beach naupaka forms a green wall where the sand meets the trees.
+- **Gameplay:** unchanged. This is look only: the sim still counts one tree per tile for lumber, coconuts and clearing, so nothing about building or production moves.
+- **Speed:** more plant instances, but the same draws per chunk, since every extra plant is instanced with its kind. The extra bushes use their full detail only within about 35 tiles of the camera.
+- **Where:** `RebuildChunk` and `TreesAround` in `unity/Assets/IslandSim/Scripts/View/VegetationView.cs`.
+
 ### Unity: no more frosted-white trees (PR #6)
 - **What changed:** forest trees, bushes and grass no longer look washed out or frosted white from the game camera, and tree canopies look full from above instead of showing gaps.
 - **Why it happened:** leaf cards seen at a glancing angle, which from a high camera is most of them, picked up a strong reflection of the bright sky, the same sheen water gets at the horizon. Foliage now takes only the sky's soft ambient light plus the sun, so it keeps its own green. The forest trees' leaf cards also stood upright, so from above you saw them edge-on. They now tip outward from the canopy at 55 degrees, which reads as leaves from both the side and above.

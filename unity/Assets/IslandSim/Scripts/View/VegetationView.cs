@@ -107,6 +107,16 @@ namespace IslandSim.View
             bufM[i].Add(cur); var c = col ?? Color.white; bufC[i].Add(new Vector4(c.r, c.g, c.b, 1));
         }
         static Color Pick(Color[] a, float h) => a[(int)(h * a.Length)];
+        int TreesAround(int x, int y)
+        {
+            int n = 0;
+            for (int dy = -1; dy <= 1; dy++) for (int dx = -1; dx <= 1; dx++)
+            {
+                int tx = x + dx, ty = y + dy; if ((dx | dy) == 0 || tx < 0 || ty < 0 || tx >= W || ty >= H) continue;
+                if (S.Tree[Sim.Idx(tx, ty)] != 0) n++;
+            }
+            return n;
+        }
 
         void RebuildChunk(Chunk vc)
         {
@@ -121,6 +131,21 @@ namespace IslandSim.View
                         if (t == 1) { Push("trunk"); Push("crown", Pick(LEAF, Hash(x, y, 10))); }
                         else if (t == 2) { Push("pTrunk"); Push("pCrown", Pick(FROND, Hash(x, y, 11))); Push("nut"); }
                         else if (t == 3) { Push("mRoot"); Push("mCrown", Pick(MANGROVE, Hash(x, y, 12))); }
+                        if (t == 1 || t == 2)
+                        {
+                            // jungle, not parkland: where the forest is thick a second, younger tree shares the tile, and
+                            // undergrowth crowds round the trunks (look only; the sim still counts one tree per tile)
+                            int nb = TreesAround(x, y);
+                            if (nb >= 5 && Hash(x, y, 70) < (t == 1 ? .6f : .35f))
+                            {
+                                float s2 = .55f + Hash(x, y, 71) * .35f;
+                                Set(x + .15f + Hash(x, y, 72) * .7f, TopY(hv), y + .15f + Hash(x, y, 73) * .7f, 0, Hash(x, y, 74) * 6, s2, s2 * (.9f + Hash(x, y, 75) * .3f), s2);
+                                if (t == 1) { Push("trunk"); Push("crown", Pick(LEAF, Hash(x, y, 76))); } else { Push("pTrunk"); Push("pCrown", Pick(FROND, Hash(x, y, 77))); Push("nut"); }
+                            }
+                            for (int k = 0; k < (t == 1 ? 2 : 1); k++)
+                                if (hv >= 1 && Hash(x, y, 80 + k) < .8f)
+                                { float s3 = .6f + Hash(x, y, 82 + k) * .6f; Set(x + Hash(x, y, 84 + k), TopY(hv), y + Hash(x, y, 86 + k), 0, Hash(x, y, 88 + k) * 6, s3, s3, s3); Push("bush", Pick(LEAF, Hash(x, y, 90 + k))); }
+                        }
                     }
                     if (S.Bld[i] >= 0 || S.Road[i] != 0) continue;                  // nothing grows on roads or inside plots
                     if (g == GT.Taro)
@@ -129,7 +154,11 @@ namespace IslandSim.View
                         continue;
                     }
                     if (g == GT.Kulhi) continue;
-                    if (hv >= 1 && hv <= 3 && Hash(x, y, 12) < .35f) { float s = .7f + Hash(x, y, 13) * .8f; Set(x + Hash(x, y, 14), TopY(hv), y + Hash(x, y, 15), 0, Hash(x, y, 16) * 6, s, s, s); Push("bush", Pick(LEAF, Hash(x, y, 17))); }
+                    // bushes thicken toward the forest, and beach naupaka walls the sand where it meets the trees
+                    int near = t == 0 ? TreesAround(x, y) : 0;
+                    float pb = hv >= 1 && hv <= 3 ? Mathf.Min(.9f, .35f + .12f * near) : hv == 0 && near >= 2 ? .45f : 0;
+                    for (int k = 0; k < (near >= 3 ? 2 : 1); k++)
+                        if (Hash(x, y, 12 + k * 100) < pb) { float s = .7f + Hash(x, y, 13 + k * 100) * .8f; Set(x + Hash(x, y, 14 + k * 100), TopY(hv), y + Hash(x, y, 15 + k * 100), 0, Hash(x, y, 16 + k * 100) * 6, s, s, s); Push("bush", Pick(LEAF, Hash(x, y, 17 + k * 100))); }
                     if (hv >= 4 && Hash(x, y, 18) < .45f || hv == 0 && Hash(x, y, 18) < .04f)
                     { float s = .6f + Hash(x, y, 19) * 1.1f; Set(x + Hash(x, y, 20), TopY(hv) + .01f, y + Hash(x, y, 21), Hash(x, y, 22) * .4f, Hash(x, y, 23) * 6, s, s, s); Push("rock", Pick(ROCKS, Hash(x, y, 24))); }
                     if (Grass && hv >= 1 && hv <= 3 && t != 1)
@@ -159,7 +188,7 @@ namespace IslandSim.View
         {
             var r = S.DirtyTrees.Take();
             if (all) foreach (var vc in chunks) vc.Dirty = true;
-            else if (!r.Empty) foreach (var vc in chunks) if (vc.X0 <= r.X1 && vc.X0 + vc.W > r.X0 && vc.Y0 <= r.Y1 && vc.Y0 + vc.H > r.Y0) vc.Dirty = true;
+            else if (!r.Empty) foreach (var vc in chunks) if (vc.X0 <= r.X1 + 1 && vc.X0 + vc.W > r.X0 - 1 && vc.Y0 <= r.Y1 + 1 && vc.Y0 + vc.H > r.Y0 - 1) vc.Dirty = true;   // +1: undergrowth looks at neighbouring trees
             foreach (var vc in chunks) if (vc.Dirty) RebuildChunk(vc);
         }
 
