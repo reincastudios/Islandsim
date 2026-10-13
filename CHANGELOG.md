@@ -4,6 +4,16 @@ Newest first. Each entry says what changed for the player and where the code liv
 
 ## 2026-10-13
 
+### Unity: tides that move the sea, dhonis that wait for high water, wading over sandbanks (PR #6)
+- First slice of the environmental systems plan. The sea now rises and falls with a real two-constituent tide (moon 12.42 h plus sun 12 h, so spring and neap tides come and go on their own), one full tide every 2 minutes at 1× (Ahmed chose the slow tide). It follows the game clock, so it pauses, speeds up and loads back exactly; nothing new is saved (Scripts/Core/Tide.cs).
+- The water surface, the moving waterline and the swash on the beach all ride the tide together (WaterView.SetTide, IslandShore.hlsl _IsSeaY/_IsTideSd). The range is kept small (0.32 at springs) so beaches are never drowned.
+- Dhonis still prefer a deep channel, but where none exists they now cross the reef flats, holding in deep water until high tide and then crossing (SimEconomy.PlanBoat/StepBoats). The jetty panel says "waiting for high tide" while they hold.
+- At low tide residents wade over sandbanks (land joined by reef flats) to jobs on the next island within walking distance; their own island's jobs come first, and goods stay in each island's own warehouse (Sim.Bank, SimEconomy.AssignWorkers). The building panel shows how much of its staff wades.
+- Top bar: a tide readout next to the day (▲ rising / ▼ falling and the time to the turn), with a tooltip saying high or low tide, springs or neaps and what each allows.
+
+### Unity: cinematic fly-through recorder (PR #6)
+- Island Sim > Cinematic > Record Palm Isle / Preview Palm Isle (Play mode): a 28-second drone flight from high over the jetty, low across the lagoon, along the palms and up to the whole atoll, at a fixed 30 fps with the HUD hidden; Record saves each frame as a JPEG in unity/Recordings/<island>/ (ignored by git) (Scripts/View/Cinematic.cs, IslandGame.StartCinematic).
+
 ### Unity: living reef flats, a curved reef edge, greener forest floor (PR #6)
 - Reef flats no longer repeat as one even leopard print: coral grows in clumps and carpets on drifts of pale sand, cut by winding sandy channels, thinning to scattered heads near the islands and thickening towards the outer reef. Clump colours drift between brown, olive, dusky pink and a sun-bleached cream (IslandTerrain shader, coral block).
 - The reef's drop-off into the deep blue curves naturally instead of stepping in tile-sized teeth: the water reads the one-texel-per-tile depth map through a small warped 5-tap blur (IslandWater).

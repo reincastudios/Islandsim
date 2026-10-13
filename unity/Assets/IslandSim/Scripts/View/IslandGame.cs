@@ -173,6 +173,8 @@ namespace IslandSim.View
         void Update()
         {
             float t = Time.realtimeSinceStartup, dt = Mathf.Min(.1f, Time.unscaledDeltaTime);
+            if (cine.Active) { CinematicFrame(); return; }
+            cineT0 = t;
             hud.Keys();
             if (!hud.Typing && !hud.Blocking)
             {
@@ -197,12 +199,57 @@ namespace IslandSim.View
             S.RepeatStroke(dt, hover?.x ?? 0, hover?.y ?? 0, hover.HasValue);
 
             Rig.Apply();
+            water.SetTide((float)Tide.Level(S.T));
             terrain.Sync(); veg.Sync();
             Atmos.Update(t, Rig.Tx, Rig.Tz, Rig.Dist);
             veg.Draw(Rig.Cam); buildings.Update(t);
             cursor.Draw(hover, hud.Selected);
             hud.Frame(hover, drag != Drag.None || pinching, InputBridge.MousePos);
         }
+
+        // ------------------------------------------------------------ cinematic
+        readonly Cinematic cine = new Cinematic();
+        public Cinematic Cine => cine;
+        /// <summary>Flies the drone camera round an island (default: the one named Palm Isle, else the capital) with the HUD
+        /// hidden; with record on, every frame is saved to Recordings/&lt;island&gt;/ at 30 fps.</summary>
+        public void StartCinematic(bool record, string island = "Palm Isle")
+        {
+            if (cine.Active) return;
+            Island isl = null; foreach (var i in S.Islands) if (i.Name == island) isl = i; if (isl == null) isl = S.CapitalIsland ?? S.Islands[0];
+            // the island's reach: how far its land runs from its centre (90th percentile, so a lone spit doesn't count)
+            var ds = new List<float>();
+            for (int y = 0; y < Defs.H; y++) for (int x = 0; x < Defs.W; x++) { int k = Sim.Idx(x, y); if (S.Hgt[k] >= 0 && S.IslandOf(x, y) == isl) ds.Add(Mathf.Sqrt((x - (float)isl.Cx) * (x - (float)isl.Cx) + (y - (float)isl.Cy) * (y - (float)isl.Cy))); }
+            ds.Sort(); float r = ds.Count > 0 ? Mathf.Max(4, ds[(int)(ds.Count * .9f)]) : 8;
+            hud.Doc.rootVisualElement.style.display = UnityEngine.UIElements.DisplayStyle.None;
+            // the close shots circle the island's jetty if it has one, else the land tile nearest its centre
+            float fx = (float)isl.Cx, fy = (float)isl.Cy, bd = float.MaxValue;
+            var hb = isl.Harbor ?? (S.CapitalIsland == isl ? S.CapitalHarbor : null);
+            if (hb != null) { fx = hb.X + hb.W * .5f; fy = hb.Y + hb.D * .5f; }
+            else for (int y = 0; y < Defs.H; y++) for (int x = 0; x < Defs.W; x++) if (S.Hgt[Sim.Idx(x, y)] >= 0 && S.IslandOf(x, y) == isl) { float d = (x - (float)isl.Cx) * (x - (float)isl.Cx) + (y - (float)isl.Cy) * (y - (float)isl.Cy); if (d < bd) { bd = d; fx = x + .5f; fy = y + .5f; } }
+            cine.Start(Rig.Cam, S, fx, fy, (float)isl.Cx + .5f, (float)isl.Cy + .5f, r, isl.Name.Replace(' ', '_'), record);
+            if (record) StartCoroutine(CaptureFrames());
+            Debug.Log($"[Island Sim] Cinematic of {isl.Name} (reach {r:F0} tiles, {cine.Duration:F0} s){(record ? " recording to " + cine.Folder : "")}");
+        }
+        public void StopCinematic() { cine.Stop(); hud.Doc.rootVisualElement.style.display = UnityEngine.UIElements.DisplayStyle.Flex; }
+        System.Collections.IEnumerator CaptureFrames()
+        {
+            var eof = new WaitForEndOfFrame();
+            while (cine.Active) { yield return eof; if (cine.Active) cine.Capture(); }
+            Debug.Log($"[Island Sim] Cinematic done: {cine.Frame} frames in {cine.Folder}");
+            StopCinematic();
+        }
+        void CinematicFrame()
+        {
+            if (InputBridge.Pressed(InputBridge.Sp.Esc) || !cine.Step(groundY, out float t, out var look)) { StopCinematic(); return; }
+            float dt = 1f / Cinematic.Fps;
+            acc += dt * Mathf.Max(1, Speed); int n = 0; while (acc >= .1f && n < 20) { S.Step(.1); acc -= .1f; n++; }
+            water.SetTide((float)Tide.Level(S.T));
+            terrain.Sync(); veg.Sync();
+            float dist = Vector3.Distance(Rig.Cam.transform.position, World.U(look.x, look.y, look.z));
+            Atmos.Update(t + cineT0, look.x, look.z, dist);
+            veg.Draw(Rig.Cam); buildings.Update(t + cineT0);
+        }
+        float cineT0;
 
         void OnApplicationQuit() { if (S != null && S.Over == null) SaveTo(Auto); }
     }

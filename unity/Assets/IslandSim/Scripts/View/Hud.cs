@@ -116,7 +116,7 @@ namespace IslandSim.View
 
         // ------------------------------------------------------------ layout
         readonly UiKit K = new UiKit { Record = false };
-        Label dayLbl, islName, newLbl, cAge, cGoal, cWhy, cProg, cCount, badge;
+        Label dayLbl, tideLbl, islName, newLbl, cAge, cGoal, cWhy, cProg, cCount, badge;
         readonly List<(Button b, int n)> speedBtns = new List<(Button, int)>();
         readonly List<(Button b, Quality q)> qBtns = new List<(Button, Quality)>();
         readonly List<(Button b, float v)> uiBtns = new List<(Button, float)>();
@@ -168,9 +168,10 @@ namespace IslandSim.View
             var band = K.Band(); band.name = "topband"; hud.Add(band);
             menuBtn = K.B("ib", () => TogglePop(menu), K.I("menu"));
             var day = K.E("row day", K.I("sun"), K.L("Day"), dayLbl = K.L("1", "b")); Gap(day, 6); Tip(day, "day");
+            var tide = K.E("row day", K.I("tide"), tideLbl = K.L("", "b")); Gap(tide, 6); Tip(tide, "tide");
             var speed = K.E("speed");
             foreach (var (lbl, n) in new[] { ("II", 0), ("1×", 1), ("3×", 3), ("6×", 6) }) { var b = K.T(lbl, null, () => G.SetSpeed(n)); speedBtns.Add((b, n)); speed.Add(b); }
-            var g1 = Gap(K.E("row", menuBtn, day, speed), 10);
+            var g1 = Gap(K.E("row", menuBtn, day, tide, speed), 10);
             var res = K.E(); res.name = "res"; RenderRes(res); var mid = K.E("mid", res);
             logBtn = K.B("ib", () => TogglePop(logPop), K.I("bell")); badge = K.L("", "badge hidden"); logBtn.Add(badge);
             setBtn = K.B("ib", () => TogglePop(settings), K.I("gear"));
@@ -475,6 +476,14 @@ namespace IslandSim.View
             if (kind == "pop") { P("Residents", "t"); foreach (var i in S.Islands.Where(i => i.Harbor != null)) P($"{i.Name}: {Math.Floor(i.Res)} residents, {i.Jobs} jobs"); P("Each worked building needs 1 to 3 residents within walking distance.", "k"); return v; }
             if (kind == "unrest") { P($"Unrest {Noise.Round(S.Unrest)}%", "t"); P("Unrest rises while more than 30% of residents are hungry and falls when they are fed. At 100% they depose you."); return v; }
             if (kind == "isl") { P(isl?.Name ?? "", "t"); P("The goods shown are in this island's warehouse. Pan to another island to see its stock, or press Tab."); return v; }
+            if (kind == "tide")
+            {
+                var tn = Tide.Next(S.T); bool hi = Tide.IsHigh(S.T), lo = Tide.IsLow(S.T); int ts = (int)Math.Ceiling(tn.secondsToTurn);
+                P(hi ? "High tide" : lo ? "Low tide" : tn.rising ? "Tide rising" : "Tide falling", "t");
+                P($"{(tn.rising ? "High" : "Low")} water in {ts / 60}:{ts % 60:00} at normal speed. {(Tide.Spring(S.T) > .5 ? "Spring tides: a big range." : "Neap tides: a small range.")}");
+                P("At high tide dhonis can cross reef flats where there is no deep channel. At low tide residents wade over sandbanks to work on the next island; goods stay in each island's own warehouse.", "k");
+                return v;
+            }
             if (kind == "day") { P($"Day {S.Day}", "t"); P("A day lasts 30 seconds at normal speed."); return v; }
             if (kind == "north") { P("Compass", "t"); P("The needle points north: click it to face north. The arrows beside it rotate the view (Q / E), and the house returns to the capital."); return v; }
             return null;
@@ -511,6 +520,7 @@ namespace IslandSim.View
             SetCtr("pop", Math.Floor(S.TotalPop).ToString("0"));
             Show(ctrs["unrest"].El, S.Unrest >= 5); SetCtr("unrest", Noise.Round(S.Unrest) + "%", 0, S.Unrest >= 50);
             dayLbl.text = S.Day.ToString();
+            var tn = Tide.Next(S.T); int ts = (int)Math.Ceiling(tn.secondsToTurn); tideLbl.text = $"{(tn.rising ? "▲" : "▼")} {ts / 60}:{ts % 60:00}";
             foreach (var (b, n) in speedBtns) b.EnableInClassList("on", n == G.Speed);
             foreach (var (b, q) in qBtns) b.EnableInClassList("on", q == G.Atmos.Q);
             RenderCharter(); UpdateChips(); RenderSel(false);
@@ -788,7 +798,7 @@ namespace IslandSim.View
                 body.Add(Stock(k, isl));
                 var bt = S.Boats.FirstOrDefault(x => x.Home == hb.Id);
                 string line = cap ? (S.Boats.Count > 0 ? $"{S.Boats.Count} boat{(S.Boats.Count > 1 ? "s" : "")} trade with the capital" : "No other jetties yet, so no dhonis.")
-                    : bt != null ? (bt.State == "blocked" ? bt.Why : $"Boat {(bt.Out ? "sailing to the capital" : "sailing home")} · {bt.Trips} trips") : "Goods move overland to the capital.";
+                    : bt != null ? (bt.State == "blocked" ? bt.Why : bt.Wait ? $"Boat waiting for high tide to cross the reef flat · {bt.Trips} trips" : $"Boat {(bt.Out ? "sailing to the capital" : "sailing home")} · {bt.Trips} trips") : "Goods move overland to the capital.";
                 var l = k.L(line, "wrap"); if (bt != null && bt.State == "blocked" && !cap) l.style.color = World.Srgb(0x8c2a1f);
                 body.Add(k.E("boat", k.I("harbour"), l));
             }

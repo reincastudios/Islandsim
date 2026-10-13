@@ -47,6 +47,19 @@ namespace IslandSim.EditorTools
         [MenuItem("Island Sim/Reimport Textures")]
         static void Reimport() => AssetDatabase.ImportAsset(Root + "/Resources/IslandSim/Textures", ImportAssetOptions.ImportRecursive | ImportAssetOptions.ForceUpdate);
 
+        // a drone fly-through of Palm Isle with the HUD hidden (Esc stops it); Record also saves every frame as a JPEG under
+        // unity/Recordings/Palm_Isle/ at 30 fps, ready to join into a video
+        [MenuItem("Island Sim/Cinematic/Record Palm Isle")]
+        static void RecordCinematic() => Cine(true);
+        [MenuItem("Island Sim/Cinematic/Preview Palm Isle")]
+        static void PreviewCinematic() => Cine(false);
+        static void Cine(bool rec)
+        {
+            var g = Application.isPlaying ? UnityEngine.Object.FindAnyObjectByType<IslandGame>() : null;
+            if (g == null) { Debug.LogWarning("[Island Sim] Press Play first, then start the cinematic."); return; }
+            g.StartCinematic(rec);
+        }
+
         static void Run(bool verbose)
         {
             if (PlayerSettings.colorSpace != ColorSpace.Linear) { PlayerSettings.colorSpace = ColorSpace.Linear; Debug.Log("[Island Sim] Switched the project to linear colour space."); }

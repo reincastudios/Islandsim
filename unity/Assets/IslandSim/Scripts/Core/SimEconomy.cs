@@ -119,6 +119,7 @@ namespace IslandSim.Core
                 }
                 if (d.Jobs > 0 && b.Staff <= 0) b.Status += " · no residents within walking distance";
                 else if (d.Jobs > 0 && b.Staff < 1) b.Status += $" · {Noise.Round(b.Staff * 100)}% staffed";
+                if (b.Wade > 0) b.Status += $" · {Noise.Round(b.Wade * 100)}% of the staff wade over the sandbank at low tide";
             }
             Gold += (income - upkeep) * dt;
             Rate = Rate * 0.9 + (income - upkeep) * 0.1;
@@ -137,20 +138,23 @@ namespace IslandSim.Core
         public event Action<string> Ended;
         public void GameOver(string kind) { Over = kind; Ended?.Invoke(kind); }
 
-        // residents walk to the nearest jobs on their own island, up to WALK tiles; older buildings are staffed first
+        // residents walk to the nearest jobs on their own island, up to WALK tiles; older buildings are staffed first. At low
+        // tide they also wade over sandbanks to jobs on another island of the same bank (own island first).
         void AssignWorkers()
         {
-            var homes = Buildings.Where(b => b.Type == BType.House).Select(b => new Home { B = b, C = PlotCentre(b), Left = b.Res }).ToList();
+            var homes = Buildings.Where(b => b.Type == BType.House).Select(b => new Home { B = b, C = PlotCentre(b), Left = b.Res, Bk = Bank[Idx(b.X, b.Y)] }).ToList();
+            bool low = Tide.IsLow(T);
             foreach (var p in Buildings)
             {
-                var d = p.Def; if (d.Jobs == 0) continue; p.Staff = 0; if (p.Off) continue;
-                var c = PlotCentre(p); double need = d.Jobs;
-                var near = homes.Select(h => (h, dd: Hypot(h.C.x - c.x, h.C.y - c.y))).Where(o => o.h.Left > 0 && o.h.B.Isl == p.Isl && o.dd <= Walk).OrderBy(o => o.dd).ToList();
-                foreach (var (h, _) in near) { double t = Math.Min(need, h.Left); h.Left -= t; need -= t; if (need <= 1e-6) break; }
-                p.Staff = Math.Max(0, (d.Jobs - need) / d.Jobs);
+                var d = p.Def; p.Wade = 0; if (d.Jobs == 0) continue; p.Staff = 0; if (p.Off) continue;
+                var c = PlotCentre(p); double need = d.Jobs, wade = 0; int bk = Bank[Idx(p.X, p.Y)];
+                var near = homes.Select(h => (h, dd: Hypot(h.C.x - c.x, h.C.y - c.y))).Where(o => o.h.Left > 0 && (o.h.B.Isl == p.Isl || low && o.h.Bk == bk) && o.dd <= Walk)
+                    .OrderBy(o => o.h.B.Isl == p.Isl ? 0 : 1).ThenBy(o => o.dd).ToList();
+                foreach (var (h, _) in near) { double t = Math.Min(need, h.Left); h.Left -= t; need -= t; if (h.B.Isl != p.Isl) wade += t; if (need <= 1e-6) break; }
+                p.Staff = Math.Max(0, (d.Jobs - need) / d.Jobs); p.Wade = wade / d.Jobs;
             }
         }
-        sealed class Home { public Building B; public (double x, double y) C; public double Left; }
+        sealed class Home { public Building B; public (double x, double y) C; public double Left; public int Bk; }
 
         // ------------------------------------------------------------ boats
         void SyncBoats()
@@ -166,15 +170,15 @@ namespace IslandSim.Core
             foreach (var b in Boats) if (!keep.Contains(b)) { var hb = ById(b.Home); if (hb != null && IslandOfB(hb) == capIsl) Say($"Land bridge made the {IslandName(hb)} boat unnecessary; goods now move overland.", ToastKind.Good); }
             Boats = keep;
         }
-        List<(int x, int y)> BfsPath(int sx, int sy, int tx, int ty)
+        List<(int x, int y)> BfsPath(int sx, int sy, int tx, int ty, int maxH = -2)
         {
-            if (!Inb(sx, sy) || Hgt[Idx(sx, sy)] > -2) return null;
+            if (!Inb(sx, sy) || Hgt[Idx(sx, sy)] > maxH) return null;
             var prev = new int[W * H]; for (int k = 0; k < prev.Length; k++) prev[k] = -1; var q = new int[W * H]; int qh = 0, qt = 0; int s = Idx(sx, sy), t = Idx(tx, ty);
             q[qt++] = s; prev[s] = s;
             while (qh < qt)
             {
                 int c = q[qh++]; if (c == t) break; int cx = c % W, cy = c / W;
-                for (int k = 0; k < 4; k++) { int nx = cx + DX[k], ny = cy + DY[k]; if (!Inb(nx, ny)) continue; int ni = Idx(nx, ny); if (prev[ni] < 0 && Hgt[ni] <= -2) { prev[ni] = c; q[qt++] = ni; } }
+                for (int k = 0; k < 4; k++) { int nx = cx + DX[k], ny = cy + DY[k]; if (!Inb(nx, ny)) continue; int ni = Idx(nx, ny); if (prev[ni] < 0 && Hgt[ni] <= maxH) { prev[ni] = c; q[qt++] = ni; } }
             }
             if (prev[t] < 0) return null;
             var path = new List<(int, int)>(); for (int c = t; c != s; c = prev[c]) path.Add((c % W, c / W)); path.Add((sx, sy)); path.Reverse(); return path;
@@ -186,14 +190,15 @@ namespace IslandSim.Core
             if (hbB == null) { bt.State = "blocked"; bt.Why = $"No deep water beside the {IslandName(hb)} jetty"; bt.Path = null; return; }
             if (capB == null) { bt.State = "blocked"; bt.Why = "No deep water beside the capital jetty"; bt.Path = null; return; }
             int sx = (int)Noise.Round(bt.X), sy = (int)Noise.Round(bt.Y);
-            if (!Inb(sx, sy) || Hgt[Idx(sx, sy)] > -2)
+            if (!Inb(sx, sy) || Hgt[Idx(sx, sy)] > -1)
             {
                 if (bt.State == "sail") { Say($"The {IslandName(hb)} boat ran aground and lost its cargo.", ToastKind.Bad, (sx, sy)); bt.Cargo = new double[GoodCount]; }
                 sx = hbB.Value.x; sy = hbB.Value.y; bt.X = sx; bt.Y = sy; bt.Out = true;
             }
             var tgt = bt.Out ? capB.Value : hbB.Value;
-            var p = BfsPath(sx, sy, tgt.x, tgt.y);
-            if (p == null) { bt.State = "blocked"; bt.Path = null; bt.Why = $"No deep-water route to {(bt.Out ? "the capital" : IslandName(hb))}. Shallows block boats."; return; }
+            // deep water if there is a way through; otherwise over the reef flats, which a dhoni crosses only at high tide
+            var p = BfsPath(sx, sy, tgt.x, tgt.y) ?? BfsPath(sx, sy, tgt.x, tgt.y, -1);
+            if (p == null) { bt.State = "blocked"; bt.Path = null; bt.Why = $"No water route to {(bt.Out ? "the capital" : IslandName(hb))}. Land or shallows block boats, even at high tide."; return; }
             bt.Path = p; bt.Pi = 0; bt.State = "sail"; bt.Why = "";
         }
         static void Unload(double[] to, Boat bt) { for (int g = 0; g < GoodCount; g++) to[g] += bt.Cargo[g]; bt.Cargo = new double[GoodCount]; }
@@ -210,6 +215,10 @@ namespace IslandSim.Core
                 var home = IslandOfB(hb)?.Harbor; var capH = CapitalIsland?.Harbor; if (home == null || capH == null) continue;
                 if (bt.Ver != TerrainVer) PlanBoat(bt);
                 if (bt.State != "sail" || bt.Path == null) continue;
+                // hold in deep water off a reef flat until the tide is high, then cross without stopping
+                if (bt.Pi < bt.Path.Count - 1) { var (wx, wy) = bt.Path[bt.Pi + 1]; int cx = (int)Noise.Round(bt.X), cy = (int)Noise.Round(bt.Y);
+                    bt.Wait = Hgt[Idx(wx, wy)] > -2 && Hgt[Idx(cx, cy)] <= -2 && !Tide.IsHigh(T); }
+                if (bt.Wait) continue;
                 double move = 5 * dt;
                 while (move > 0 && bt.Pi < bt.Path.Count - 1)
                 {

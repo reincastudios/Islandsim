@@ -16,6 +16,7 @@ namespace IslandSim.Core
         public double Res, Eff, Rate, Staff, Cap, Tax; public string Status = "";
         public double[] Stock;            // jetties only
         public bool Merged, Off, Road; public int Isl = -1;
+        public double Wade;               // share of the staff who wade over a sandbank at low tide (not saved)
         public Needs Need;
         public BuildingDef Def => Defs.Def(Type);
     }
@@ -31,6 +32,7 @@ namespace IslandSim.Core
         public int Home; public double X, Y, Ang; public List<(int x, int y)> Path; public int Pi;
         public bool Out = true; public double[] Cargo = new double[GoodCount];
         public string State = "idle", Why = ""; public int Ver = -1, Trips;
+        public bool Wait;                 // holding off a reef flat until high tide
         public bool HasCargo { get { foreach (var c in Cargo) if (c > 0) return true; return false; } }
     }
 
@@ -61,6 +63,9 @@ namespace IslandSim.Core
 
         public List<Island> Islands = new List<Island>();
         public short[] Comp;
+        /// <summary>Land joined by sandbanks: land and reef flats (height -1) labelled together. At low tide residents wade
+        /// across to work on another island of the same bank; goods and warehouses stay with their own island.</summary>
+        public short[] Bank;
         public (int x, int y)?[] IslAnchor = new (int, int)?[Defs.Islands.Length];
         public List<Boat> Boats = new List<Boat>();
         public int TerrainVer;
@@ -195,6 +200,18 @@ namespace IslandSim.Core
                 else { for (int g = 0; g < GoodCount; g++) { isl.Harbor.Stock[g] += b.Stock[g]; b.Stock[g] = 0; } b.Merged = true; }
             }
             foreach (var b in Buildings) b.Isl = Comp[Idx(b.X, b.Y)];
+            Bank = new short[W * H]; for (int i = 0; i < Bank.Length; i++) Bank[i] = -1; short nb = 0;
+            for (int s = 0; s < W * H; s++)
+            {
+                if (Hgt[s] < -1 || Bank[s] >= 0) continue;
+                int qh = 0, qt = 0; q[qt++] = s; Bank[s] = nb;
+                while (qh < qt)
+                {
+                    int c = q[qh++], cx = c % W, cy = c / W;
+                    for (int k = 0; k < 4; k++) { int nx = cx + DX[k], ny = cy + DY[k]; if (!Inb(nx, ny)) continue; int ni = Idx(nx, ny); if (Hgt[ni] >= -1 && Bank[ni] < 0) { Bank[ni] = nb; q[qt++] = ni; } }
+                }
+                nb++;
+            }
             SyncBoats();
         }
 
@@ -383,8 +400,8 @@ namespace IslandSim.Core
         /// <summary>Residents of an island's compounds within walking distance of a tile (the cursor tag shows it before placing).</summary>
         public double WorkersNear(int x, int y, int isl)
         {
-            double n = 0;
-            foreach (var b in Buildings) if (b.Type == BType.House && b.Isl == isl) { var c = PlotCentre(b); if (Hypot(c.x - x - .5, c.y - y - .5) <= Walk) n += b.Res; }
+            double n = 0; bool low = Tide.IsLow(T); int bk = Inb(x, y) ? Bank[Idx(x, y)] : -1;
+            foreach (var b in Buildings) if (b.Type == BType.House && (b.Isl == isl || low && bk >= 0 && Bank[Idx(b.X, b.Y)] == bk)) { var c = PlotCentre(b); if (Hypot(c.x - x - .5, c.y - y - .5) <= Walk) n += b.Res; }
             return n;
         }
 

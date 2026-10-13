@@ -6,7 +6,10 @@
 TEXTURE2D(_IsWaterNormal); SAMPLER(sampler_IsWaterNormal);
 TEXTURECUBE(_IsEnvCube); SAMPLER(sampler_IsEnvCube);
 float3 _IsSunDir; float3 _IsSunCol;
-#define IS_WATER_Y 0.02   // World.WATER_Y: the still sea level
+// The sea level right now (World.WATER_Y plus the tide), and how far the tide has moved the water's edge in tiles of the
+// shoreline field (+ = up the beach), both set each frame by the game
+float _IsSeaY; float _IsTideSd;
+#define IS_WATER_Y _IsSeaY
 // Near the edge the beach draws the water's surface and the sea fades in over it as the water deepens, by these weights,
 // so between them the surface is always drawn once.
 float SheetFade(float depthBelowSea) { return 1.0 - smoothstep(0.0, 0.15, depthBelowSea); }
@@ -21,9 +24,10 @@ float2 Ripples(float2 p, float t)
     return n1 * 0.3 + n2 * 0.4 + n3 * 0.3;
 }
 // Where the sea ends right now, in tiles from the coastline (+ = out to sea). While a swell rolls in the water draws back
-// a little; then the wave pushes the edge up the sand and drains back down. The water and the beach both stop the sea
+// a little; then the wave pushes the edge up the sand and drains back down. The tide moves the whole edge up the beach
+// at high water and out over the sand shelf at low water. The water and the beach both stop the sea
 // here, so the edge you see is the wave itself.
-float SwashEdge(float4 wf) { return wf.x < 0.45 ? 0.22 * sin(wf.x / 0.45 * 3.14159) : wf.y; }
+float SwashEdge(float4 wf) { return (wf.x < 0.45 ? 0.22 * sin(wf.x / 0.45 * 3.14159) : wf.y) - _IsTideSd; }
 // the lacy foam fringe on that edge: strongest as the wave runs up, a faint one while the sea waits
 float EdgeFoam(float2 p, float t, float rel, float4 wf)
 {
