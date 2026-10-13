@@ -85,6 +85,11 @@ namespace IslandSim.View
             float n = (Hash(x, y, 5) - .5f) * 0.06f; c.r += n; c.g += n; c.b += n * .6f;
             return c;
         }
+        bool NearLand(int x, int y)
+        {
+            for (int dy = -1; dy <= 1; dy++) for (int dx = -1; dx <= 1; dx++) if (Sim.Inb(x + dx, y + dy) && S.Hgt[Sim.Idx(x + dx, y + dy)] >= 0) return true;
+            return false;
+        }
         // ground layer weights for one tile: sand, grass, forest, rock, reef, soil, path
         void TileSplat(int x, int y, float[] o)
         {
@@ -95,7 +100,7 @@ namespace IslandSim.View
             if (g == GT.Seagrass) { o[1] = .7f; o[4] = .3f; return; }
             if (g == GT.Taro && S.Bld[i] < 0) { o[5] = .6f; o[1] = .4f; return; }
             if (h <= -2) o[0] = 1;                                        // lagoon floor: clean sand
-            else if (h == -1) o[4] = 1;                                   // reef flat: rubble, seagrass
+            else if (h == -1) { if (NearLand(x, y)) { o[0] = .85f; o[4] = .15f; } else o[4] = 1; }   // reef flat: rubble, seagrass; clean sand on the shelf off a beach
             else if (h == 0) o[0] = 1;
             else if (h <= 2) { if (S.Tree[i] == 1) o[2] = 1; else { o[1] = 1; o[5] = Hash(x, y, 31) < .18f ? .6f : 0; } }
             else if (h <= 4) { if (S.Tree[i] == 1) { o[2] = .7f; o[5] = .3f; } else { o[5] = .6f; o[1] = .4f; } }
@@ -112,8 +117,25 @@ namespace IslandSim.View
                 {
                     if (!Sim.Inb(tx, ty)) continue; int h = S.Hgt[Sim.Idx(tx, ty)]; float t = TopY(h); sh += t; n++; if (h >= 0) { landSum += t; landN++; }
                 }
-            float yy = n > 0 ? sh / n : TopY(-3); if (landN >= 2) yy = Mathf.Max(yy, Mathf.Min(landSum / landN, 0.12f)); // keep coasts crisp
-            return yy;
+            float yy = n > 0 ? sh / n : TopY(-3); if (landN >= 2) yy = Mathf.Max(yy, Mathf.Min(landSum / landN, 0.05f)); // the beach runs down to meet the water almost flush, with no lip
+            return Shelf(x, y, yy);
+        }
+
+        // Sand shelves gently under the sea for three to four tiles off every coast, so the water thins to clear over it and
+        // the waves can run up a real slope instead of meeting a sudden drop at the waterline (look only).
+        const float SHELF_TOP = WATER_Y - 0.04f, SHELF_SLOPE = 0.2f, SHELF_REACH = 3.6f;
+        float Shelf(float fx, float fy, float y)
+        {
+            if (y >= SHELF_TOP) return y;
+            float best = SHELF_REACH * SHELF_REACH;
+            for (int ty = Mathf.FloorToInt(fy - SHELF_REACH); ty <= Mathf.FloorToInt(fy + SHELF_REACH); ty++)
+                for (int tx = Mathf.FloorToInt(fx - SHELF_REACH); tx <= Mathf.FloorToInt(fx + SHELF_REACH); tx++)
+                {
+                    if (!Sim.Inb(tx, ty) || S.Hgt[Sim.Idx(tx, ty)] < 0) continue;
+                    float dx = Mathf.Max(0, Mathf.Max(tx - fx, fx - tx - 1)), dy = Mathf.Max(0, Mathf.Max(ty - fy, fy - ty - 1));
+                    best = Mathf.Min(best, dx * dx + dy * dy);
+                }
+            return best >= SHELF_REACH * SHELF_REACH ? y : Mathf.Max(y, SHELF_TOP - SHELF_SLOPE * Mathf.Sqrt(best));
         }
         public float CAt(int x, int y) => CornerY[Mathf.Clamp(y, 0, H) * (W + 1) + Mathf.Clamp(x, 0, W)];
 
@@ -148,11 +170,20 @@ namespace IslandSim.View
                 for (int x = 0; x < w; x++)
                 {
                     int X = x0 + x, Y = y0 + y, v = nc + y * w + x;
-                    c.Pos[v].y = TopY(S.Hgt[Sim.Idx(X, Y)]); c.Col[v] = TileTint(X, Y);
+                    c.Pos[v].y = Shelf(X + .5f, Y + .5f, TopY(S.Hgt[Sim.Idx(X, Y)])); c.Col[v] = TileTint(X, Y);
                     TileSplat(X, Y, spl); c.S0[v] = new Vector4(spl[0], spl[1], spl[2], spl[3]); c.S1[v] = new Vector4(spl[4], spl[5], spl[6], 0);
                     float nx = -(CAt(X + 1, Y) + CAt(X + 1, Y + 1) - CAt(X, Y) - CAt(X, Y + 1)) / 2, nz = -(CAt(X, Y + 1) + CAt(X + 1, Y + 1) - CAt(X, Y) - CAt(X + 1, Y)) / 2;
                     c.Nrm[v] = U(new Vector3(nx, 1, nz).normalized);
                 }
+            // the shelf is pale sand however deep the tile under it: it lightens and turns sandy as it rises toward the surface
+            var pale = Tint[-1];
+            for (int v = 0; v < c.NV; v++)
+            {
+                float y = c.Pos[v].y; if (y >= WATER_Y || y < TopY(-1) - 0.05f) continue;
+                float k = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(TopY(-1), SHELF_TOP, y));
+                var col = c.Col[v]; c.Col[v] = new Color(Mathf.Max(col.r, Mathf.Lerp(col.r, pale.r, k)), Mathf.Max(col.g, Mathf.Lerp(col.g, pale.g, k)), Mathf.Max(col.b, Mathf.Lerp(col.b, pale.b, k)), 1);
+                float ks = k * .8f; var s0 = c.S0[v] * (1 - ks); var s1 = c.S1[v] * (1 - ks); s0.x += ks; c.S0[v] = s0; c.S1[v] = s1;
+            }
             // steep faces become rock whatever their height band (only real cliffs: beach slopes stay sand)
             for (int v = 0; v < c.NV; v++)
             {
@@ -190,8 +221,8 @@ namespace IslandSim.View
             yardIds = new HashSet<int>(); foreach (var b in S.Buildings) if (b.Type == BType.House) yardIds.Add(b.Id);
             bool full = r.X0 == 0 && r.Y0 == 0 && r.X1 == W - 1 && r.Y1 == H - 1;
             if (full) { foreach (var c in chunks) c.Dirty = true; ComputeOcean(); }
-            else foreach (var c in chunks) if (c.X0 <= r.X1 + 2 && c.X0 + c.W >= r.X0 - 2 && c.Y0 <= r.Y1 + 2 && c.Y0 + c.H >= r.Y0 - 2) c.Dirty = true;  // a tile's look reaches its corners, and their normals one corner further
-            for (int y = Mathf.Max(0, r.Y0 - 1); y <= Mathf.Min(H, r.Y1 + 2); y++) for (int x = Mathf.Max(0, r.X0 - 1); x <= Mathf.Min(W, r.X1 + 2); x++) CornerY[y * (W + 1) + x] = CornerHeight(x, y);
+            else foreach (var c in chunks) if (c.X0 <= r.X1 + 6 && c.X0 + c.W >= r.X0 - 6 && c.Y0 <= r.Y1 + 6 && c.Y0 + c.H >= r.Y0 - 6) c.Dirty = true;  // a tile's look reaches its corners and the sand shelf off its coast, and their normals one corner further
+            for (int y = Mathf.Max(0, r.Y0 - 5); y <= Mathf.Min(H, r.Y1 + 6); y++) for (int x = Mathf.Max(0, r.X0 - 5); x <= Mathf.Min(W, r.X1 + 6); x++) CornerY[y * (W + 1) + x] = CornerHeight(x, y);
             foreach (var c in chunks) if (c.Dirty) RebuildChunk(c);
             for (int y = Mathf.Max(0, r.Y0 - 1); y <= Mathf.Min(H - 1, r.Y1 + 1); y++)
                 for (int x = Mathf.Max(0, r.X0 - 1); x <= Mathf.Min(W - 1, r.X1 + 1); x++)

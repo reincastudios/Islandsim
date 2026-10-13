@@ -47,6 +47,34 @@ float4 WaveFront(float2 p, float t)
     else { float k = smoothstep(0.62, 1.0, a); f = -R * (1.0 - k); fs = 1.0 - smoothstep(0.62, 0.92, a); fl = 1.0 - k * 0.8; }
     return float4(a, f, fs, fl);
 }
+// How fresh the foam in the shallows is: it spreads as each wave lands, then thins out until the next one.
+float FoamFresh(float4 wf) { return wf.x > 0.45 ? 1.0 - 0.7 * smoothstep(0.5, 1.0, wf.x) : 0.3; }
+float2 h22(float2 p) { return frac(sin(float2(dot(p, float2(127.1, 311.7)), dot(p, float2(269.5, 183.3)))) * 43758.5453); }
+// The lacy net of bubbles that covers shallow water after a wave breaks (cell edges of a slowly churning Voronoi
+// pattern, torn into patches). The water and the beach both draw it from the same tile coordinates, so the lace runs
+// unbroken from the shallows onto the sheet of water sliding up the sand.
+float CellEdge(float2 q, float t)
+{
+    float2 i = floor(q), f = frac(q); float d1 = 8.0, d2 = 8.0;
+    [unroll] for (int y = -1; y <= 1; y++)
+        [unroll] for (int x = -1; x <= 1; x++)
+        {
+            float2 g = float2(x, y), o = h22(i + g); o = 0.5 + 0.45 * sin(t * 0.5 + 6.2832 * o);
+            float2 r = g + o - f; float d = dot(r, r);
+            if (d < d1) { d2 = d1; d1 = d; } else if (d < d2) d2 = d;
+        }
+    return sqrt(d2) - sqrt(d1);
+}
+float FoamNet(float2 p, float t)
+{
+    // warped so the cells are never regular, two sizes of cell, strands that thicken and thin, torn into patches
+    float2 w = float2(vn(p * 1.7 + float2(t * 0.08, 0)), vn(p * 1.7 + float2(5.2, -t * 0.06))) - 0.5;
+    float2 q = p + w * 0.7 + float2(t * 0.03, t * 0.02);
+    float big = 1.0 - smoothstep(0.0, 0.06 + 0.1 * vn(p * 3.1 + 2.0), CellEdge(q * 6.0, t));
+    float fine = 1.0 - smoothstep(0.0, 0.08 + 0.08 * vn(p * 4.7 + 9.0), CellEdge(q * 14.0 + 3.7, t * 1.3));
+    float holes = smoothstep(0.4, 0.75, vn(p * 2.2 + t * 0.04) * 0.7 + vn(p * 5.0) * 0.3);
+    return saturate(big * 0.8 + fine * 0.45) * holes * (0.6 + 0.4 * vn(p * 9.0));
+}
 float Caustic(float2 p, float t)
 {
     float2 i = p; float c = 1.0;

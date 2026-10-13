@@ -4,6 +4,11 @@ Newest first. Each entry says what changed for the player and where the code liv
 
 ## 2026-10-13
 
+### Unity: the sea and the waves on the beach read as one body of water (PR #6)
+- The sand now shelves gently under the sea for three to four tiles off every coast (TerrainView.Shelf, look only), and the shelf floor turns pale sand as it rises. The beach runs down to meet the water almost flush instead of ending in a lip.
+- The water measures its true thickness from the camera depth at every quality setting. Over the shelf it fades from clear at the waterline to turquoise as it deepens, so there is no line where the sea stops and the sheet of water on the sand starts. Thin water is glassier and mirrors the sky less.
+- The static white outline at the waterline is mostly gone between waves. Foam now belongs to the waves: a lacy net of bubbles (FoamNet in IslandCommon.hlsl, warped Voronoi strands torn into patches) spreads over the shallows after each wave lands and rides up the sand with the sheet, drawn from the same coordinates on both, so the lace runs unbroken across the waterline.
+
 ### Unity: coral sand, a greener Palm Isle and waves that lap the beach (PR #6)
 - Beach sand is new: warm coral-white with fine grain, soft wind ripples and a few tiny pale coral and shell bits, in place of the old yellow sand with dark specks. The generator is unity/Tools/TexGen/sand_tex.py. Wet sand now darkens to a warm damp tan instead of grey-blue.
 - Palm Isle is much greener. New games fringe its beaches with coconut palms and put palm groves in its clearings, with shade trees in the thick interior (the other islands are unchanged). In any game, Palm Isle's forest also draws more second trees and undergrowth.

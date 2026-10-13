@@ -128,7 +128,9 @@ Shader "IslandSim/Terrain"
                 float wet = max(film, onBeach * (1.0 - smoothstep(0.0, 0.95, -sd)) * 0.55);   // sand stays damp where the sea last reached
                 wet = max(wet, drained * 0.85);
                 gAlb *= lerp(1.0, half3(0.80, 0.75, 0.66), wet); gAlb = lerp(gAlb, gAlb * half3(0.86, 0.96, 0.98), film);
-                float froth = saturate(edge * 0.7 + mark * 0.55 + streak * 0.35);
+                float net = 0.0;
+                [branch] if (film > 0.001) net = film * FoamNet(xz, _IsTime) * FoamFresh(wf) * 0.6;   // the shallows' foam lace rides up with the sheet
+                float froth = saturate(edge * 0.7 + mark * 0.55 + streak * 0.35 + net);
                 gAlb = lerp(gAlb, half3(0.95, 0.97, 0.98), froth); if (wp.y < -0.05) gAlb *= 0.92;
                 half3 albedo = gAlb * i.tint;
                 float rough = lerp(lerp(lerp(gRough, 0.5, wet), 0.26, drained), 0.18, film * (1.0 - froth));
