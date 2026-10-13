@@ -66,7 +66,7 @@ namespace IslandSim.Core
             if (Gt[i] != GT.Bird) Gt[i] = 0;                    // filling a kulhi or a taro field turns it into plain ground
             if (wasLand != isLand) Origin[i] = 255;
             TerrainVer++; MarkShore(x, y); MarkTrees(x, y);
-            return new TerraResult { Ok = true, Coast = wasLand != isLand };
+            return new TerraResult { Ok = true, Coast = wasLand != isLand || cur == -1 || to == -1 };   // reef flats change the sandbanks too
         }
 
         // smoothing: each tile steps once toward the rounded mean of its 3×3 neighbourhood (worked out before any tile moves)
@@ -98,7 +98,7 @@ namespace IslandSim.Core
             bool coast = false; int x0 = W, y0 = H, x1 = 0, y1 = 0;
             foreach (var kv in u.Undo)
             {
-                int i = kv.Key, x = i % W, y = i / W; var o = kv.Value; if (Bld[i] >= 0) continue; if ((Hgt[i] >= 0) != (o.H >= 0)) coast = true;
+                int i = kv.Key, x = i % W, y = i / W; var o = kv.Value; if (Bld[i] >= 0) continue; if ((Hgt[i] >= 0) != (o.H >= 0) || Hgt[i] == -1 || o.H == -1) coast = true;
                 Hgt[i] = o.H; Tree[i] = o.Tree; Gt[i] = o.Gt; Road[i] = o.Road; Origin[i] = o.O; MarkShore(x, y);
                 x0 = Math.Min(x0, x); y0 = Math.Min(y0, y); x1 = Math.Max(x1, x); y1 = Math.Max(y1, y);
             }

@@ -9,8 +9,8 @@ namespace IslandSim.Core
     /// </summary>
     public static class Tide
     {
-        // One full tide (high to high) every HOURS_PER_SEC game-hours per sim second: 12.42 h in 120 s, four game days.
-        public const double CYCLE_SECONDS = 120;
+        // One full tide (high to high) every CYCLE_SECONDS: 12.42 h in 4 minutes at 1×, eight game days (Ahmed chose 4 min).
+        public const double CYCLE_SECONDS = 240;
         const double HOURS_PER_SEC = 12.4206 / CYCLE_SECONDS;
         // In world units (1 tile = 1 m across; a beach stands 0.26 above the still sea, so a real metre-high tide would
         // drown every beach): spring range 0.32, neap range 0.16.

@@ -167,13 +167,16 @@ Shader "IslandSim/Terrain"
                 float drained = onBeach * step(rel, 0.0) * smoothstep(-0.03, 0.02, top) * drain;
                 float wet = max(cov, onBeach * (1.0 - smoothstep(0.0, 0.95, -sd)) * 0.55);   // sand stays damp where the sea last reached
                 wet = max(wet, drained * 0.85);
+                // a sandbank bared by the falling tide out in the lagoon is soaked and glistening
+                float bankWet = smoothstep(0.3, 0.8, sd) * smoothstep(-0.16, -0.1, dpt) * (1.0 - smoothstep(-0.002, 0.0, dpt));
+                wet = max(wet, bankWet * 0.9);
                 gAlb *= lerp(1.0, half3(0.80, 0.75, 0.66), wet);
                 float net = 0.0;
                 [branch] if (sheet > 0.001) net = sheet * FoamNet(xz, _IsTime) * FoamFresh(wf) * 0.6;   // the shallows' foam lace rides up with the sheet
                 float froth = saturate(edge + mark * 0.55 + streak * 0.35 + net);
                 gAlb = lerp(gAlb, half3(0.95, 0.97, 0.98), froth); if (wp.y < -0.05) gAlb *= 0.92;
                 half3 albedo = gAlb * i.tint;
-                float rough = lerp(lerp(gRough, 0.5, wet), 0.26, drained);
+                float rough = lerp(lerp(lerp(gRough, 0.5, wet), 0.26, drained), 0.3, bankWet * 0.8);
                 // the layers' normal maps on a tangent frame along +x
                 float3 Tg = normalize(float3(1, 0, 0) - gWN * gWN.x); float3 Bg = -cross(Tg, gWN);
                 float3 tn = normalize(float3(gTN.xy * 1.15, max(gTN.z, 0.2)));

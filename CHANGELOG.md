@@ -4,6 +4,11 @@ Newest first. Each entry says what changed for the player and where the code liv
 
 ## 2026-10-13
 
+### Unity: sandbanks that dry at low tide, a 4-minute tide (PR #6)
+- Ahmed chose to see the sandbanks: the reef flats on the short ways between two islands (up to 8 flats long, one tile either side) now lie just under the sea instead of 0.7 below it, so they surface as wet, glistening sand bars when the tide drops below the wading line and go under again as it rises (Sim.ComputeSandbanks, TerrainView.TileY/BANK_Y, IslandTerrain shader bankWet). Their crests rise and dip a little, so they dry in bars and pools.
+- Wading now follows those same banks: at low tide residents cross only where a sandbank joins the islands (Sim.Bank is land plus sandbanks). Raising or lowering a reef flat updates the banks.
+- One full tide now takes 4 minutes at 1× (8 game days) instead of 2, as Ahmed asked (Tide.CYCLE_SECONDS 240).
+
 ### Unity: tides that move the sea, dhonis that wait for high water, wading over sandbanks (PR #6)
 - First slice of the environmental systems plan. The sea now rises and falls with a real two-constituent tide (moon 12.42 h plus sun 12 h, so spring and neap tides come and go on their own), one full tide every 2 minutes at 1× (Ahmed chose the slow tide). It follows the game clock, so it pauses, speeds up and loads back exactly; nothing new is saved (Scripts/Core/Tide.cs).
 - The water surface, the moving waterline and the swash on the beach all ride the tide together (WaterView.SetTide, IslandShore.hlsl _IsSeaY/_IsTideSd). The range is kept small (0.32 at springs) so beaches are never drowned.

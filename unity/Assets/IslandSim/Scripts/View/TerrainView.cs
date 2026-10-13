@@ -101,6 +101,7 @@ namespace IslandSim.View
             if (g == GT.Seagrass) { o[1] = .7f; o[4] = .3f; return; }
             if (g == GT.Taro && S.Bld[i] < 0) { o[5] = .6f; o[1] = .4f; return; }
             if (h <= -2) o[0] = 1;                                        // lagoon floor: clean sand
+            else if (h == -1 && S.Sandbank[i] != 0) { o[0] = .9f; o[4] = .1f; }   // sandbank: clean sand with a little rubble
             else if (h == -1) { if (NearLand(x, y)) { o[0] = .85f; o[4] = .15f; } else o[4] = 1; }   // reef flat: rubble, seagrass; clean sand on the shelf off a beach
             else if (h == 0) o[0] = 1;
             else if (h <= 2) { if (S.Tree[i] == 1) o[2] = 1; else { o[1] = 1; o[5] = Hash(x, y, 31) < .18f ? .6f : 0; } }
@@ -110,16 +111,20 @@ namespace IslandSim.View
             if (S.Bld[i] >= 0 && h >= 1) { o[1] *= .4f; o[5] += .8f; }    // trampled ground around buildings
         }
 
+        // Sandbanks lie just under the still sea, so they dry when the tide falls below Tide.LOW and residents can wade
+        const float BANK_Y = WATER_Y - 0.055f;
+        float TileY(int i) => S.Hgt[i] == -1 && S.Sandbank[i] != 0 ? BANK_Y : TopY(S.Hgt[i]);
         float CornerHeight(int x, int y)
         {
-            float sh = 0, landSum = 0; int n = 0, landN = 0;
+            float sh = 0, landSum = 0; int n = 0, landN = 0, bankN = 0;
             for (int ty = y - 1; ty <= y; ty++)
                 for (int tx = x - 1; tx <= x; tx++)
                 {
-                    if (!Sim.Inb(tx, ty)) continue; int h = S.Hgt[Sim.Idx(tx, ty)]; float t = TopY(h); sh += t; n++; if (h >= 0) { landSum += t; landN++; }
+                    if (!Sim.Inb(tx, ty)) continue; int i = Sim.Idx(tx, ty), h = S.Hgt[i]; float t = TileY(i); sh += t; n++; if (h >= 0) { landSum += t; landN++; } else if (S.Sandbank[i] != 0) bankN++;
                 }
             float yy = n > 0 ? sh / n : TopY(-3); if (landN >= 2) yy = Mathf.Max(yy, Mathf.Min(landSum / landN, 0.05f)); // the beach runs down to meet the water almost flush, with no lip
-            if (landN == 0) yy = SeaFloor(x, y, yy);
+            if (landN == 0 && bankN == 0) yy = SeaFloor(x, y, yy);
+            else if (landN == 0 && bankN == n) yy += (Hash(x, y, 61) - .5f) * .045f;   // the bank's crest rises and dips, so it dries in bars and pools
             return Coast(x, y, yy);
         }
         // Under water the floor is averaged over a wider 4×4 patch of tiles, so a reef flat slopes down into the lagoon over
@@ -200,7 +205,7 @@ namespace IslandSim.View
                 for (int x = 0; x < w; x++)
                 {
                     int X = x0 + x, Y = y0 + y, v = nc + y * w + x;
-                    int hh = S.Hgt[Sim.Idx(X, Y)]; float ty = TopY(hh);
+                    int hh = S.Hgt[Sim.Idx(X, Y)]; float ty = TileY(Sim.Idx(X, Y));
                     if (hh < 0)
                     {
                         // out in open water the floor rolls in mounds and hollows instead of tile-sized steps; a tile dug into
@@ -270,7 +275,7 @@ namespace IslandSim.View
                 for (int x = Mathf.Max(0, r.X0 - 1); x <= Mathf.Min(W - 1, r.X1 + 1); x++)
                 {
                     int i = Sim.Idx(x, y), h = S.Hgt[i];
-                    depthData[i] = new Color32((byte)(h >= 0 ? 0 : Mathf.Floor(Mathf.Min(1, (WATER_Y - TopY(h)) / 2.2f) * 255 + .5f)), (byte)(h >= 0 ? 255 : 0), (byte)(h <= -3 && oceanMask[i] != 0 ? 255 : 0), 255);
+                    depthData[i] = new Color32((byte)(h >= 0 ? 0 : Mathf.Floor(Mathf.Min(1, (WATER_Y - TileY(i)) / 2.2f) * 255 + .5f)), (byte)(h >= 0 ? 255 : 0), (byte)(h <= -3 && oceanMask[i] != 0 ? 255 : 0), 255);
                 }
             DepthTex.SetPixels32(depthData); DepthTex.Apply(false);
             return true;

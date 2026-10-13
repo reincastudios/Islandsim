@@ -63,9 +63,13 @@ namespace IslandSim.Core
 
         public List<Island> Islands = new List<Island>();
         public short[] Comp;
-        /// <summary>Land joined by sandbanks: land and reef flats (height -1) labelled together. At low tide residents wade
-        /// across to work on another island of the same bank; goods and warehouses stay with their own island.</summary>
+        /// <summary>Land joined by sandbanks, labelled together. At low tide residents wade across to work on another island
+        /// of the same bank; goods and warehouses stay with their own island.</summary>
         public short[] Bank;
+        /// <summary>Sandbanks: the reef flats (height -1) on the short ways between two islands, at most SANDBANK_REACH
+        /// flats long, and one tile either side. They lie just under the sea and dry at low tide.</summary>
+        public byte[] Sandbank;
+        public const int SANDBANK_REACH = 8;
         public (int x, int y)?[] IslAnchor = new (int, int)?[Defs.Islands.Length];
         public List<Boat> Boats = new List<Boat>();
         public int TerrainVer;
@@ -142,6 +146,44 @@ namespace IslandSim.Core
         }
 
         // ------------------------------------------------------------ islands
+        // Grows every island out over the reef flats at once; where two islands' growth meets within SANDBANK_REACH flats,
+        // the way back to each shore is a sandbank. Changed tiles are marked so the ground there is redrawn.
+        void ComputeSandbanks(int[] q)
+        {
+            var own = new int[W * H]; var dist = new int[W * H]; var par = new int[W * H]; int qh = 0, qt = 0;
+            for (int i = 0; i < W * H; i++) { own[i] = Hgt[i] >= 0 ? Comp[i] : -1; par[i] = -1; if (own[i] >= 0) q[qt++] = i; }
+            while (qh < qt)
+            {
+                int c = q[qh++], cx = c % W, cy = c / W; if (dist[c] >= SANDBANK_REACH) continue;
+                for (int k = 0; k < 4; k++) { int nx = cx + DX[k], ny = cy + DY[k]; if (!Inb(nx, ny)) continue; int ni = Idx(nx, ny); if (Hgt[ni] == -1 && own[ni] < 0) { own[ni] = own[c]; dist[ni] = dist[c] + 1; par[ni] = c; q[qt++] = ni; } }
+            }
+            var path = new byte[W * H];
+            void Trace(int c) { for (; c >= 0 && Hgt[c] == -1 && path[c] == 0; c = par[c]) path[c] = 1; }
+            for (int c = 0; c < W * H; c++)
+            {
+                if (own[c] < 0) continue; int cx = c % W, cy = c / W;
+                for (int k = 0; k < 4; k++)
+                {
+                    int nx = cx + DX[k], ny = cy + DY[k]; if (!Inb(nx, ny)) continue; int n = Idx(nx, ny);
+                    if (own[n] < 0 || own[n] == own[c] || dist[c] + dist[n] > SANDBANK_REACH) continue;
+                    Trace(c); Trace(n);
+                }
+            }
+            var nbk = new byte[W * H];
+            for (int c = 0; c < W * H; c++)
+            {
+                if (path[c] == 0) continue; nbk[c] = 1; int cx = c % W, cy = c / W;
+                for (int k = 0; k < 4; k++) { int nx = cx + DX[k], ny = cy + DY[k]; if (Inb(nx, ny) && Hgt[Idx(nx, ny)] == -1) nbk[Idx(nx, ny)] = 1; }
+            }
+            if (Sandbank != null)
+            {
+                int x0 = W, y0 = H, x1 = -1, y1 = -1;
+                for (int i = 0; i < W * H; i++) if (nbk[i] != Sandbank[i]) { int x = i % W, y = i / W; x0 = Math.Min(x0, x); y0 = Math.Min(y0, y); x1 = Math.Max(x1, x); y1 = Math.Max(y1, y); }
+                if (x1 >= 0) MarkTerrain(x0, y0, x1, y1);
+            }
+            Sandbank = nbk;
+        }
+
         public void ComputeIslands()
         {
             Comp = new short[W * H]; for (int i = 0; i < Comp.Length; i++) Comp[i] = -1;
@@ -200,15 +242,16 @@ namespace IslandSim.Core
                 else { for (int g = 0; g < GoodCount; g++) { isl.Harbor.Stock[g] += b.Stock[g]; b.Stock[g] = 0; } b.Merged = true; }
             }
             foreach (var b in Buildings) b.Isl = Comp[Idx(b.X, b.Y)];
+            ComputeSandbanks(q);
             Bank = new short[W * H]; for (int i = 0; i < Bank.Length; i++) Bank[i] = -1; short nb = 0;
             for (int s = 0; s < W * H; s++)
             {
-                if (Hgt[s] < -1 || Bank[s] >= 0) continue;
+                if ((Hgt[s] < 0 && Sandbank[s] == 0) || Bank[s] >= 0) continue;
                 int qh = 0, qt = 0; q[qt++] = s; Bank[s] = nb;
                 while (qh < qt)
                 {
                     int c = q[qh++], cx = c % W, cy = c / W;
-                    for (int k = 0; k < 4; k++) { int nx = cx + DX[k], ny = cy + DY[k]; if (!Inb(nx, ny)) continue; int ni = Idx(nx, ny); if (Hgt[ni] >= -1 && Bank[ni] < 0) { Bank[ni] = nb; q[qt++] = ni; } }
+                    for (int k = 0; k < 4; k++) { int nx = cx + DX[k], ny = cy + DY[k]; if (!Inb(nx, ny)) continue; int ni = Idx(nx, ny); if ((Hgt[ni] >= 0 || Sandbank[ni] != 0) && Bank[ni] < 0) { Bank[ni] = nb; q[qt++] = ni; } }
                 }
                 nb++;
             }
