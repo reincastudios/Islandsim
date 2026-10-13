@@ -44,7 +44,7 @@ namespace IslandSim.View
             terrain = new TerrainView(S, world); terrain.Sync(); World.Surface = terrain.SurfaceY;
             groundY = terrain.GroundY;
             Shader.SetGlobalTexture("_IsShore", terrain.ShoreTex); Shader.SetGlobalTexture("_IsDepth", terrain.DepthTex);
-            water = new WaterView(world);
+            water = new WaterView(world, terrain);
             veg = new VegetationView(S);
             buildings = new BuildingView(S, world);
             cursor = new CursorView(S, terrain);
@@ -200,7 +200,8 @@ namespace IslandSim.View
 
             Rig.Apply();
             water.SetTide((float)Tide.Level(S.T));
-            terrain.Sync(); veg.Sync();
+            if (terrain.Sync()) water.SyncShore(terrain, terrain.Changed);
+            veg.Sync(); water.UpdateLod(Rig.Cam.transform.position);
             Atmos.Update(t, Rig.Tx, Rig.Tz, Rig.Dist);
             veg.Draw(Rig.Cam); buildings.Update(t);
             cursor.Draw(hover, hud.Selected);
@@ -244,7 +245,8 @@ namespace IslandSim.View
             float dt = 1f / Cinematic.Fps;
             acc += dt * Mathf.Max(1, Speed); int n = 0; while (acc >= .1f && n < 20) { S.Step(.1); acc -= .1f; n++; }
             water.SetTide((float)Tide.Level(S.T));
-            terrain.Sync(); veg.Sync();
+            if (terrain.Sync()) water.SyncShore(terrain, terrain.Changed);
+            veg.Sync(); water.UpdateLod(Rig.Cam.transform.position);
             float dist = Vector3.Distance(Rig.Cam.transform.position, World.U(look.x, look.y, look.z));
             Atmos.Update(t + cineT0, look.x, look.z, dist);
             veg.Draw(Rig.Cam); buildings.Update(t + cineT0);

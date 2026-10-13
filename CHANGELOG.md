@@ -4,6 +4,13 @@ Newest first. Each entry says what changed for the player and where the code liv
 
 ## 2026-10-13
 
+### Unity: the waves are the sea itself, not a picture on the sand (PR #6)
+- Ahmed: the wave on the sand looked independent of the main water. It was: the sea was a flat plane and the terrain shader painted each wave onto the sand.
+- Round every coast the sea is now a fine grid in 16x16-tile blocks (WaterView), drawn with the same water material. Its vertices move: the swell rises as it shoals, the sea draws back, then the broken wave runs up the sand as a thin sheet of the same water and drains away. The open-sea plane leaves those blocks out and its swell is flat near them, so the two meet without a seam.
+- Blocks use a quarter, half or whole-tile grid by camera distance, and morph between grids so neighbours never crack.
+- The shore grid reads the drawn ground exactly (TerrainView corner and centre height textures), so the water meets the sand where it is drawn at every tide.
+- Removed the painted sheet, its foam lace and streaks from IslandTerrain; the sand keeps its wet, drained and high-water marks. Tested in Ahmed's editor at high and low tide.
+
 ### Unity: dug tiles are remembered, natural lagoon edges slope gently (PR #6)
 - Ahmed chose "record dug tiles": the game now remembers which tiles the player has dug below the beach (Sim.Dug, set by Lower/Level, cleared when a tile is raised back to land, restored by undo, saved as "dug"; older saves load with none). Only dug ground keeps a sharp bank (TerrainView.Coast, DUG_SLOPE back to 1.5), so canals and basins still show.
 - A natural deep lagoon beside a beach now shelves gently like the rest of the beach, then falls away to the lagoon floor over the shelf's last tile instead of dropping off as a bank at the waterline.

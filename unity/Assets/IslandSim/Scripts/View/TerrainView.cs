@@ -33,11 +33,19 @@ namespace IslandSim.View
         // water depth (r), land (g) and open ocean (b) per tile, for the sea
         readonly Color32[] depthData = new Color32[W * H];
         public readonly Texture2D DepthTex = new Texture2D(W, H, TextureFormat.RGBA32, false, true) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear, name = "depth" };
+        // the drawn ground's corner and centre heights, so the shore water's vertices find the sand exactly where the mesh
+        // draws it (SurfaceY, in the water shader)
+        readonly float[] centreY = new float[W * H];
+        readonly Texture2D cornerTex = new Texture2D(W + 1, H + 1, TextureFormat.RFloat, false, true) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Point, name = "cornerY" };
+        readonly Texture2D centreTex = new Texture2D(W, H, TextureFormat.RFloat, false, true) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Point, name = "centreY" };
+        /// <summary>The tiles the last Sync changed (inclusive), for the shore water.</summary>
+        public RectInt Changed;
         int shoreVer = -1;
 
         public TerrainView(Sim s, Transform parent)
         {
             S = s;
+            Shader.SetGlobalTexture("_IsCornerY", cornerTex); Shader.SetGlobalTexture("_IsCentreY", centreTex);
             Mat = Mats.Terrain();
             if (Mat != null) { Mat.SetTexture("_Alb", Mats.Array("_albedo")); Mat.SetTexture("_Nor", Mats.Array("_normal")); }
             for (int cy = 0; cy < CYN; cy++)
@@ -177,7 +185,7 @@ namespace IslandSim.View
             return false;
         }
         // signed distance to the coastline in tiles at a point in tile space, bilinear like the shaders' ShoreD
-        float ShoreAt(float fx, float fy)
+        public float ShoreAt(float fx, float fy)
         {
             float sx = Mathf.Clamp(fx * SR - .5f, 0, SW - 1.001f), sy = Mathf.Clamp(fy * SR - .5f, 0, SH - 1.001f);
             int x0 = (int)sx, y0 = (int)sy; float tx = sx - x0, ty = sy - y0; int i = y0 * SW + x0;
@@ -239,7 +247,7 @@ namespace IslandSim.View
                     int X = x0 + x, Y = y0 + y, v = nc + y * w + x;
                     // out in open water the floor rolls in mounds and hollows instead of tile-sized steps; a tile dug into the
                     // land (its corners on the beach) keeps its own depth so the hole shows (CentreY)
-                    c.Pos[v].y = CentreY(X, Y); c.Col[v] = TileTint(X, Y);
+                    c.Pos[v].y = centreY[Y * W + X] = CentreY(X, Y); c.Col[v] = TileTint(X, Y);
                     TileSplat(X, Y, spl); c.S0[v] = new Vector4(spl[0], spl[1], spl[2], spl[3]); c.S1[v] = new Vector4(spl[4], spl[5], spl[6], 0);
                     float nx = -(CAt(X + 1, Y) + CAt(X + 1, Y + 1) - CAt(X, Y) - CAt(X, Y + 1)) / 2, nz = -(CAt(X, Y + 1) + CAt(X + 1, Y + 1) - CAt(X, Y) - CAt(X + 1, Y)) / 2;
                     c.Nrm[v] = U(new Vector3(nx, 1, nz).normalized);
@@ -304,6 +312,10 @@ namespace IslandSim.View
                     depthData[i] = new Color32((byte)(h >= 0 ? 0 : Mathf.Floor(Mathf.Min(1, (WATER_Y - TileY(i)) / 2.2f) * 255 + .5f)), (byte)(h >= 0 ? 255 : 0), (byte)(h <= -3 && oceanMask[i] != 0 ? 255 : 0), 255);
                 }
             DepthTex.SetPixels32(depthData); DepthTex.Apply(false);
+            cornerTex.SetPixelData(CornerY, 0); cornerTex.Apply(false); centreTex.SetPixelData(centreY, 0); centreTex.Apply(false);
+            int cx0 = r.X0, cy0 = r.Y0, cx1 = r.X1, cy1 = r.Y1;
+            if (!sd.Empty) { cx0 = Mathf.Min(cx0, sd.X0); cy0 = Mathf.Min(cy0, sd.Y0); cx1 = Mathf.Max(cx1, sd.X1); cy1 = Mathf.Max(cy1, sd.Y1); }
+            Changed = new RectInt(cx0, cy0, cx1 - cx0 + 1, cy1 - cy0 + 1);
             return true;
         }
 

@@ -1,5 +1,5 @@
 // The ground: seven texture layers (sand, grass, forest, rock, reef, soil, path) blended by per-vertex weights, with
-// triplanar rock on cliffs, ragged road edges, waves washing up the beach and caustics under water (the web game's terrain).
+// triplanar rock on cliffs, ragged road edges, sand wetted by the waves and caustics under water (the web game's terrain).
 Shader "IslandSim/Terrain"
 {
     Properties
@@ -140,31 +140,21 @@ Shader "IslandSim/Terrain"
                 }
                 // the deep lagoon floor is not one even sand: drifts of seagrass and rubble mottle it here and there
                 if (wp.y < -0.3) gAlb *= lerp(1.0, half3(0.74, 0.84, 0.68), smoothstep(0.55, 0.78, vn(xz * 0.55) * 0.7 + vn(xz * 2.1) * 0.3) * smoothstep(-0.3, -0.9, wp.y) * 0.8);
-                // swash: the sea ends at one moving edge, shared with the water. As each wave arrives the edge runs up the
-                // sand as a sheet of the same water (same ripples, reflection and glint, same foam fringe), then drains
-                // back down; between waves it draws back a little below the still waterline
+                // swash: the water itself runs up the sand and drains back (the shore grid in WaterView). The sand only
+                // shows where it has been: dark and wet under and just above the wave's reach, a bubbly line where each
+                // wave stopped, and a glistening band as it drains
                 float sd = ShoreD(xz); float4 wf = WaveFront(xz, _IsTime); float jit = JitH(xz, _IsTime);
                 float rel = (IS_WATER_Y + RunUpH(xz, wf) + jit - wp.y) / 0.25;                 // > 0: under the sea or the running wave
                 float near = (1.0 - smoothstep(0.35, 0.6, wp.y)) * (1.0 - smoothstep(1.0, 1.6, -sd)) * (1.0 - smoothstep(3.5, 4.5, sd));   // the beach and the shelf the tide uncovers
                 float dpt = IS_WATER_Y - wp.y;                                                   // depth under the sea right now
                 float onBeach = near * smoothstep(0.005, -0.005, dpt);                           // above it: the beach's own
-                // a wave only spreads into a sheet on sloping sand: on a steep bank it is just a line, and the sea itself draws the rest
-                float cov = near * smoothstep(-0.01, 0.05, rel) * smoothstep(0.72, 0.9, gWN.y);
-                float sheet = cov * SheetFade(dpt);                                              // the water takes over as it deepens
-                float edge = near * (1.0 - smoothstep(0.0, 0.03, dpt)) * EdgeFoam(xz, _IsTime, rel, wf);
-                // as the sheet drains it leaves a bubbly line where it stopped, foam streaks pulled back toward the sea,
+                float cov = near * smoothstep(-0.01, 0.05, rel);                                  // under the water now
+                // as the wave drains it leaves a bubbly line where it stopped
                 // and a band of glistening sand between the line and the retreating water
                 float top = (wp.y - IS_WATER_Y - RunMax(xz) - jit) / 0.25;                      // 0 at the highest reach, + above it
                 float drain = smoothstep(0.55, 0.64, wf.x) * (1.0 - smoothstep(0.78, 1.0, wf.x));
                 float bub = smoothstep(0.3, 0.7, vn(xz * 22.0) * 0.7 + vn(xz * 9.0) * 0.3);
                 float mark = onBeach * drain * exp(-top * top / 0.0012) * bub;
-                float streak = sheet * smoothstep(0.62, 0.7, wf.x) * (1.0 - smoothstep(0.85, 1.0, wf.x));
-                [branch] if (streak > 0.001)   // only the draining sheet pays for the extra shore samples
-                {
-                    float2 ge = float2(0.2, 0.0);
-                    float2 gd = float2(ShoreD(xz + ge.xy) - ShoreD(xz - ge.xy), ShoreD(xz + ge.yx) - ShoreD(xz - ge.yx)); gd /= max(length(gd), 1e-3);
-                    streak *= smoothstep(0.62, 0.85, vn(float2(dot(xz, float2(-gd.y, gd.x)) * 11.0, dot(xz, gd) * 1.6 + wf.x * 5.0)));
-                }
                 float drained = onBeach * step(rel, 0.0) * smoothstep(-0.03, 0.02, -top) * drain;
                 float wet = max(cov, onBeach * (1.0 - smoothstep(0.0, 0.95, top)) * 0.55);   // sand stays damp a little above where the waves reach
                 wet = max(wet, drained * 0.85);
@@ -172,9 +162,7 @@ Shader "IslandSim/Terrain"
                 float bankWet = step(dpt, 0.0) * (1.0 - smoothstep(IS_STILL_Y + 0.07, IS_STILL_Y + 0.13, wp.y)) * smoothstep(-0.6, 0.2, sd);   // the whole band the tide uncovers
                 wet = max(wet, bankWet * 0.9);
                 gAlb *= lerp(1.0, half3(0.80, 0.75, 0.66), wet);
-                float net = 0.0;
-                [branch] if (sheet > 0.001) net = sheet * FoamNet(xz, _IsTime) * FoamFresh(wf) * 0.6;   // the shallows' foam lace rides up with the sheet
-                float froth = saturate(edge + mark * 0.55 + streak * 0.35 + net);
+                float froth = saturate(mark * 0.55);
                 gAlb = lerp(gAlb, half3(0.95, 0.97, 0.98), froth); if (wp.y < IS_WATER_Y - 0.07) gAlb *= 0.92;
                 half3 albedo = gAlb * i.tint;
                 float rough = lerp(lerp(lerp(gRough, 0.5, wet), 0.26, drained), 0.3, bankWet * 0.8);
@@ -186,13 +174,6 @@ Shader "IslandSim/Terrain"
                 half boost = 1;
                 if (wp.y < IS_WATER_Y) { float dpt = IS_WATER_Y - wp.y; float c = Caustic(xz * 0.9, _IsTime * 0.55); boost = 1.0 + c * 2.2 * exp(-dpt * 0.9) * smoothstep(0.0, 0.15, dpt); }
                 half3 col = IslandShade(wp, n, albedo, 0, 1.0 - rough, GetNormalizedScreenSpaceUV(i.positionCS), boost);
-                // the sheet on the sand is the sea's own surface: its reflection hands over to the water's as it deepens
-                [branch] if (sheet * (1.0 - froth) > 0.001)
-                {
-                    float3 V = normalize(GetCameraPositionWS() - wp);
-                    half3 w = WaterSurface(col * half3(0.91, 0.98, 0.99), Ripples(xz, _IsTime) * 0.066, V, 1.0, CloudShadow(xz, _IsTime));
-                    col = lerp(col, w, sheet * (1.0 - froth));
-                }
                 return half4(MixFog(col, i.fog), 1);
             }
             ENDHLSL
