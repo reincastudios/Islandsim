@@ -105,6 +105,25 @@ Shader "IslandSim/Terrain"
                     gAlb += LayAlb(l, u, tb).rgb * w;
                     half3 tn = LayNor(l, u, tb); tn.y = -tn.y; gTN += tn * w; gRough += RGH[l] * w;
                 }
+                // coral: the reef flats and the knolls in the lagoon carry clumps of coral heads (brown, olive and dusky
+                // pink) in drifts of pale sand, rather than an even wash of rubble. Clumps gather where a slow field is
+                // high, so the reef reads as patches and bommies from above, as in aerial photos of the atolls.
+                float reefW = wts[4] / max(wsum, 1e-4);
+                float knoll = smoothstep(-0.35, -0.6, wp.y) * (1.0 - smoothstep(-1.1, -1.5, wp.y)) * (1.0 - reefW);
+                float coralW = saturate(reefW + knoll * 0.8);
+                [branch] if (coralW > 0.02 && wp.y < 0.0)
+                {
+                    float patch = vn(xz * 0.45 + 11.3) * 0.65 + vn(xz * 1.3 + 5.1) * 0.35;
+                    float c1 = vn(xz * 2.3), c2 = vn(xz * 7.1 + 3.3), c3 = vn(xz * 19.0 + 1.7);
+                    float heads = smoothstep(0.5, 0.66, c1 * 0.55 + c2 * 0.3 + patch * 0.35 - (1.0 - reefW) * 0.12);
+                    half3 coral = lerp(half3(0.36, 0.27, 0.18), half3(0.50, 0.36, 0.38), c3);
+                    coral = lerp(coral, half3(0.27, 0.31, 0.19), smoothstep(0.55, 0.8, c2));
+                    gAlb = lerp(gAlb, half3(0.93, 0.90, 0.82), (1.0 - heads) * coralW * 0.45);   // sand drifts between the heads
+                    gAlb = lerp(gAlb, coral * (0.7 + 0.6 * c3), heads * coralW);
+                    gRough = lerp(gRough, 0.92, heads * coralW);
+                }
+                // the deep lagoon floor is not one even sand: drifts of seagrass and rubble mottle it here and there
+                if (wp.y < -0.3) gAlb *= lerp(1.0, half3(0.74, 0.84, 0.68), smoothstep(0.55, 0.78, vn(xz * 0.55) * 0.7 + vn(xz * 2.1) * 0.3) * smoothstep(-0.3, -0.9, wp.y) * 0.8);
                 // swash: the sea ends at one moving edge, shared with the water. As each wave arrives the edge runs up the
                 // sand as a sheet of the same water (same ripples, reflection and glint, same foam fringe), then drains
                 // back down; between waves it draws back a little below the still waterline

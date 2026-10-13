@@ -4,6 +4,11 @@ Newest first. Each entry says what changed for the player and where the code liv
 
 ## 2026-10-13
 
+### Unity: reworked sea floor, terraforming that shows and lands under the mouse (PR #6)
+- Sea floor: reef flats and lagoon knolls now carry clumps of coral heads (brown, olive and dusky pink) in drifts of pale sand, gathered into patches and bommies as in aerial photos of the atolls; the deep lagoon floor is mottled with seagrass and rubble (IslandTerrain shader). Under water the floor is averaged over a 4×4 patch of tiles with a small random rise or dip per corner (TerrainView.SeaFloor), so reef flats slope into the lagoon over two tiles and the floor rolls in mounds instead of tile-sized steps. Look only: the sim's depths are unchanged.
+- Terraforming showed almost nothing near the coast: the smooth sand shelf refilled whatever you dug, so lowering a beach tile (even to -3) or cutting a canal looked like a damp patch. Ground dug deeper than a reef flat now keeps its depth (TerrainView.Coast: the shelf drops at DUG_SLOPE 1.5 there instead of 0.22), and a tile dug into the land no longer has its centre smoothed up to the beach.
+- The brush and cursor now pick the tile under the mouse on the ground as it is drawn (RtsCamera.Pick marches against TerrainView.GroundY and narrows the hit), instead of against flat tile boxes, which picked the wrong tile on the sloping coast and on raised edges.
+
 ### Unity: slightly deeper atoll lagoons (PR #6)
 - The lagoon floor (height -2 and below) sits 0.5 units deeper than before (World.LAGOON_EXTRA, look only: boats and the sim are unchanged), and the water's colour builds a little faster with depth (absorption 1.35/0.27/0.15). The lagoons read as a slightly richer, deeper turquoise; the beach shelves and reef flats are unchanged.
 

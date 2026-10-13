@@ -18,7 +18,7 @@ namespace IslandSim.View
         public RtsCamera Rig { get; private set; }
         public Atmosphere Atmos { get; private set; }
         public int Speed { get; private set; } = 1;
-        Hud hud; TerrainView terrain; WaterView water; VegetationView veg; BuildingView buildings; CursorView cursor;
+        Func<float, float, float> groundY; Hud hud; TerrainView terrain; WaterView water; VegetationView veg; BuildingView buildings; CursorView cursor;
         Transform world;
 
         public static readonly string[] Slots = { "islandsim.save1", "islandsim.save2", "islandsim.save3" };
@@ -42,6 +42,7 @@ namespace IslandSim.View
             if (!auto) { S.NewGame(); Rig.Home(S); }
 
             terrain = new TerrainView(S, world);
+            groundY = terrain.GroundY;
             Shader.SetGlobalTexture("_IsShore", terrain.ShoreTex); Shader.SetGlobalTexture("_IsDepth", terrain.DepthTex);
             water = new WaterView(world);
             veg = new VegetationView(S);
@@ -135,7 +136,7 @@ namespace IslandSim.View
                 // rotate: right or middle drag, or Shift/Alt/Ctrl + left drag (trackpads, one-button mice)
                 if (btn == 1 || btn == 2 || (btn == 0 && mod)) { Rig.Goal = null; drag = Drag.Rot; dragBtn = btn; moved = 0; last = m; }
                 else if (hud.Tool == "inspect") { drag = Drag.Pan; dragBtn = 0; moved = 0; last = m; }
-                else { var t = Rig.Pick(S, m); S.BeginStroke(t?.x ?? -1, t?.y ?? -1); }
+                else { var t = Rig.Pick(S, m, groundY); S.BeginStroke(t?.x ?? -1, t?.y ?? -1); }
             }
 
             if (drag != Drag.None)
@@ -146,7 +147,7 @@ namespace IslandSim.View
             }
             else
             {
-                hover = overHud ? null : Rig.Pick(S, m);
+                hover = overHud ? null : Rig.Pick(S, m, groundY);
                 if (S.CurStroke != null && hover.HasValue) S.DragStroke(hover.Value.x, hover.Value.y);
             }
 
@@ -154,7 +155,7 @@ namespace IslandSim.View
             {
                 if (!InputBridge.MouseUp(btn)) continue;
                 // a click in Survey selects; a right-click without dragging drops the tool
-                if (drag == Drag.Pan && btn == 0 && moved < 6 && hud.Tool == "inspect") { var t = Rig.Pick(S, m); var bd = t.HasValue ? S.BAt(t.Value.x, t.Value.y) : null; if (bd != null) hud.SelectBuilding(bd); else hud.CloseSel(); }
+                if (drag == Drag.Pan && btn == 0 && moved < 6 && hud.Tool == "inspect") { var t = Rig.Pick(S, m, groundY); var bd = t.HasValue ? S.BAt(t.Value.x, t.Value.y) : null; if (bd != null) hud.SelectBuilding(bd); else hud.CloseSel(); }
                 if (drag == Drag.Rot && dragBtn == 1 && btn == 1 && moved < 6) { if (hud.Tool != "inspect") hud.SetTool("inspect"); else hud.CloseSel(); }
                 if (drag != Drag.None && btn == dragBtn) drag = Drag.None;
                 if (!InputBridge.MouseHeld(0) && !InputBridge.MouseHeld(1) && !InputBridge.MouseHeld(2)) { S.EndStroke(); drag = Drag.None; }

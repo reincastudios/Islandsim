@@ -119,21 +119,41 @@ namespace IslandSim.View
                     if (!Sim.Inb(tx, ty)) continue; int h = S.Hgt[Sim.Idx(tx, ty)]; float t = TopY(h); sh += t; n++; if (h >= 0) { landSum += t; landN++; }
                 }
             float yy = n > 0 ? sh / n : TopY(-3); if (landN >= 2) yy = Mathf.Max(yy, Mathf.Min(landSum / landN, 0.05f)); // the beach runs down to meet the water almost flush, with no lip
+            if (landN == 0) yy = SeaFloor(x, y, yy);
             return Coast(x, y, yy);
+        }
+        // Under water the floor is averaged over a wider 4×4 patch of tiles, so a reef flat slopes down into the lagoon over
+        // two tiles instead of dropping off a tile edge, and every corner gets a small random rise or dip so the floor rolls
+        // in sandy mounds and hollows (look only; the sim's depths are unchanged)
+        static readonly float[] SF_W = { 1, 3, 3, 1 };
+        float SeaFloor(int x, int y, float near)
+        {
+            float s = 0, wsum = 0;
+            for (int j = 0; j < 4; j++)
+                for (int i = 0; i < 4; i++)
+                {
+                    int tx = x - 2 + i, ty = y - 2 + j; if (!Sim.Inb(tx, ty)) continue; int h = S.Hgt[Sim.Idx(tx, ty)];
+                    float w = SF_W[i] * SF_W[j]; s += (h >= 0 ? TopY(-1) : TopY(h)) * w; wsum += w;
+                }
+            float f = wsum > 0 ? Mathf.Lerp(near, s / wsum, .7f) : near;
+            return f + (Hash(x, y, 57) - .5f) * Mathf.Clamp01((WATER_Y - f) * .3f) * .28f;
         }
 
         // The coast follows the smooth shoreline field (the one the waves use), not the tile grid: near the waterline every
         // vertex takes its height from its distance to that line, so the water's edge curves round the island instead of
         // stepping tile by tile. The beach rises quickly to the tile height inland, and seaward the sand shelves gently for
         // three to four tiles, so the water thins to clear over it (look only; the sim's tiles are unchanged).
-        const float SHELF_TOP = WATER_Y - 0.04f, SHELF_SLOPE = 0.22f, SHELF_REACH = 3.6f, BEACH_SLOPE = 0.8f;
+        const float SHELF_TOP = WATER_Y - 0.04f, SHELF_SLOPE = 0.22f, SHELF_REACH = 3.6f, BEACH_SLOPE = 0.8f, DUG_SLOPE = 1.5f;
         float Coast(float fx, float fy, float y)
         {
             float sd = ShoreAt(fx, fy);
             if (sd >= 0)
             {
                 if (sd >= SHELF_REACH) return y;
-                float shelf = WATER_Y - SHELF_SLOPE * sd - 0.04f * Mathf.Min(sd / 0.25f, 1);
+                // ground dug deeper than a reef flat (a dredged canal, a harbour basin, a lagoon drop-off) keeps its depth:
+                // the shelf drops steeply there instead of filling the hole back up with sand
+                float slope = Mathf.Lerp(SHELF_SLOPE, DUG_SLOPE, Mathf.Clamp01((TopY(-1) - y) / (TopY(-1) - TopY(-2))));
+                float shelf = WATER_Y - slope * sd - 0.04f * Mathf.Min(sd / 0.25f, 1);
                 return y > WATER_Y ? shelf : Mathf.Max(y, shelf);
             }
             float beach = WATER_Y + BEACH_SLOPE * -sd;
@@ -180,7 +200,15 @@ namespace IslandSim.View
                 for (int x = 0; x < w; x++)
                 {
                     int X = x0 + x, Y = y0 + y, v = nc + y * w + x;
-                    c.Pos[v].y = Coast(X + .5f, Y + .5f, TopY(S.Hgt[Sim.Idx(X, Y)])); c.Col[v] = TileTint(X, Y);
+                    int hh = S.Hgt[Sim.Idx(X, Y)]; float ty = TopY(hh);
+                    if (hh < 0)
+                    {
+                        // out in open water the floor rolls in mounds and hollows instead of tile-sized steps; a tile dug into
+                        // the land (its corners on the beach) keeps its own depth so the hole shows
+                        float c0 = CAt(X, Y), c1 = CAt(X + 1, Y), c2 = CAt(X, Y + 1), c3 = CAt(X + 1, Y + 1);
+                        if (Mathf.Max(Mathf.Max(c0, c1), Mathf.Max(c2, c3)) < WATER_Y - .1f) ty = Mathf.Lerp(ty, (c0 + c1 + c2 + c3) * .25f, .6f);
+                    }
+                    c.Pos[v].y = Coast(X + .5f, Y + .5f, ty); c.Col[v] = TileTint(X, Y);
                     TileSplat(X, Y, spl); c.S0[v] = new Vector4(spl[0], spl[1], spl[2], spl[3]); c.S1[v] = new Vector4(spl[4], spl[5], spl[6], 0);
                     float nx = -(CAt(X + 1, Y) + CAt(X + 1, Y + 1) - CAt(X, Y) - CAt(X, Y + 1)) / 2, nz = -(CAt(X, Y + 1) + CAt(X + 1, Y + 1) - CAt(X, Y) - CAt(X + 1, Y)) / 2;
                     c.Nrm[v] = U(new Vector3(nx, 1, nz).normalized);

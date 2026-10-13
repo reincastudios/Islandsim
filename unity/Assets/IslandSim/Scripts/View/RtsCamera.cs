@@ -58,16 +58,24 @@ namespace IslandSim.View
 
         Ray RayAt(Vector2 screenTopLeft) => Cam.ScreenPointToRay(new Vector3(screenTopLeft.x, Screen.height - screenTopLeft.y, 0));
 
-        /// <summary>The tile under a screen point (pixels from the top left), marching along the view ray as the web game does.</summary>
-        public Vector2Int? Pick(Sim s, Vector2 screen)
+        /// <summary>The tile under a screen point (pixels from the top left): marches the view ray down to the ground as it is
+        /// drawn (ground(x, z) in tile space, smooth coast and shelf included), then narrows the hit so the cursor lands on
+        /// the spot under the mouse rather than on a tile's raised edge.</summary>
+        public Vector2Int? Pick(Sim s, Vector2 screen, Func<float, float, float> ground)
         {
-            var r = RayAt(screen); var o = T(r.origin); var d = T(r.direction);
+            var r = RayAt(screen); var o = T(r.origin); var d = T(r.direction); float prev = 1;
             for (float t = 1; t < 900; t += .25f)
             {
-                float x = o.x + d.x * t, y = o.y + d.y * t, z = o.z + d.z * t; int tx = Mathf.FloorToInt(x), tz = Mathf.FloorToInt(z);
-                float gy = WATER_Y; bool inb = Sim.Inb(tx, tz); if (inb) gy = Mathf.Max(gy, TopY(s.Hgt[Sim.Idx(tx, tz)]));
-                if (y <= gy) return inb ? new Vector2Int(tx, tz) : (Vector2Int?)null;
+                float x = o.x + d.x * t, y = o.y + d.y * t, z = o.z + d.z * t;
+                if (y <= ground(x, z))
+                {
+                    float lo = prev, hi = t;
+                    for (int i = 0; i < 8; i++) { float m = (lo + hi) * .5f; if (o.y + d.y * m <= ground(o.x + d.x * m, o.z + d.z * m)) hi = m; else lo = m; }
+                    int tx = Mathf.FloorToInt(o.x + d.x * hi), tz = Mathf.FloorToInt(o.z + d.z * hi);
+                    return Sim.Inb(tx, tz) ? new Vector2Int(tx, tz) : (Vector2Int?)null;
+                }
                 if (y < -3) break;
+                prev = t;
             }
             return null;
         }
