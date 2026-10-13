@@ -4,6 +4,9 @@ Newest first. Each entry says what changed for the player and where the code liv
 
 ## 2026-10-13
 
+### Unity: slightly deeper atoll lagoons (PR #6)
+- The lagoon floor (height -2 and below) sits 0.5 units deeper than before (World.LAGOON_EXTRA, look only: boats and the sim are unchanged), and the water's colour builds a little faster with depth (absorption 1.35/0.27/0.15). The lagoons read as a slightly richer, deeper turquoise; the beach shelves and reef flats are unchanged.
+
 ### Unity: Maldivian sea colours, no more parallel surf lines (PR #6)
 - The parallel white lines along the shore are gone. They were the reef-crest surf, drawn as rings by depth (sin(depth * 40)) right along the beaches; reef surf now only shows on reef crests away from the beaches, as patches that flare and fade. The incoming swell's foam crest is broken up along the shore, and the faint swell ripples near the coast only appear here and there.
 - New palette: clear over white sand at the edge, bright aquamarine over the shelf and reef flats, turquoise in the lagoon, and a deep royal blue in the open ocean past the reef (IslandWater: absorption 1.25/0.20/0.12, OCEAN colour blended in with depth). Lagoon floors are white coral sand (TerrainView tints for heights -2 and -3), so the lagoon glows. The low-quality water and the minimap use the same palette.

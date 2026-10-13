@@ -95,7 +95,7 @@ Shader "IslandSim/Water"
                 // Maldivian water: clear over the white sand at the edge, bright aquamarine over the shelf, turquoise in the
                 // lagoon, and the open ocean past the reef a deep royal blue. Red is absorbed first, blue last.
                 float ma = meters * meters / (meters + 0.35);   // a hand's depth over sand stays clear; the colour builds as it deepens
-                float3 absorb = exp(-ma * float3(1.25, 0.20, 0.12));
+                float3 absorb = exp(-ma * float3(1.35, 0.27, 0.15));
                 float3 scatter = float3(0.0, 0.14, 0.17) * (1.0 - absorb.g);
                 const float3 OCEAN = float3(0.004, 0.04, 0.17);
                 float oceanK = smoothstep(2.5, 6.0, meters) * 0.92;

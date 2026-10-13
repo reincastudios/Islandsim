@@ -17,7 +17,9 @@ namespace IslandSim.View
         public static readonly int CXN = (Defs.W + CH - 1) / CH, CYN = (Defs.H + CH - 1) / CH;
 
         /// <summary>A tile's surface height.</summary>
-        public static float TopY(int h) => h >= 0 ? 0.26f + h * LVL : h * DEPTH - 0.12f;
+        // the lagoon floor (height -2 and below) sits a little deeper than the steps alone, for a richer turquoise (look only)
+        public static float TopY(int h) => h >= 0 ? 0.26f + h * LVL : h * DEPTH - 0.12f - (h <= -2 ? LAGOON_EXTRA : 0);
+        public const float LAGOON_EXTRA = 0.5f;
 
         /// <summary>A tile-space point in Unity space.</summary>
         public static Vector3 U(float x, float y, float z) => new Vector3(x, y, -z);
