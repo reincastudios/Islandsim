@@ -4,6 +4,10 @@ Newest first. Each entry says what changed for the player and where the code liv
 
 ## 2026-10-13
 
+### Unity: dug tiles are remembered, natural lagoon edges slope gently (PR #6)
+- Ahmed chose "record dug tiles": the game now remembers which tiles the player has dug below the beach (Sim.Dug, set by Lower/Level, cleared when a tile is raised back to land, restored by undo, saved as "dug"; older saves load with none). Only dug ground keeps a sharp bank (TerrainView.Coast, DUG_SLOPE back to 1.5), so canals and basins still show.
+- A natural deep lagoon beside a beach now shelves gently like the rest of the beach, then falls away to the lagoon floor over the shelf's last tile instead of dropping off as a bank at the waterline.
+
 ### Unity: one gentle beach slope, and a shore that works in real heights (PR #6)
 - Ahmed's low-tide screenshot showed a steep step in the beach with a gap at the water. He chose "one gentle slope" and "terrain-true waves".
 - Beach: one gentle run of sand from the palm line out under the lagoon (0.30 per tile on the sand easing to 0.22 under water, no lip at the old waterline), its top rounded into the land behind (TerrainView.Coast). Dug ground still drops away, now at 0.9 per tile instead of 1.5 so a deep lagoon beside a beach is a bank rather than a cliff.

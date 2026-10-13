@@ -53,6 +53,9 @@ namespace IslandSim.Core
     {
         // ------------------------------------------------------------ state (the web game's S)
         public sbyte[] Hgt; public byte[] Tree, Gt, Road, Origin = new byte[W * H]; public int[] Bld;
+        /// <summary>Tiles the player has dug below the beach (1). The coast keeps a sharp bank there so canals and basins
+        /// show; natural lagoon edges slope gently instead. Saved as "dug".</summary>
+        public byte[] Dug = new byte[W * H];
         public List<Building> Buildings = new List<Building>();
         public double Gold, T, Rate, Unrest; public int NextId = 1, Capital, Age = 1; public bool AgeDone;
         public double StatRope; public int StatLinkTrip;

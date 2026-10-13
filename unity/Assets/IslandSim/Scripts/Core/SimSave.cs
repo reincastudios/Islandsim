@@ -54,7 +54,7 @@ namespace IslandSim.Core
                 ["v"] = 7.0, ["dims"] = new List<object> { (double)W, (double)H }, ["names"] = names, ["age"] = (double)Age, ["ageDone"] = AgeDone, ["trade"] = trade,
                 ["h"] = Pack(Hgt, 128), ["tree"] = Pack(Tree), ["road"] = Pack(Road), ["gt"] = Pack(Gt), ["buildings"] = blds,
                 ["gold"] = Gold, ["t"] = T, ["nextId"] = (double)NextId, ["stats"] = new Dictionary<string, object> { ["rope"] = StatRope, ["linkTrip"] = (double)StatLinkTrip },
-                ["goals"] = goals, ["capital"] = (double)Capital, ["unrest"] = Unrest, ["origin"] = Pack(Origin), ["cam"] = new Dictionary<string, object>(Cam),
+                ["goals"] = goals, ["capital"] = (double)Capital, ["unrest"] = Unrest, ["origin"] = Pack(Origin), ["dug"] = Pack(Dug), ["cam"] = new Dictionary<string, object>(Cam),
             };
         }
         public string SaveJson() => Json.Write(Snapshot());
@@ -66,6 +66,7 @@ namespace IslandSim.Core
             if ((v != 6 && v != 7) || d.Get("h", (string)null) == null || dims == null || dims.Count < 2 || Json.Num(dims[0]) != W || Json.Num(dims[1]) != H) throw new FormatException("old save");
             var h = Unpack(d.Get("h", ""), W * H, 128); var hs = new sbyte[W * H]; for (int i = 0; i < hs.Length; i++) hs[i] = unchecked((sbyte)h[i]);
             var tree = Unpack(d.Get("tree", ""), W * H); var road = Unpack(d.Get("road", ""), W * H); var gt = Unpack(d.Get("gt", ""), W * H); var origin = Unpack(d.Get("origin", ""), W * H);
+            var dugS = d.Get("dug", ""); var dug = dugS != "" ? Unpack(dugS, W * H) : new byte[W * H];   // saves from before dug tiles were recorded: none
             var blds = new List<Building>(); var bld = new int[W * H]; for (int i = 0; i < bld.Length; i++) bld[i] = -1;
             // saves from before Age 1: sugar fields become coconut groves, distilleries toddy tappers, and rum and sugar are gone
             foreach (var o in d.Arr("buildings") ?? new List<object>())
@@ -79,7 +80,7 @@ namespace IslandSim.Core
                 blds.Add(b); for (int ty = b.Y; ty < b.Y + b.D; ty++) for (int tx = b.X; tx < b.X + b.W; tx++) bld[Idx(tx, ty)] = b.Id;
             }
             // everything parsed: now replace the game
-            Hgt = hs; Tree = tree; Road = road; Gt = gt; Origin = origin; Bld = bld; Buildings = blds;
+            Hgt = hs; Tree = tree; Road = road; Gt = gt; Origin = origin; Dug = dug; Bld = bld; Buildings = blds;
             Gold = d.Get("gold", 0.0); T = d.Get("t", 0.0); NextId = (int)d.Get("nextId", 1.0); Capital = (int)d.Get("capital", 0.0); Unrest = d.Get("unrest", 0.0);
             var stats = d.Obj("stats"); StatRope = stats.Get("rope", 0.0); StatLinkTrip = (int)stats.Get("linkTrip", 0.0);
             Goals = new HashSet<string>(); var go = d.Obj("goals"); if (go != null) foreach (var kv in go) if (kv.Value is bool x && x) Goals.Add(kv.Key);

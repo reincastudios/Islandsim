@@ -16,7 +16,7 @@ namespace IslandSim.Core
         public int Last = -1; public double Hold, Gold, Stone; public double[] Src;
         public Dictionary<int, TileState> Undo;
     }
-    public struct TileState { public sbyte H; public byte Tree, Gt, Road, O; }
+    public struct TileState { public sbyte H; public byte Tree, Gt, Road, O, Dug; }
 
     public sealed partial class Sim
     {
@@ -58,11 +58,12 @@ namespace IslandSim.Core
             if (up && (st == null || st[(int)Good.Stone] < steps)) return new TerraResult { Why = $"Need {steps} stone at {(src != null ? src.Name : "a jetty")} to raise land" };
             if (dry) return new TerraResult { Ok = true, Gold = gold, Stone = up ? steps : -steps * 0.5 };
             var s = CurStroke;
-            if (s?.Undo != null && !s.Undo.ContainsKey(i)) s.Undo[i] = new TileState { H = Hgt[i], Tree = Tree[i], Gt = Gt[i], Road = Road[i], O = Origin[i] };
+            if (s?.Undo != null && !s.Undo.ContainsKey(i)) s.Undo[i] = new TileState { H = Hgt[i], Tree = Tree[i], Gt = Gt[i], Road = Road[i], O = Origin[i], Dug = Dug[i] };
             Gold -= gold; SpendGold += gold; if (up) { st[(int)Good.Stone] -= steps; SpendStone += steps; } else if (st != null) { st[(int)Good.Stone] += steps * 0.5; SpendStone -= steps * 0.5; }
             if (s != null) { s.Gold += gold; if (st != null) { s.Src = st; s.Stone += up ? steps : -steps * 0.5; } }
             bool wasLand = cur >= 0, isLand = to >= 0;
             Hgt[i] = (sbyte)to; Tree[i] = 0; if (to < 0) Road[i] = 0;
+            if (to < cur && to < 0) Dug[i] = 1; else if (to >= 0) Dug[i] = 0;   // dug below the beach: the coast keeps a bank here
             if (Gt[i] != GT.Bird) Gt[i] = 0;                    // filling a kulhi or a taro field turns it into plain ground
             if (wasLand != isLand) Origin[i] = 255;
             TerrainVer++; MarkShore(x, y); MarkTrees(x, y);
@@ -99,7 +100,7 @@ namespace IslandSim.Core
             foreach (var kv in u.Undo)
             {
                 int i = kv.Key, x = i % W, y = i / W; var o = kv.Value; if (Bld[i] >= 0) continue; if ((Hgt[i] >= 0) != (o.H >= 0) || Hgt[i] == -1 || o.H == -1) coast = true;
-                Hgt[i] = o.H; Tree[i] = o.Tree; Gt[i] = o.Gt; Road[i] = o.Road; Origin[i] = o.O; MarkShore(x, y);
+                Hgt[i] = o.H; Tree[i] = o.Tree; Gt[i] = o.Gt; Road[i] = o.Road; Origin[i] = o.O; Dug[i] = o.Dug; MarkShore(x, y);
                 x0 = Math.Min(x0, x); y0 = Math.Min(y0, y); x1 = Math.Max(x1, x); y1 = Math.Max(y1, y);
             }
             Gold += u.Gold; if (u.Src != null) u.Src[(int)Good.Stone] += u.Stone; TerrainVer++; MarkTrees(x0, y0, x1, y1);

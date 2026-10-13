@@ -149,7 +149,7 @@ namespace IslandSim.View
         // palm line out under the lagoon: 0.30 per tile on the sand easing to 0.22 under water, with no steep face, so the
         // tide uncovers it evenly (Ahmed chose the gentle slope). The top of the beach rounds into the land behind it.
         // Look only: the sim's tiles are unchanged.
-        const float SHELF_TOP = WATER_Y - 0.04f, SHELF_SLOPE = 0.22f, SHELF_REACH = 3.6f, BEACH_SLOPE = 0.30f, DUG_SLOPE = 0.9f;
+        const float SHELF_TOP = WATER_Y - 0.04f, SHELF_SLOPE = 0.22f, SHELF_REACH = 3.6f, BEACH_SLOPE = 0.30f, DUG_SLOPE = 1.5f;
         float Coast(float fx, float fy, float y)
         {
             float sd = ShoreAt(fx, fy);
@@ -157,15 +157,24 @@ namespace IslandSim.View
             float g = Mathf.Lerp(BEACH_SLOPE, SHELF_SLOPE, Mathf.SmoothStep(0, 1, sd + .5f));
             if (sd >= 0)
             {
-                // ground dug deeper than a reef flat (a dredged canal, a harbour basin, a lagoon drop-off) keeps its depth:
-                // the shelf drops steeply there instead of filling the hole back up with sand
-                float slope = Mathf.Lerp(g, DUG_SLOPE, Mathf.Clamp01((TopY(-1) - y) / (TopY(-1) - TopY(-2))));
+                // ground the player dug (a canal, a harbour basin) keeps its depth: the shelf drops steeply there instead of
+                // filling the hole back up with sand. Natural lagoon beside a beach shelves gently, then falls away to the
+                // lagoon floor over the shelf's last tile.
+                float slope = DugAt(fx, fy) ? Mathf.Lerp(g, DUG_SLOPE, Mathf.Clamp01((WATER_Y - y) / (WATER_Y - TopY(-1)))) : g;
                 float shelf = WATER_Y - slope * sd;
-                return y > WATER_Y ? shelf : Mathf.Max(y, shelf);
+                if (y > WATER_Y) return shelf;
+                return Mathf.Lerp(Mathf.Max(y, shelf), y, Mathf.SmoothStep(0, 1, sd - (SHELF_REACH - 1)));
             }
             float beach = WATER_Y - g * sd, land = y > WATER_Y ? y : TopY(0);
             const float k = .08f; float hk = Mathf.Max(k - Mathf.Abs(land - beach), 0) / k;   // soft min: the beach's top rounds into the land
             return Mathf.Min(land, beach) - hk * hk * k * .25f;
+        }
+        // any of the tiles touching this point dug by the player
+        bool DugAt(float fx, float fy)
+        {
+            int x0 = Mathf.FloorToInt(fx - .5f), y0 = Mathf.FloorToInt(fy - .5f);
+            for (int y = y0; y <= y0 + 1; y++) for (int x = x0; x <= x0 + 1; x++) if (Sim.Inb(x, y) && S.Dug[Sim.Idx(x, y)] != 0) return true;
+            return false;
         }
         // signed distance to the coastline in tiles at a point in tile space, bilinear like the shaders' ShoreD
         float ShoreAt(float fx, float fy)

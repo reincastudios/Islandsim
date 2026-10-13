@@ -65,6 +65,7 @@ namespace IslandSim.Core
         {
             var h = new sbyte[W * H]; var tree = new byte[W * H]; var gt = new byte[W * H]; var lagoon = new byte[W * H]; var rnd = new Mulberry32(20261010);
             for (int i = 0; i < Origin.Length; i++) Origin[i] = 255;
+            Dug = new byte[W * H];
             // ring reefs in the lagoons; lagoon islets sit on one of their own
             var faros = Atolls.Select((A, ai) =>
             {
