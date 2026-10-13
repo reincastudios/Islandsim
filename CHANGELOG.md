@@ -4,6 +4,10 @@ Newest first. Each entry says what changed for the player and where the code liv
 
 ## 2026-10-13
 
+### Unity: smooth, curving coastlines (PR #6)
+- The waterline no longer zig-zags along the tile grid. The shoreline field (the one the waves already use) is now built from a half-blurred land mask, so corners round off while single-tile islets stay. Every vertex near the coast takes its height from its distance to that line: the beach rises quickly to the tile height inland, and the sand shelves gently for three to four tiles out to sea (TerrainView.Coast, look only; the sim's tiles are unchanged).
+- The waves now run up exactly where the water meets the sand, since the geometry and the waves read the same line. The shore field is computed before the terrain heights and written a few tiles wider around each edit.
+
 ### Unity: the sea and the waves on the beach read as one body of water (PR #6)
 - The sand now shelves gently under the sea for three to four tiles off every coast (TerrainView.Shelf, look only), and the shelf floor turns pale sand as it rises. The beach runs down to meet the water almost flush instead of ending in a lip.
 - The water measures its true thickness from the camera depth at every quality setting. Over the shelf it fades from clear at the waterline to turquoise as it deepens, so there is no line where the sea stops and the sheet of water on the sand starts. Thin water is glassier and mirrors the sky less.

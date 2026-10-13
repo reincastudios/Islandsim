@@ -118,24 +118,33 @@ namespace IslandSim.View
                     if (!Sim.Inb(tx, ty)) continue; int h = S.Hgt[Sim.Idx(tx, ty)]; float t = TopY(h); sh += t; n++; if (h >= 0) { landSum += t; landN++; }
                 }
             float yy = n > 0 ? sh / n : TopY(-3); if (landN >= 2) yy = Mathf.Max(yy, Mathf.Min(landSum / landN, 0.05f)); // the beach runs down to meet the water almost flush, with no lip
-            return Shelf(x, y, yy);
+            return Coast(x, y, yy);
         }
 
-        // Sand shelves gently under the sea for three to four tiles off every coast, so the water thins to clear over it and
-        // the waves can run up a real slope instead of meeting a sudden drop at the waterline (look only).
-        const float SHELF_TOP = WATER_Y - 0.04f, SHELF_SLOPE = 0.2f, SHELF_REACH = 3.6f;
-        float Shelf(float fx, float fy, float y)
+        // The coast follows the smooth shoreline field (the one the waves use), not the tile grid: near the waterline every
+        // vertex takes its height from its distance to that line, so the water's edge curves round the island instead of
+        // stepping tile by tile. The beach rises quickly to the tile height inland, and seaward the sand shelves gently for
+        // three to four tiles, so the water thins to clear over it (look only; the sim's tiles are unchanged).
+        const float SHELF_TOP = WATER_Y - 0.04f, SHELF_SLOPE = 0.22f, SHELF_REACH = 3.6f, BEACH_SLOPE = 0.8f;
+        float Coast(float fx, float fy, float y)
         {
-            if (y >= SHELF_TOP) return y;
-            float best = SHELF_REACH * SHELF_REACH;
-            for (int ty = Mathf.FloorToInt(fy - SHELF_REACH); ty <= Mathf.FloorToInt(fy + SHELF_REACH); ty++)
-                for (int tx = Mathf.FloorToInt(fx - SHELF_REACH); tx <= Mathf.FloorToInt(fx + SHELF_REACH); tx++)
-                {
-                    if (!Sim.Inb(tx, ty) || S.Hgt[Sim.Idx(tx, ty)] < 0) continue;
-                    float dx = Mathf.Max(0, Mathf.Max(tx - fx, fx - tx - 1)), dy = Mathf.Max(0, Mathf.Max(ty - fy, fy - ty - 1));
-                    best = Mathf.Min(best, dx * dx + dy * dy);
-                }
-            return best >= SHELF_REACH * SHELF_REACH ? y : Mathf.Max(y, SHELF_TOP - SHELF_SLOPE * Mathf.Sqrt(best));
+            float sd = ShoreAt(fx, fy);
+            if (sd >= 0)
+            {
+                if (sd >= SHELF_REACH) return y;
+                float shelf = WATER_Y - SHELF_SLOPE * sd - 0.04f * Mathf.Min(sd / 0.25f, 1);
+                return y > WATER_Y ? shelf : Mathf.Max(y, shelf);
+            }
+            float beach = WATER_Y + BEACH_SLOPE * -sd;
+            return Mathf.Min(y > WATER_Y ? y : TopY(0), beach);
+        }
+        // signed distance to the coastline in tiles at a point in tile space, bilinear like the shaders' ShoreD
+        float ShoreAt(float fx, float fy)
+        {
+            float sx = Mathf.Clamp(fx * SR - .5f, 0, SW - 1.001f), sy = Mathf.Clamp(fy * SR - .5f, 0, SH - 1.001f);
+            int x0 = (int)sx, y0 = (int)sy; float tx = sx - x0, ty = sy - y0; int i = y0 * SW + x0;
+            float v = (shoreData[i] * (1 - tx) + shoreData[i + 1] * tx) * (1 - ty) + (shoreData[i + SW] * (1 - tx) + shoreData[i + SW + 1] * tx) * ty;
+            return v / 255f * 9f - 3f;
         }
         public float CAt(int x, int y) => CornerY[Mathf.Clamp(y, 0, H) * (W + 1) + Mathf.Clamp(x, 0, W)];
 
@@ -170,7 +179,7 @@ namespace IslandSim.View
                 for (int x = 0; x < w; x++)
                 {
                     int X = x0 + x, Y = y0 + y, v = nc + y * w + x;
-                    c.Pos[v].y = Shelf(X + .5f, Y + .5f, TopY(S.Hgt[Sim.Idx(X, Y)])); c.Col[v] = TileTint(X, Y);
+                    c.Pos[v].y = Coast(X + .5f, Y + .5f, TopY(S.Hgt[Sim.Idx(X, Y)])); c.Col[v] = TileTint(X, Y);
                     TileSplat(X, Y, spl); c.S0[v] = new Vector4(spl[0], spl[1], spl[2], spl[3]); c.S1[v] = new Vector4(spl[4], spl[5], spl[6], 0);
                     float nx = -(CAt(X + 1, Y) + CAt(X + 1, Y + 1) - CAt(X, Y) - CAt(X, Y + 1)) / 2, nz = -(CAt(X, Y + 1) + CAt(X + 1, Y + 1) - CAt(X, Y) - CAt(X + 1, Y)) / 2;
                     c.Nrm[v] = U(new Vector3(nx, 1, nz).normalized);
@@ -220,6 +229,10 @@ namespace IslandSim.View
             if (r.Empty) r = sd;
             yardIds = new HashSet<int>(); foreach (var b in S.Buildings) if (b.Type == BType.House) yardIds.Add(b.Id);
             bool full = r.X0 == 0 && r.Y0 == 0 && r.X1 == W - 1 && r.Y1 == H - 1;
+            // the shoreline field first: the coast's vertex heights are read from it
+            if (full && shoreVer != S.TerrainVer) ComputeShore(0, 0, W - 1, H - 1);
+            else if (!sd.Empty) ComputeShore(sd.X0, sd.Y0, sd.X1, sd.Y1);
+            shoreVer = S.TerrainVer;
             if (full) { foreach (var c in chunks) c.Dirty = true; ComputeOcean(); }
             else foreach (var c in chunks) if (c.X0 <= r.X1 + 6 && c.X0 + c.W >= r.X0 - 6 && c.Y0 <= r.Y1 + 6 && c.Y0 + c.H >= r.Y0 - 6) c.Dirty = true;  // a tile's look reaches its corners and the sand shelf off its coast, and their normals one corner further
             for (int y = Mathf.Max(0, r.Y0 - 5); y <= Mathf.Min(H, r.Y1 + 6); y++) for (int x = Mathf.Max(0, r.X0 - 5); x <= Mathf.Min(W, r.X1 + 6); x++) CornerY[y * (W + 1) + x] = CornerHeight(x, y);
@@ -231,9 +244,6 @@ namespace IslandSim.View
                     depthData[i] = new Color32((byte)(h >= 0 ? 0 : Mathf.Floor(Mathf.Min(1, (WATER_Y - TopY(h)) / 2.2f) * 255 + .5f)), (byte)(h >= 0 ? 255 : 0), (byte)(h <= -3 && oceanMask[i] != 0 ? 255 : 0), 255);
                 }
             DepthTex.SetPixels32(depthData); DepthTex.Apply(false);
-            if (full && shoreVer != S.TerrainVer) ComputeShore(0, 0, W - 1, H - 1);
-            else if (!sd.Empty) ComputeShore(sd.X0, sd.Y0, sd.X1, sd.Y1);
-            shoreVer = S.TerrainVer;
             return true;
         }
 
@@ -246,12 +256,14 @@ namespace IslandSim.View
             int ww = wx1 - wx0, wh = wy1 - wy0, N = ww * wh;
             var land = new byte[N]; var din = new float[N]; var dout = new float[N];
             int Mk(int x, int y) => S.Hgt[Sim.Idx(Mathf.Clamp(x, 0, W - 1), Mathf.Clamp(y, 0, H - 1))] >= 0 ? 1 : 0;
+            float Bl(int x, int y) => (4 * Mk(x, y) + 2 * (Mk(x - 1, y) + Mk(x + 1, y) + Mk(x, y - 1) + Mk(x, y + 1)) + Mk(x - 1, y - 1) + Mk(x + 1, y - 1) + Mk(x - 1, y + 1) + Mk(x + 1, y + 1)) / 16f;
             for (int sy = 0; sy < wh; sy++)
                 for (int sx = 0; sx < ww; sx++)
                 {
                     float wx = (sx + wx0 + .5f) / SR - .5f, wy = (sy + wy0 + .5f) / SR - .5f; int x0 = Mathf.FloorToInt(wx), y0 = Mathf.FloorToInt(wy); float fx = wx - x0, fy = wy - y0;
                     float v = (Mk(x0, y0) * (1 - fx) + Mk(x0 + 1, y0) * fx) * (1 - fy) + (Mk(x0, y0 + 1) * (1 - fx) + Mk(x0 + 1, y0 + 1) * fx) * fy;
-                    land[sy * ww + sx] = (byte)(v >= .5f ? 1 : 0);
+                    float b = (Bl(x0, y0) * (1 - fx) + Bl(x0 + 1, y0) * fx) * (1 - fy) + (Bl(x0, y0 + 1) * (1 - fx) + Bl(x0 + 1, y0 + 1) * fx) * fy;
+                    land[sy * ww + sx] = (byte)((v + b) * .5f >= .5f ? 1 : 0);   // half blurred: corners round off, single tiles stay
                 }
             const float INF = 1e6f, D = 1.41421356f;
             for (int i = 0; i < N; i++) { din[i] = land[i] != 0 ? INF : 0; dout[i] = land[i] != 0 ? 0 : INF; }
@@ -275,7 +287,7 @@ namespace IslandSim.View
                     }
             }
             // write back only the part the margin makes exact
-            int ix0 = Mathf.Max(0, (tx0 - 1) * SR) - wx0, iy0 = Mathf.Max(0, (ty0 - 1) * SR) - wy0, ix1 = Mathf.Min(SW, (tx1 + 2) * SR) - wx0, iy1 = Mathf.Min(SH, (ty1 + 2) * SR) - wy0;
+            int ix0 = Mathf.Max(0, (tx0 - 4) * SR) - wx0, iy0 = Mathf.Max(0, (ty0 - 4) * SR) - wy0, ix1 = Mathf.Min(SW, (tx1 + 5) * SR) - wx0, iy1 = Mathf.Min(SH, (ty1 + 5) * SR) - wy0;   // wide enough for the coast heights that read it
             bool full = wx0 == 0 && wy0 == 0 && wx1 == SW && wy1 == SH;
             for (int y = full ? 0 : iy0; y < (full ? wh : iy1); y++)
                 for (int x = full ? 0 : ix0; x < (full ? ww : ix1); x++)
