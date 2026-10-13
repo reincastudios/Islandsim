@@ -2,7 +2,149 @@
 
 Newest first. Each entry says what changed for the player and where the code lives.
 
+## 2026-10-13
+
+### Unity: the waves are the sea itself, not a picture on the sand (PR #6)
+- Ahmed: the wave on the sand looked independent of the main water. It was: the sea was a flat plane and the terrain shader painted each wave onto the sand.
+- Round every coast the sea is now a fine grid in 16x16-tile blocks (WaterView), drawn with the same water material. Its vertices move: the swell rises as it shoals, the sea draws back, then the broken wave runs up the sand as a thin sheet of the same water and drains away. The open-sea plane leaves those blocks out and its swell is flat near them, so the two meet without a seam.
+- Blocks use a quarter, half or whole-tile grid by camera distance, and morph between grids so neighbours never crack.
+- The shore grid reads the drawn ground exactly (TerrainView corner and centre height textures), so the water meets the sand where it is drawn at every tide.
+- Removed the painted sheet, its foam lace and streaks from IslandTerrain; the sand keeps its wet, drained and high-water marks. Tested in Ahmed's editor at high and low tide.
+
+### Unity: dug tiles are remembered, natural lagoon edges slope gently (PR #6)
+- Ahmed chose "record dug tiles": the game now remembers which tiles the player has dug below the beach (Sim.Dug, set by Lower/Level, cleared when a tile is raised back to land, restored by undo, saved as "dug"; older saves load with none). Only dug ground keeps a sharp bank (TerrainView.Coast, DUG_SLOPE back to 1.5), so canals and basins still show.
+- A natural deep lagoon beside a beach now shelves gently like the rest of the beach, then falls away to the lagoon floor over the shelf's last tile instead of dropping off as a bank at the waterline.
+
+### Unity: one gentle beach slope, and a shore that works in real heights (PR #6)
+- Ahmed's low-tide screenshot showed a steep step in the beach with a gap at the water. He chose "one gentle slope" and "terrain-true waves".
+- Beach: one gentle run of sand from the palm line out under the lagoon (0.30 per tile on the sand easing to 0.22 under water, no lip at the old waterline), its top rounded into the land behind (TerrainView.Coast). Dug ground still drops away, now at 0.9 per tile instead of 1.5 so a deep lagoon beside a beach is a bank rather than a cliff.
+- Trees, bushes and buildings stand on the drawn ground (TerrainView.SurfaceY, the mesh's own triangles; World.StandY), so nothing floats over the lowered sand.
+- The shore now works in heights instead of distances from the coastline (IslandShore.hlsl): the water meets the ground wherever the ground really is, at any tide and on any slope, so a falling tide can no longer leave a dry gap. Each wave runs up the sand to a height above the sea (RunUpH), so it runs far up a gentle beach and only a little way up a steep one, then drains.
+- Incoming swells follow the real water depth under them (from the scene depth): they slow and bunch up as the water shoals, grow taller (Green's law), and break into foam in the last few hands of water (CrestDepth; IslandWater). Spent foam lies over the shallows by depth, and the bared intertidal sand is drawn wet up to the high-water line.
+- No sheet of water is painted on steep banks any more (it showed as a standing wall of water at low tide).
+
+### Unity: every low tide bares the shallows round the beaches (PR #6)
+- Ahmed still saw too little at low tide, but did not want the reef flats drained. Every low tide now drops the sea to between -0.56 (neaps) and -0.66 (springs), baring two to three tiles of wet sand round each beach and islet edge while the reef flats (-0.74) stay under water; high water still only laps just above the old waterline (Tide.MEAN -0.28, LUNAR_AMP 0.33, SOLAR_AMP 0.05; the wading and crossing bands are MEAN ± 0.15). The uncovered band is drawn wet up to its full height (IslandTerrain bankWet).
+
+### Unity: a much bigger tide range (PR #6)
+- Ahmed said the two tides looked too alike and low tide should reveal more. The tide now swings round a mean below the still sea: spring tides run from +0.10 down to -0.42 (was ±0.16), neaps from -0.04 to -0.28, so low water bares a wide band of wet sand off every beach and dries the sandbanks, while high water still only laps just above the old waterline and never drowns a beach (Tide.MEAN/LUNAR_AMP/SOLAR_AMP; HIGH/LOW bands follow the mean).
+- Everything that sat at the still sea now follows the tide: dhonis and the trading ship ride the surface (World.SeaY), caustics and the underwater darkening stop at the real sea level, the swash and the foam left on the shallows follow the edge out, and the whole band the tide uncovers is drawn wet (IslandTerrain/IslandWater shaders). Sandbanks sit just above the new wading line (TerrainView.BANK_Y from Tide.LOW).
+
+### Unity: sandbanks that dry at low tide, a 4-minute tide (PR #6)
+- Ahmed chose to see the sandbanks: the reef flats on the short ways between two islands (up to 8 flats long, one tile either side) now lie just under the sea instead of 0.7 below it, so they surface as wet, glistening sand bars when the tide drops below the wading line and go under again as it rises (Sim.ComputeSandbanks, TerrainView.TileY/BANK_Y, IslandTerrain shader bankWet). Their crests rise and dip a little, so they dry in bars and pools.
+- Wading now follows those same banks: at low tide residents cross only where a sandbank joins the islands (Sim.Bank is land plus sandbanks). Raising or lowering a reef flat updates the banks.
+- One full tide now takes 4 minutes at 1× (8 game days) instead of 2, as Ahmed asked (Tide.CYCLE_SECONDS 240).
+
+### Unity: tides that move the sea, dhonis that wait for high water, wading over sandbanks (PR #6)
+- First slice of the environmental systems plan. The sea now rises and falls with a real two-constituent tide (moon 12.42 h plus sun 12 h, so spring and neap tides come and go on their own), one full tide every 2 minutes at 1× (Ahmed chose the slow tide). It follows the game clock, so it pauses, speeds up and loads back exactly; nothing new is saved (Scripts/Core/Tide.cs).
+- The water surface, the moving waterline and the swash on the beach all ride the tide together (WaterView.SetTide, IslandShore.hlsl _IsSeaY/_IsTideSd). The range is kept small (0.32 at springs) so beaches are never drowned.
+- Dhonis still prefer a deep channel, but where none exists they now cross the reef flats, holding in deep water until high tide and then crossing (SimEconomy.PlanBoat/StepBoats). The jetty panel says "waiting for high tide" while they hold.
+- At low tide residents wade over sandbanks (land joined by reef flats) to jobs on the next island within walking distance; their own island's jobs come first, and goods stay in each island's own warehouse (Sim.Bank, SimEconomy.AssignWorkers). The building panel shows how much of its staff wades.
+- Top bar: a tide readout next to the day (▲ rising / ▼ falling and the time to the turn), with a tooltip saying high or low tide, springs or neaps and what each allows.
+
+### Unity: cinematic fly-through recorder (PR #6)
+- Island Sim > Cinematic > Record Palm Isle / Preview Palm Isle (Play mode): a 28-second drone flight from high over the jetty, low across the lagoon, along the palms and up to the whole atoll, at a fixed 30 fps with the HUD hidden; Record saves each frame as a JPEG in unity/Recordings/<island>/ (ignored by git) (Scripts/View/Cinematic.cs, IslandGame.StartCinematic).
+
+### Unity: living reef flats, a curved reef edge, greener forest floor (PR #6)
+- Reef flats no longer repeat as one even leopard print: coral grows in clumps and carpets on drifts of pale sand, cut by winding sandy channels, thinning to scattered heads near the islands and thickening towards the outer reef. Clump colours drift between brown, olive, dusky pink and a sun-bleached cream (IslandTerrain shader, coral block).
+- The reef's drop-off into the deep blue curves naturally instead of stepping in tile-sized teeth: the water reads the one-texel-per-tile depth map through a small warped 5-tap blur (IslandWater).
+- Forest floor under the trees is no longer bare brown dirt: patches of green undergrowth and pale sandy soil show through (IslandTerrain shader, forest block).
+
+### Unity: reworked sea floor, terraforming that shows and lands under the mouse (PR #6)
+- Sea floor: reef flats and lagoon knolls now carry clumps of coral heads (brown, olive and dusky pink) in drifts of pale sand, gathered into patches and bommies as in aerial photos of the atolls; the deep lagoon floor is mottled with seagrass and rubble (IslandTerrain shader). Under water the floor is averaged over a 4×4 patch of tiles with a small random rise or dip per corner (TerrainView.SeaFloor), so reef flats slope into the lagoon over two tiles and the floor rolls in mounds instead of tile-sized steps. Look only: the sim's depths are unchanged.
+- Terraforming showed almost nothing near the coast: the smooth sand shelf refilled whatever you dug, so lowering a beach tile (even to -3) or cutting a canal looked like a damp patch. Ground dug deeper than a reef flat now keeps its depth (TerrainView.Coast: the shelf drops at DUG_SLOPE 1.5 there instead of 0.22), and a tile dug into the land no longer has its centre smoothed up to the beach.
+- The brush and cursor now pick the tile under the mouse on the ground as it is drawn (RtsCamera.Pick marches against TerrainView.GroundY and narrows the hit), instead of against flat tile boxes, which picked the wrong tile on the sloping coast and on raised edges.
+
+### Unity: slightly deeper atoll lagoons (PR #6)
+- The lagoon floor (height -2 and below) sits 0.5 units deeper than before (World.LAGOON_EXTRA, look only: boats and the sim are unchanged), and the water's colour builds a little faster with depth (absorption 1.35/0.27/0.15). The lagoons read as a slightly richer, deeper turquoise; the beach shelves and reef flats are unchanged.
+
+### Unity: Maldivian sea colours, no more parallel surf lines (PR #6)
+- The parallel white lines along the shore are gone. They were the reef-crest surf, drawn as rings by depth (sin(depth * 40)) right along the beaches; reef surf now only shows on reef crests away from the beaches, as patches that flare and fade. The incoming swell's foam crest is broken up along the shore, and the faint swell ripples near the coast only appear here and there.
+- New palette: clear over white sand at the edge, bright aquamarine over the shelf and reef flats, turquoise in the lagoon, and a deep royal blue in the open ocean past the reef (IslandWater: absorption 1.25/0.20/0.12, OCEAN colour blended in with depth). Lagoon floors are white coral sand (TerrainView tints for heights -2 and -3), so the lagoon glows. The low-quality water and the minimap use the same palette.
+
+### Unity: the water's edge is the wave (PR #6)
+- Before, the sea's edge stood still while a separate pale film slid up the sand. Now the sea ends at one moving edge that the water and the beach share (SwashEdge in the new IslandShore.hlsl): as a swell rolls in the water draws back a little, then the wave pushes the edge up the sand and drains back down. Landward of the edge the water shows only wet sand.
+- The sheet of water on the sand is drawn as the sea's own surface: the same ripples from the ocean normal map (now a global texture), the same sky reflection and sun glint, and the same foam fringe (EdgeFoam) riding the edge. The beach draws the surface where the water is thin and the sea fades in over it as it deepens (SheetFade), so it is drawn exactly once across the waterline.
+- The slow vertex swell calms toward the coast so it no longer slides the water's edge around on its own.
+
+### Unity: smooth, curving coastlines (PR #6)
+- The waterline no longer zig-zags along the tile grid. The shoreline field (the one the waves already use) is now built from a half-blurred land mask, so corners round off while single-tile islets stay. Every vertex near the coast takes its height from its distance to that line: the beach rises quickly to the tile height inland, and the sand shelves gently for three to four tiles out to sea (TerrainView.Coast, look only; the sim's tiles are unchanged).
+- The waves now run up exactly where the water meets the sand, since the geometry and the waves read the same line. The shore field is computed before the terrain heights and written a few tiles wider around each edit.
+
+### Unity: the sea and the waves on the beach read as one body of water (PR #6)
+- The sand now shelves gently under the sea for three to four tiles off every coast (TerrainView.Shelf, look only), and the shelf floor turns pale sand as it rises. The beach runs down to meet the water almost flush instead of ending in a lip.
+- The water measures its true thickness from the camera depth at every quality setting. Over the shelf it fades from clear at the waterline to turquoise as it deepens, so there is no line where the sea stops and the sheet of water on the sand starts. Thin water is glassier and mirrors the sky less.
+- The static white outline at the waterline is mostly gone between waves. Foam now belongs to the waves: a lacy net of bubbles (FoamNet in IslandCommon.hlsl, warped Voronoi strands torn into patches) spreads over the shallows after each wave lands and rides up the sand with the sheet, drawn from the same coordinates on both, so the lace runs unbroken across the waterline.
+
+### Unity: coral sand, a greener Palm Isle and waves that lap the beach (PR #6)
+- Beach sand is new: warm coral-white with fine grain, soft wind ripples and a few tiny pale coral and shell bits, in place of the old yellow sand with dark specks. The generator is unity/Tools/TexGen/sand_tex.py. Wet sand now darkens to a warm damp tan instead of grey-blue.
+- Palm Isle is much greener. New games fringe its beaches with coconut palms and put palm groves in its clearings, with shade trees in the thick interior (the other islands are unchanged). In any game, Palm Isle's forest also draws more second trees and undergrowth.
+- Waves lapping at the shore: the run-up edge now scallops into cusps that drift along the beach, each wave leaves a bubbly foam line where it stopped, foam streaks pull back with the draining water, and the just-drained sand glistens before it dries. The extra shore lookups only run on the draining sheet.
+
+
+### Unity: fixes found by playing in the editor (PR #6)
+- **Brush ring:** the terraform and planting ring never drew. Its mesh had fewer vertices than its triangles referenced, and Unity logged an error every frame. It now uses its own indexed grid, so the ring and its red refused tiles show again.
+- **Missing text:** the names on cards (Raise, Lower, Timber cutter and so on) and the advisor notes were invisible because buttons got no text colour. Buttons now default to the dark ink colour.
+- **Stuck stroke:** if a mouse release was missed, the brush stroke stayed open. It kept raising land and blocked every later click. An open stroke now closes as soon as no button is held.
+- **Popovers:** the menu, settings and log opened behind the advisor notes and the charter card. They now come to the front. Warning notes use a softer tint. The Settings box is wider, so the UI size buttons no longer wrap into a column of digits.
+- **Where:** `RingGrid` in `Scripts/View/CursorView.cs`, `Pointer` in `IslandGame.cs`, `TogglePop` in `Hud.cs`, and `Button` and `.msg.bad` in `Hud.uss`.
+
 ## 2026-10-12
+
+### Unity: richer top and build bars, HUD sized to the screen (PR #6)
+- **What changed:** the top bar now has a honey inlay line along its bottom edge, above a deeper carved coral-stone frieze. The island name is a honey plaque, and the resource counters sit in a recessed well with bold numbers. The build bar is now a teak board in the same frame as the panels, with cream labels and honey icons. The selected tab is a raised coral-stone tile with a honey edge. Tabs, icons and labels are a little larger.
+- **Fixed:** the HUD was drawn at a fixed physical size, so it looked small on bigger screens and in the Game view. It now scales with screen height (sized for about 1000 px, from 0.8× to 2×), times the UI size chosen in Settings.
+- **Where:** `Resources/IslandSim/UI/Hud.uss` (`#top`, `#res`, `.isl-chip`, `#bar`, `.tab`), `FitScale` and `BuildTop` in `Scripts/View/Hud.cs`, and the new `ui_frame_wood.png` plus a taller `ui_frieze.png` from `unity/Tools/UiGen/ui_tex.py`.
+
+### Unity: wood-and-coral-stone HUD, a better terraform panel, and tree planting (PR #6)
+- **What changed:** the HUD is redesigned in clean Maldivian woodwork and coral-stone carving. The top bar is planed teak. Panels are framed in teak with a honey inlay line and brass corner studs round a pale coral-stone field. A carved coral-stone frieze (the lozenge-and-eye chain cut round old mosque walls) replaces the lacquer stripes under the top bar and every panel header. The build bar is a light framed panel with teak tabs.
+- **Terraform panel:** the default Unity slider is gone. Brush size is now a row of nine round pips that grow with the brush (click one, or drag along them; − and + still work, and so do [ and ]). The size shows in the label, and the Ctrl+Z hint sits under it. Level to is a tidy 3 × 2 grid with each height under its name, as on the web version.
+- **Plant trees (new, key N):** a fifth Terraform tool that paints trees with the brush for 3 gold each. Pick Coconut palm, Shade tree or Mangrove in the panel, or press N again to cycle. Palms grow from the beach up, shade trees on land above the beach, and mangroves only in a kulhi. Buildings, roads, existing trees, ponds, taro fields and bird islands are skipped. The brush ring turns green, refused tiles show red under it, and the cursor tag shows the cost and tree count. Planted trees count for timber yards and groves like wild ones, and shade trees spread on their own.
+- **Where:** `PlantTree` and the Plant branches in `Scripts/Core/SimTerraform.cs`, `Tool.Plant` in `Defs.cs`, the panel in `Scripts/View/Hud.cs` (`RenderCards`, `SetPlant`), new tree, mangrove and sapling icons in `Icons.cs`, styles in `Resources/IslandSim/UI/Hud.uss`, and the textures `ui_wood`, `ui_wood_light`, `ui_frieze` and `ui_frame` drawn by `unity/Tools/UiGen/ui_tex.py`.
+
+### Unity: thicker, jungle-like vegetation (PR #6)
+- **What changed:** the islands are much greener and denser, like the real Maldives photos. Where the forest is thick, a second, younger tree or palm shares many tiles. Undergrowth crowds round the trunks, bushes thicken toward the forest edge, and beach naupaka forms a green wall where the sand meets the trees.
+- **Gameplay:** unchanged. This is look only: the sim still counts one tree per tile for lumber, coconuts and clearing, so nothing about building or production moves.
+- **Speed:** more plant instances, but the same draws per chunk, since every extra plant is instanced with its kind. The extra bushes use their full detail only within about 35 tiles of the camera.
+- **Where:** `RebuildChunk` and `TreesAround` in `unity/Assets/IslandSim/Scripts/View/VegetationView.cs`.
+
+### Unity: no more frosted-white trees (PR #6)
+- **What changed:** forest trees, bushes and grass no longer look washed out or frosted white from the game camera, and tree canopies look full from above instead of showing gaps.
+- **Why it happened:** leaf cards seen at a glancing angle, which from a high camera is most of them, picked up a strong reflection of the bright sky, the same sheen water gets at the horizon. Foliage now takes only the sky's soft ambient light plus the sun, so it keeps its own green. The forest trees' leaf cards also stood upright, so from above you saw them edge-on. They now tip outward from the canopy at 55 degrees, which reads as leaves from both the side and above.
+- **Where:** `IslandShadeFoliage` in `IslandCommon.hlsl` (now used by every alpha-tested leaf, frond and grass material), `tilt` in `unity/Tools/PlantGen/build_trees.py`, and regenerated tree and bush models. Same triangle counts.
+
+### Unity: Maldivian island vegetation (PR #6)
+- **What changed:** the plants now match an uninhabited Maldivian island. Coconut palms are taller and slimmer with fuller, brighter crowns, and there is a new palm leaning out over the beach. The forest is now sea hibiscus, tropical almond, Alexandrian laurel, ironwood and screw pine (on stilt roots, with orange fruit). The bushes are beach naupaka, which forms the bright green wall along the shore, and silvery octopus bush. Each species has its own painted leaves in rich tropical greens, and each plant gets a slight colour shift so a stand never looks stamped.
+- **Fixed:** some palm trunks were bent out of shape. The trunk's gentle wobble picked a new random phase at every point along it, so trunks zig-zagged; it now uses one phase per palm. The same fix keeps each palm's three levels of detail identical, so nothing pops as you zoom.
+- **Shading:** the game's own leaves now light like leaves: sunlight glows through them when you look toward the sun, the side away from the sun stays soft instead of going dark, and leaves deep inside a canopy or under a palm crown sit in shade. The depth is baked into the models, so it costs nothing per frame. Leaves have a light waxy sheen.
+- **Speed:** a tree is about 5,000 to 7,300 triangles up close, 1,300 to 2,200 in the middle distance and 450 to 800 far away; a bush about 3,500 to 5,000, 1,300 to 1,800 and 500 to 730; a palm about 2,700, 600 and 340. Same three-level scheme and draw counts as before.
+- **Where:** models in `unity/Assets/IslandSim/Resources/IslandSim/Plants/`, textures in `PlantTextures/`, made by `unity/Tools/PlantGen` (new `leaf_tex.py`, `pandanus.py` and `trees_jobs.json`). The foliage lighting is `_FOLIAGE` in `IslandLit.shader` and `IslandCommon.hlsl`.
+
+### Unity: realistic palms, trees and bushes (PR #6)
+- **What changed:** the islands now grow realistic plants in place of the simple built-in ones. There are three coconut palms (leaning, curved trunks with leaf-scar rings and a swollen base, arching fronds whose leaflets fold into a V and droop, a few dry fronds hanging below, coconuts), three forest trees and two bushes with photo bark and leaf textures. They are mixed at random, sway in the wind, cast shadows and pick up the island light.
+- **Speed:** every plant has three levels of detail, chosen per 64-tile chunk by distance (a palm is about 2,200 triangles up close, 480 in the middle distance and 260 far away). Green and dry fronds share one texture so each palm type costs at most three draws per chunk.
+- **Where:** models in `unity/Assets/IslandSim/Resources/IslandSim/Plants/`, textures in `PlantTextures/`, made by `unity/Tools/PlantGen` (palms painted and modelled in Python; trees and bushes from the MIT-licensed ez-tree generator with its CC0 bark and leaf photos). Each model can still be replaced with your own. Separate `_LOD1`/`_LOD2` files and name-matched textures are now understood by the loader.
+
+### Unity: drop-in realistic plants (PR #6)
+- **What changed:** palms, forest trees, mangroves, bushes, taro, rocks and grass can each be replaced by a model from outside the game, such as a Poly Haven scan, a free Asset Store palm pack or your own Blender model. Put the FBX or prefab in `unity/Assets/IslandSim/Resources/IslandSim/Plants/` named after the plant (`palm`, `tree`...), with `palm_1` to `palm_9` for variety, mixed at random.
+- **How it fits in:** each model is scaled to the built-in plant's height whatever units it was made in, so it drops in with no setup. It keeps its own LODs and is drawn instanced per 64-tile chunk like the built-in plants. Its leaves get the game's wind and its textures go through the game's lit material. A heavy model with no LODs is drawn only within about 110 tiles of the camera, with the built-in plant standing in farther away, so the frame rate holds.
+- **Code:** `Scripts/View/PlantModels.cs`, `VegetationView` (custom kinds, LOD pick, stand-ins), `Mats.Custom` (leaf detection, wind). The folder's README lists free sources.
+
+### Unity: your own Blender models in the game (PR #6)
+- **What changed:** an FBX dropped into `unity/Assets/IslandSim/Resources/IslandSim/Models/`, named after a building (`house`, `fishery`, `palace`, `harbor`...), now replaces that building's built-in model. It is placed, turned, batched and shadowed like the built-in one, and its colours, textures and normal maps are carried onto the game's own lit material so it sits in the same light and haze. Compounds can have one model per plot size (`house_3x2`, `house_4x3`), or one `house` stretched to fit; the capital can have its own jetty (`harbor_capital`).
+- **Rules for a model:** 1 Blender metre is 1 tile, origin at the centre of the plot on the ground. The folder's README lists the names. Import settings are set automatically (readable meshes, Blender axes baked in). Code: `Scripts/View/CustomModels.cs`, `Mats.Custom`, `IslandSimModels` in the setup script.
+- **Unity is now the main version.** New features go into Unity first; the web version stays as a shareable demo.
+
+### Unity: clicks on the island work again (PR #6)
+- **What changed:** in Unity the game drew and ran, but clicking, dragging and scrolling on the island did nothing. The check for "is the pointer over the HUD?" also counted the empty screen behind the HUD, so every click was treated as a HUD click. It now only counts real HUD panels and buttons (`Scripts/View/Hud.cs`, `Over`).
+
+### The current game, rebuilt in Unity 6 (PR #6)
+- **What it is:** the Unity project in `unity/` now plays the same game as the web version: the Age of Cowries with its goods, buildings, traders, palace and charter, the 720 × 500 archipelago of four atolls and Huvamaru, the terraform panel (round 1–9 brush, Raise, Lower, Level to a height, Smooth, Ctrl+Z), 3×2 and 4×3 compounds, and the same HUD.
+- **Same rules, checked:** the rules were ported line for line to C# (`Scripts/Core`). A side-by-side run of the web code and the C# code builds the same map tile for tile and the same buildings, boats and stock after the same moves. EditMode tests cover a new game, growth, terraforming with undo, the open ocean, saves and the charter.
+- **Same look:** every building, boat and plant model, the material table and textures, the splat-mapped ground with wet sand and swash, the refracting sea with foam and caustics, cloud shadows, swaying palms, the physical sky, haze that recedes as you zoom out, bloom and vignette, and the Low / High / Ultra presets (Ultra adds ambient occlusion and tilt-shift). Buildings are merged per 64-tile chunk as in the web game, and plants are instanced and dropped with distance.
+- **Same HUD:** lacquer top bar with the warehouse of the island in view, the charter card, the katheeb's advisor feed and log, minimap and compass, build bar with cards, brush, level and plot pickers, building and island panels (trade post, palace list, rename), cursor tag, tooltips, F1 help, three save slots plus an autosave, settings and the game-over box. Built in UI Toolkit with the web game's fonts and icons.
+- **Not yet checked in the editor:** this session had no Unity editor, so the scripts were compile-checked against Unity's reference assemblies and the shaders were written against URP 17 but not compiled. The first open in Unity 6 may show shader or layout fixes to make.
+- Code: `unity/Assets/IslandSim/Scripts/View/` (one file per part, listed in `unity/README.md`), shaders in `Resources/IslandSim/Shaders`, HUD styles in `Resources/IslandSim/UI/Hud.uss`.
 
 ### Wetlands, ponds and sandbanks are back (PR #5)
 - **Fixed:** since the Oivaru Atoll update a lost line break had commented out the line that lays ground types on the map, so no island had its mangrove wetland (kulhi), brackish pond, taro fields, seagrass meadows, shifting sandbanks (finolhu) or protected bird nesting ground. Mangroves never grew, and dhoni berths never got their nursery bonus.

@@ -1,0 +1,11 @@
+newmtl isim_bark_pandanus
+Kd 1 1 1
+Ns 10
+
+newmtl isim_leaf_pandanus
+Kd 1 1 1
+Ns 10
+
+newmtl isim_pandanus_fruit
+Kd 1 1 1
+Ns 10

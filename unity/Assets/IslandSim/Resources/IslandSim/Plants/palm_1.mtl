@@ -1,0 +1,11 @@
+newmtl isim_palm_bark
+Kd 1 1 1
+Ns 10
+
+newmtl isim_palm_frond
+Kd 1 1 1
+Ns 10
+
+newmtl isim_coconut
+Kd 1 1 1
+Ns 10
