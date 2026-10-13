@@ -35,9 +35,13 @@ float WaveNz(float2 p) { return vn(p * 0.35) * 0.6 + vn(p * 0.9 + 3.1) * 0.4; }
 // a swell rolls in from 2.4 tiles out, breaks at the waterline, runs up the sand as a thin sheet, then drains back.
 // x = phase in the cycle, y = where the wave's front is (tiles from the shoreline, + = out to sea),
 // z = how much foam rides on the front, w = how much water covers the sand behind it.
+// how far up the sand this stretch of beach's waves run (tiles)
+float WaveReach(float2 p) { return 0.8 * (0.7 + 0.6 * vn(p * 0.6 + 7.0)); }
+// the run-up edge is never a straight line: it scallops into cusps that drift slowly along the beach
+float SwashJit(float2 p, float t) { return (vn(p * 1.7 + float2(t * 0.07, -t * 0.05)) - 0.5) * 0.16 + (vn(p * 4.3) - 0.5) * 0.05; }
 float4 WaveFront(float2 p, float t)
 {
-    float a = frac(t * 0.19 + WaveNz(p) * 0.9); float R = 0.8 * (0.7 + 0.6 * vn(p * 0.6 + 7.0)); float f, fs, fl;
+    float a = frac(t * 0.19 + WaveNz(p) * 0.9); float R = WaveReach(p); float f, fs, fl;
     if (a < 0.45) { float k = a / 0.45; f = 2.4 * (1.0 - k); fs = smoothstep(0.45, 1.0, k); fl = 0.25; }
     else if (a < 0.62) { f = -R * sin((a - 0.45) / 0.17 * 1.5708); fs = 1.0; fl = 1.0; }
     else { float k = smoothstep(0.62, 1.0, a); f = -R * (1.0 - k); fs = 1.0 - smoothstep(0.62, 0.92, a); fl = 1.0 - k * 0.8; }

@@ -158,6 +158,15 @@ namespace IslandSim.Core
                     int i = Idx(x, y), hv = h[i], o = Origin[i]; double f = Fbm(x / SC * .22, y / SC * .22, 99); var I = o < Defs.Islands.Length ? Defs.Islands[o] : null; int g = gt[i];
                     if (g == GT.Kulhi) { if (rnd.Next() < .75) tree[i] = 3; continue; }       // mangroves
                     if (g == GT.Taro || g == GT.Pond) continue;
+                    if (o == 0)
+                    {
+                        // Palm Isle lives up to its name: coconut groves fringe the beach and stand in every clearing,
+                        // with shade trees in the thick of the interior (hash-seeded, so the other islands keep their draw)
+                        if (hv == 0 && Hash2(x, y, 301) < .3) tree[i] = 2;
+                        else if (hv >= 1 && hv <= 4 && f > .36) tree[i] = (byte)(Hash2(x, y, 302) < (hv <= 1 ? .65 : .4) ? 2 : 1);
+                        else if (hv >= 1 && hv <= 4 && Hash2(x, y, 303) < .22) tree[i] = 2;
+                        continue;
+                    }
                     double dens = I != null ? KindDens[I.Kind] : .5;
                     if (hv >= 1 && hv <= 4 && f > dens) tree[i] = (byte)(hv <= 1 && rnd.Next() < (I != null && (I.Kind == "wooded" || I.Kind == "bird") ? .15 : .5) ? 2 : 1);
                     else if (hv == 0 && rnd.Next() < (g == GT.Finolhu ? .015 : .12)) tree[i] = 2;

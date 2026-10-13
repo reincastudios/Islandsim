@@ -135,8 +135,8 @@ namespace IslandSim.View
                         {
                             // jungle, not parkland: where the forest is thick a second, younger tree shares the tile, and
                             // undergrowth crowds round the trunks (look only; the sim still counts one tree per tile)
-                            int nb = TreesAround(x, y);
-                            if (nb >= 5 && Hash(x, y, 70) < (t == 1 ? .6f : .35f))
+                            int nb = TreesAround(x, y); bool home = S.Origin[i] == 0;   // Palm Isle grows lusher than the rest
+                            if (nb >= (home ? 3 : 5) && Hash(x, y, 70) < (t == 1 ? .6f : home ? .55f : .35f))
                             {
                                 float s2 = .55f + Hash(x, y, 71) * .35f;
                                 Set(x + .15f + Hash(x, y, 72) * .7f, TopY(hv), y + .15f + Hash(x, y, 73) * .7f, 0, Hash(x, y, 74) * 6, s2, s2 * (.9f + Hash(x, y, 75) * .3f), s2);
@@ -157,6 +157,7 @@ namespace IslandSim.View
                     // bushes thicken toward the forest, and beach naupaka walls the sand where it meets the trees
                     int near = t == 0 ? TreesAround(x, y) : 0;
                     float pb = hv >= 1 && hv <= 3 ? Mathf.Min(.9f, .35f + .12f * near) : hv == 0 && near >= 2 ? .45f : 0;
+                    if (S.Origin[i] == 0) pb = Mathf.Min(.95f, pb + (hv >= 1 ? .2f : near >= 1 ? .25f : 0));
                     for (int k = 0; k < (near >= 3 ? 2 : 1); k++)
                         if (Hash(x, y, 12 + k * 100) < pb) { float s = .7f + Hash(x, y, 13 + k * 100) * .8f; Set(x + Hash(x, y, 14 + k * 100), TopY(hv), y + Hash(x, y, 15 + k * 100), 0, Hash(x, y, 16 + k * 100) * 6, s, s, s); Push("bush", Pick(LEAF, Hash(x, y, 17 + k * 100))); }
                     if (hv >= 4 && Hash(x, y, 18) < .45f || hv == 0 && Hash(x, y, 18) < .04f)

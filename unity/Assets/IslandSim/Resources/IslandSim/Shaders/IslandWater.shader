@@ -68,7 +68,7 @@ Shader "IslandSim/Water"
                 float chop = lerp(0.22, 0.55, smoothstep(0.2, 1.0, depth));
                 float2 sl = (n1 * 0.3 + n2 * 0.4 + n3 * 0.3) * chop;
                 // the swell of the shared wave cycle rolls in and steepens as the water shoals; faint ripples further out
-                float sd = ShoreD(p); float4 wf = WaveFront(p, _IsTime); float rel = sd - wf.y;
+                float sd = ShoreD(p); float4 wf = WaveFront(p, _IsTime); float rel = sd - wf.y + SwashJit(p, _IsTime) * smoothstep(0.6, 0.0, sd);
                 float2 ge = float2(0.25, 0.0);
                 float2 gd = float2(ShoreD(p + ge.xy) - ShoreD(p - ge.xy), ShoreD(p + ge.yx) - ShoreD(p - ge.yx)); gd /= max(length(gd), 1e-3);
                 float crest = wf.y > 0.0 ? exp(-rel * rel / 0.05) * (1.0 - smoothstep(1.4, 2.4, wf.y)) : 0.0;

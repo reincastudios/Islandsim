@@ -4,6 +4,12 @@ Newest first. Each entry says what changed for the player and where the code liv
 
 ## 2026-10-13
 
+### Unity: coral sand, a greener Palm Isle and waves that lap the beach (PR #6)
+- Beach sand is new: warm coral-white with fine grain, soft wind ripples and a few tiny pale coral and shell bits, in place of the old yellow sand with dark specks. The generator is unity/Tools/TexGen/sand_tex.py. Wet sand now darkens to a warm damp tan instead of grey-blue.
+- Palm Isle is much greener. New games fringe its beaches with coconut palms and put palm groves in its clearings, with shade trees in the thick interior (the other islands are unchanged). In any game, Palm Isle's forest also draws more second trees and undergrowth.
+- Waves lapping at the shore: the run-up edge now scallops into cusps that drift along the beach, each wave leaves a bubbly foam line where it stopped, foam streaks pull back with the draining water, and the just-drained sand glistens before it dries. The extra shore lookups only run on the draining sheet.
+
+
 ### Unity: fixes found by playing in the editor (PR #6)
 - **Brush ring:** the terraform and planting ring never drew. Its mesh had fewer vertices than its triangles referenced, and Unity logged an error every frame. It now uses its own indexed grid, so the ring and its red refused tiles show again.
 - **Missing text:** the names on cards (Raise, Lower, Timber cutter and so on) and the advisor notes were invisible because buttons got no text colour. Buttons now default to the dark ink colour.

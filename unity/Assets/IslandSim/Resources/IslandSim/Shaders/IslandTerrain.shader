@@ -105,16 +105,33 @@ Shader "IslandSim/Terrain"
                     half3 tn = LayNor(l, u, tb); tn.y = -tn.y; gTN += tn * w; gRough += RGH[l] * w;
                 }
                 // swash: after each wave a thin sheet of water slides up the beach, led by a lacy foam edge, then drains back
-                float sd = ShoreD(xz); float4 wf = WaveFront(xz, _IsTime); float rel = sd - wf.y;   // rel > 0: seaward of the wave front
+                float sd = ShoreD(xz); float4 wf = WaveFront(xz, _IsTime); float jit = SwashJit(xz, _IsTime);
+                float rel = sd - wf.y + jit;   // rel > 0: seaward of the wave front
                 float onBeach = step(0.025, wp.y) * (1.0 - smoothstep(0.35, 0.6, wp.y)) * (1.0 - smoothstep(1.0, 1.6, -sd));
                 float film = onBeach * smoothstep(-0.02, 0.06, rel) * wf.w;
                 float lace = smoothstep(0.35, 0.75, vn(xz * 7.0 + float2(_IsTime * 0.3, 0)) * 0.6 + vn(xz * 16.0) * 0.4);
                 float edge = onBeach * smoothstep(-0.03, 0.0, rel) * (1.0 - smoothstep(0.0, 0.1 + 0.25 * wf.z, rel)) * lace * wf.z;
+                // as the sheet drains it leaves a bubbly line where it stopped, foam streaks pulled back toward the sea,
+                // and a band of glistening sand between the line and the retreating water
+                float R = WaveReach(xz), top = sd + R + jit;                                    // 0 at the highest reach
+                float drain = smoothstep(0.55, 0.64, wf.x) * (1.0 - smoothstep(0.78, 1.0, wf.x));
+                float bub = smoothstep(0.3, 0.7, vn(xz * 22.0) * 0.7 + vn(xz * 9.0) * 0.3);
+                float mark = onBeach * drain * exp(-top * top / 0.0012) * bub;
+                float streak = film * smoothstep(0.62, 0.7, wf.x) * (1.0 - smoothstep(0.85, 1.0, wf.x));
+                [branch] if (streak > 0.001)   // only the draining sheet pays for the extra shore samples
+                {
+                    float2 ge = float2(0.2, 0.0);
+                    float2 gd = float2(ShoreD(xz + ge.xy) - ShoreD(xz - ge.xy), ShoreD(xz + ge.yx) - ShoreD(xz - ge.yx)); gd /= max(length(gd), 1e-3);
+                    streak *= smoothstep(0.62, 0.85, vn(float2(dot(xz, float2(-gd.y, gd.x)) * 11.0, dot(xz, gd) * 1.6 + wf.x * 5.0)));
+                }
+                float drained = onBeach * step(rel, 0.0) * smoothstep(-0.03, 0.02, top) * drain;
                 float wet = max(film, onBeach * (1.0 - smoothstep(0.0, 0.95, -sd)) * 0.55);   // sand stays damp where the sea last reached
-                gAlb *= lerp(1.0, half3(0.74, 0.80, 0.80), wet); gAlb = lerp(gAlb, gAlb * half3(0.86, 0.96, 0.98), film);
-                gAlb = lerp(gAlb, half3(0.95, 0.97, 0.98), edge * 0.7); if (wp.y < -0.05) gAlb *= 0.92;
+                wet = max(wet, drained * 0.85);
+                gAlb *= lerp(1.0, half3(0.80, 0.75, 0.66), wet); gAlb = lerp(gAlb, gAlb * half3(0.86, 0.96, 0.98), film);
+                float froth = saturate(edge * 0.7 + mark * 0.55 + streak * 0.35);
+                gAlb = lerp(gAlb, half3(0.95, 0.97, 0.98), froth); if (wp.y < -0.05) gAlb *= 0.92;
                 half3 albedo = gAlb * i.tint;
-                float rough = lerp(lerp(gRough, 0.5, wet), 0.18, film * (1.0 - edge));
+                float rough = lerp(lerp(lerp(gRough, 0.5, wet), 0.26, drained), 0.18, film * (1.0 - froth));
                 // the layers' normal maps on a tangent frame along +x
                 float3 Tg = normalize(float3(1, 0, 0) - gWN * gWN.x); float3 Bg = -cross(Tg, gWN);
                 float3 tn = normalize(float3(gTN.xy * 1.15, max(gTN.z, 0.2)));
