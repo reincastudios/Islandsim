@@ -105,22 +105,38 @@ Shader "IslandSim/Terrain"
                     gAlb += LayAlb(l, u, tb).rgb * w;
                     half3 tn = LayNor(l, u, tb); tn.y = -tn.y; gTN += tn * w; gRough += RGH[l] * w;
                 }
-                // coral: the reef flats and the knolls in the lagoon carry clumps of coral heads (brown, olive and dusky
-                // pink) in drifts of pale sand, rather than an even wash of rubble. Clumps gather where a slow field is
-                // high, so the reef reads as patches and bommies from above, as in aerial photos of the atolls.
+                // under the trees the litter is not bare brown dirt: ferns and seedlings green it in patches, and the island's
+                // pale sandy soil shows through, as on the uninhabited islets
+                float forestW = wts[2] / max(wsum, 1e-4);
+                [branch] if (forestW > 0.05)
+                {
+                    float under = smoothstep(0.35, 0.7, vn(xz * 0.6 + 2.9) * 0.65 + vn(xz * 2.4) * 0.35);
+                    half3 green = LayAlb(1, u, tb).rgb;
+                    gAlb = lerp(gAlb, lerp(gAlb * 1.3 + half3(0.05, 0.04, 0.02), green * 0.8, under), forestW * 0.6);
+                }
+                // coral: the reef flats and the knolls in the lagoon carry coral in clumps and bommies on drifts of pale
+                // sand, as in aerial photos of the atolls. Near the islands it thins to scattered heads on sand; towards the
+                // outer reef it thickens into a carpet cut by sandy channels. Each clump has its own colour (brown, olive,
+                // dusky pink or a sun-bleached cream), so the reef doesn't repeat as one even print.
                 float reefW = wts[4] / max(wsum, 1e-4);
                 float knoll = smoothstep(-0.35, -0.6, wp.y) * (1.0 - smoothstep(-1.1, -1.5, wp.y)) * (1.0 - reefW);
                 float coralW = saturate(reefW + knoll * 0.8);
                 [branch] if (coralW > 0.02 && wp.y < 0.0)
                 {
-                    float patch = vn(xz * 0.45 + 11.3) * 0.65 + vn(xz * 1.3 + 5.1) * 0.35;
-                    float c1 = vn(xz * 2.3), c2 = vn(xz * 7.1 + 3.3), c3 = vn(xz * 19.0 + 1.7);
-                    float heads = smoothstep(0.5, 0.66, c1 * 0.55 + c2 * 0.3 + patch * 0.35 - (1.0 - reefW) * 0.12);
-                    half3 coral = lerp(half3(0.36, 0.27, 0.18), half3(0.50, 0.36, 0.38), c3);
-                    coral = lerp(coral, half3(0.27, 0.31, 0.19), smoothstep(0.55, 0.8, c2));
-                    gAlb = lerp(gAlb, half3(0.93, 0.90, 0.82), (1.0 - heads) * coralW * 0.45);   // sand drifts between the heads
-                    gAlb = lerp(gAlb, coral * (0.7 + 0.6 * c3), heads * coralW);
-                    gRough = lerp(gRough, 0.92, heads * coralW);
+                    float2 cw = xz + float2(vn(xz * 0.21 + 4.7), vn(xz * 0.21 + 9.2)) * 3.0;     // warp: clumps follow no grid
+                    float dens = lerp(0.25, 1.0, smoothstep(0.8, 5.0, ShoreD(xz)));             // sparse near land, thick out on the reef
+                    float field = vn(cw * 0.16) * 0.55 + vn(cw * 0.47 + 5.1) * 0.3 + vn(cw * 1.3 + 2.2) * 0.15;
+                    float channel = smoothstep(0.03, 0.10, abs(vn(cw * 0.09 + 13.0) - 0.5) * 2.0);  // winding sand gullies along the noise's mid line
+                    float clump = smoothstep(0.56 - 0.18 * dens, 0.64 - 0.18 * dens, field) * lerp(0.15, 1.0, channel);
+                    float heads = clump * smoothstep(0.38, 0.6, vn(cw * 3.1) * 0.6 + vn(cw * 8.7 + 1.3) * 0.4);
+                    float hue = vn(cw * 0.33 + 0.37);                                            // colour drifts slowly, clump to clump
+                    half3 coral = lerp(half3(0.40, 0.29, 0.18), half3(0.33, 0.36, 0.20), smoothstep(0.3, 0.4, hue));
+                    coral = lerp(coral, half3(0.54, 0.38, 0.38), smoothstep(0.55, 0.65, hue));
+                    coral = lerp(coral, half3(0.74, 0.68, 0.55), smoothstep(0.78, 0.86, hue));
+                    coral *= 0.5 + 0.4 * vn(cw * 21.0);   // dark enough to read through a metre of water
+                    gAlb = lerp(gAlb, half3(0.93, 0.90, 0.82), (1.0 - clump) * coralW * 0.25);   // clean sand between the clumps
+                    gAlb = lerp(gAlb, lerp(gAlb * 0.55, coral, heads), clump * coralW);          // rubble round the heads, then the heads
+                    gRough = lerp(gRough, 0.92, clump * coralW);
                 }
                 // the deep lagoon floor is not one even sand: drifts of seagrass and rubble mottle it here and there
                 if (wp.y < -0.3) gAlb *= lerp(1.0, half3(0.74, 0.84, 0.68), smoothstep(0.55, 0.78, vn(xz * 0.55) * 0.7 + vn(xz * 2.1) * 0.3) * smoothstep(-0.3, -0.9, wp.y) * 0.8);

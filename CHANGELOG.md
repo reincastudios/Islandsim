@@ -4,6 +4,11 @@ Newest first. Each entry says what changed for the player and where the code liv
 
 ## 2026-10-13
 
+### Unity: living reef flats, a curved reef edge, greener forest floor (PR #6)
+- Reef flats no longer repeat as one even leopard print: coral grows in clumps and carpets on drifts of pale sand, cut by winding sandy channels, thinning to scattered heads near the islands and thickening towards the outer reef. Clump colours drift between brown, olive, dusky pink and a sun-bleached cream (IslandTerrain shader, coral block).
+- The reef's drop-off into the deep blue curves naturally instead of stepping in tile-sized teeth: the water reads the one-texel-per-tile depth map through a small warped 5-tap blur (IslandWater).
+- Forest floor under the trees is no longer bare brown dirt: patches of green undergrowth and pale sandy soil show through (IslandTerrain shader, forest block).
+
 ### Unity: reworked sea floor, terraforming that shows and lands under the mouse (PR #6)
 - Sea floor: reef flats and lagoon knolls now carry clumps of coral heads (brown, olive and dusky pink) in drifts of pale sand, gathered into patches and bommies as in aerial photos of the atolls; the deep lagoon floor is mottled with seagrass and rubble (IslandTerrain shader). Under water the floor is averaged over a 4×4 patch of tiles with a small random rise or dip per corner (TerrainView.SeaFloor), so reef flats slope into the lagoon over two tiles and the floor rolls in mounds instead of tile-sized steps. Look only: the sim's depths are unchanged.
 - Terraforming showed almost nothing near the coast: the smooth sand shelf refilled whatever you dug, so lowering a beach tile (even to -3) or cutting a canal looked like a damp patch. Ground dug deeper than a reef flat now keeps its depth (TerrainView.Coast: the shelf drops at DUG_SLOPE 1.5 there instead of 0.22), and a tile dug into the land no longer has its centre smoothed up to the beach.

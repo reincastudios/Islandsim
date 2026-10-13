@@ -58,7 +58,13 @@ Shader "IslandSim/Water"
             {
                 float3 vW = i.positionWS; float2 p = TileXZ(vW); float2 uv = p / _IsMapSize.xy;
                 bool outside = uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0;
-                float4 dt = SAMPLE_TEXTURE2D_LOD(_IsDepth, sampler_IsDepth, saturate(uv), 0);
+                // the depth map has one texel per tile; read it through a small warped blur so the reef's drop-off into
+                // the blue curves naturally instead of stepping in tile-sized teeth
+                float2 dw = (float2(vn(p * 0.31), vn(p * 0.31 + 7.7)) - 0.5) * 1.2;
+                float2 tx = 0.75 / _IsMapSize.xy, uvw = saturate(uv + dw / _IsMapSize.xy);
+                float4 dt = (SAMPLE_TEXTURE2D_LOD(_IsDepth, sampler_IsDepth, uvw, 0) * 2.0
+                    + SAMPLE_TEXTURE2D_LOD(_IsDepth, sampler_IsDepth, saturate(uvw + float2(tx.x, 0)), 0) + SAMPLE_TEXTURE2D_LOD(_IsDepth, sampler_IsDepth, saturate(uvw - float2(tx.x, 0)), 0)
+                    + SAMPLE_TEXTURE2D_LOD(_IsDepth, sampler_IsDepth, saturate(uvw + float2(0, tx.y)), 0) + SAMPLE_TEXTURE2D_LOD(_IsDepth, sampler_IsDepth, saturate(uvw - float2(0, tx.y)), 0)) / 6.0;
                 float depth = outside ? 1.0 : dt.r;
                 float meters = depth * 2.2 + (outside ? 6.0 : dt.b * 6.0);   // open ocean (blue channel) is as deep inside the map as beyond it
                 // the true thickness of water under this pixel, from the scene depth: over the sand shelf it thins to
