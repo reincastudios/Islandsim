@@ -4,6 +4,9 @@ Newest first. Each entry says what changed for the player and where the code liv
 
 ## 2026-10-13
 
+### Docs: game overview (genre, style, plot and everything in the game)
+- New Claude Doc "Island Sim: Game Overview" (https://claude.ai/code/artifact/01cd1fc4-24eb-46aa-a8bb-253fac86011f): genre and art style, the plot frame that exists today plus a proposed plot ("The Keepers of Maarandu", awaiting Ahmed), the world, tools, buildings, economy, interface, the five ages and the tech. No game code changed.
+
 ### Unity: living reef flats, a curved reef edge, greener forest floor (PR #6)
 - Reef flats no longer repeat as one even leopard print: coral grows in clumps and carpets on drifts of pale sand, cut by winding sandy channels, thinning to scattered heads near the islands and thickening towards the outer reef. Clump colours drift between brown, olive, dusky pink and a sun-bleached cream (IslandTerrain shader, coral block).
 - The reef's drop-off into the deep blue curves naturally instead of stepping in tile-sized teeth: the water reads the one-texel-per-tile depth map through a small warped 5-tap blur (IslandWater).
