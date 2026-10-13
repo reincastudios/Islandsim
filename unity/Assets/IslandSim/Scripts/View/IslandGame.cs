@@ -160,6 +160,10 @@ namespace IslandSim.View
                 if (!InputBridge.MouseHeld(0) && !InputBridge.MouseHeld(1) && !InputBridge.MouseHeld(2)) { S.EndStroke(); drag = Drag.None; }
             }
 
+            // a release can be missed (the press and release in one frame, or the button let go outside the window or
+            // over the HUD); a stroke left open blocks every later click and keeps raising, so close it here
+            if (S.CurStroke != null && !InputBridge.MouseHeld(0) && !InputBridge.MouseDown(0)) S.EndStroke();
+
             float sc = InputBridge.Scroll; if (sc != 0 && !overHud) Rig.Dist *= Mathf.Exp(sc * .0012f);
         }
 

@@ -584,7 +584,8 @@ namespace IslandSim.View
         void TogglePop(VisualElement p)
         {
             bool was = Shown(p); ClosePops(); if (was) return;
-            Show(p, true); (p == menu ? menuBtn : p == settings ? setBtn : logBtn).AddToClassList("on");
+            Show(p, true); p.BringToFront();             // above the advisor feed and the charter
+            (p == menu ? menuBtn : p == settings ? setBtn : logBtn).AddToClassList("on");
             if (p == logPop) { unread = 0; RenderBadge(); RenderLog(); }
             if (p == menu) { newArmed = false; newLbl.text = "New game"; RenderSaves(); }
         }

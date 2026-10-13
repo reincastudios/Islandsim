@@ -25,7 +25,7 @@ namespace IslandSim.View
         public CursorView(Sim s, TerrainView t)
         {
             S = s; terrain = t;
-            ring = Geo.Plane(1, 1, N, N).RotateX(-Mathf.PI / 2).ToMesh("cursor"); ring.MarkDynamic();
+            ring = RingGrid(); ring.MarkDynamic();
             ringMat = Mats.Cursor();
             bad = new Texture2D(11, 11, TextureFormat.R8, false, true) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp, name = "brush refused" };
             bad.SetPixelData(badData, 0); bad.Apply(false);
@@ -38,6 +38,22 @@ namespace IslandSim.View
             box = BoxEdges();
         }
         static Color Alpha(Color c, float a) { c.a = a; return c; }
+
+        // an indexed (N+1) x (N+1) grid whose vertices PlaceRing drapes over the ground each frame. Geo meshes are
+        // un-indexed (6 vertices per quad), so the ring cannot be one of them: its vertex array would not match.
+        Mesh RingGrid()
+        {
+            var tri = new int[N * N * 6]; int t = 0;
+            for (int j = 0; j < N; j++)
+                for (int i = 0; i < N; i++)
+                {
+                    int a = j * (N + 1) + i, b = a + 1, c = a + N + 1, d = c + 1;
+                    tri[t++] = a; tri[t++] = b; tri[t++] = d; tri[t++] = a; tri[t++] = d; tri[t++] = c;
+                }
+            var m = new Mesh { name = "cursor" }; m.vertices = ringPos; m.triangles = tri;
+            var nrm = new Vector3[ringPos.Length]; for (int k = 0; k < nrm.Length; k++) nrm[k] = Vector3.up; m.normals = nrm;
+            return m;
+        }
 
         // the 12 edges of a 1 × 0.5 × 1 box (the web game's EdgesGeometry outline)
         static Mesh BoxEdges()
