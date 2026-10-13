@@ -4,6 +4,11 @@ Newest first. Each entry says what changed for the player and where the code liv
 
 ## 2026-10-13
 
+### Unity: the water's edge is the wave (PR #6)
+- Before, the sea's edge stood still while a separate pale film slid up the sand. Now the sea ends at one moving edge that the water and the beach share (SwashEdge in the new IslandShore.hlsl): as a swell rolls in the water draws back a little, then the wave pushes the edge up the sand and drains back down. Landward of the edge the water shows only wet sand.
+- The sheet of water on the sand is drawn as the sea's own surface: the same ripples from the ocean normal map (now a global texture), the same sky reflection and sun glint, and the same foam fringe (EdgeFoam) riding the edge. The beach draws the surface where the water is thin and the sea fades in over it as it deepens (SheetFade), so it is drawn exactly once across the waterline.
+- The slow vertex swell calms toward the coast so it no longer slides the water's edge around on its own.
+
 ### Unity: smooth, curving coastlines (PR #6)
 - The waterline no longer zig-zags along the tile grid. The shoreline field (the one the waves already use) is now built from a half-blurred land mask, so corners round off while single-tile islets stay. Every vertex near the coast takes its height from its distance to that line: the beach rises quickly to the tile height inland, and the sand shelves gently for three to four tiles out to sea (TerrainView.Coast, look only; the sim's tiles are unchanged).
 - The waves now run up exactly where the water meets the sand, since the geometry and the waves read the same line. The shore field is computed before the terrain heights and written a few tiles wider around each edit.

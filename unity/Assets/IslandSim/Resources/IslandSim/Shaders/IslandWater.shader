@@ -30,11 +30,10 @@ Shader "IslandSim/Water"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareOpaqueTexture.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
             #include "IslandCommon.hlsl"
+            #include "IslandShore.hlsl"
 
-            TEXTURE2D(_WaterNormal); SAMPLER(sampler_WaterNormal);
             TEXTURE2D(_IsDepth); SAMPLER(sampler_IsDepth);
-            TEXTURECUBE(_IsEnvCube); SAMPLER(sampler_IsEnvCube);
-            float3 _IsSunDir; float3 _IsSunCol; float3 _IsFogColor; float2 _IsFogRange;
+            float3 _IsFogColor; float2 _IsFogRange;
             CBUFFER_START(UnityPerMaterial)
                 float _UseRefr, _SrcBlend, _DstBlend, _ZWrite;
             CBUFFER_END
@@ -46,13 +45,14 @@ Shader "IslandSim/Water"
             {
                 Varyings o;
                 float3 w = TransformObjectToWorld(v.positionOS.xyz); float2 p = TileXZ(w);
-                w.y += sin(p.x * 0.31 + _IsTime * 1.1) * 0.03 + cos(p.y * 0.27 + _IsTime * 0.9) * 0.03 + sin((p.x + p.y) * 0.8 + _IsTime * 1.9) * 0.012;
+                // a slow swell out at sea, calming toward the coast so the water's edge stays where the waves put it
+                float calm = smoothstep(2.0, 12.0, ShoreD(p));
+                w.y += (sin(p.x * 0.31 + _IsTime * 1.1) * 0.03 + cos(p.y * 0.27 + _IsTime * 0.9) * 0.03 + sin((p.x + p.y) * 0.8 + _IsTime * 1.9) * 0.012) * calm;
                 o.positionWS = w; o.positionCS = TransformWorldToHClip(w);
                 return o;
             }
 
             float DAt(float2 xz) { float2 uv = xz / _IsMapSize.xy; return (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) ? 1.0 : SAMPLE_TEXTURE2D_LOD(_IsDepth, sampler_IsDepth, uv, 0).r; }
-            float2 Nrm(float2 uv) { return UnpackNormal(SAMPLE_TEXTURE2D(_WaterNormal, sampler_WaterNormal, uv)).xy; }
 
             half4 frag(Varyings i) : SV_Target
             {
@@ -72,14 +72,15 @@ Shader "IslandSim/Water"
                     thin = max(sz - wz, 0.0) / max(dot(-V0, fw), 0.05) * abs(V0.y);
                 }
                 meters = min(meters, thin);
-                // three scrolling layers of a real ocean normal map; rougher over open water
-                float2 n1 = Nrm(p * 0.041 + float2(_IsTime * 0.010, _IsTime * 0.007));
-                float2 n2 = Nrm(p * 0.097 - float2(_IsTime * 0.017, -_IsTime * 0.012));
-                float2 n3 = Nrm(p * 0.29 + float2(-_IsTime * 0.031, _IsTime * 0.022));
-                float chop = lerp(0.22, 0.55, smoothstep(0.2, 1.0, depth)) * lerp(0.3, 1.0, smoothstep(0.0, 0.3, thin));   // thin water goes glassy
-                float2 sl = (n1 * 0.3 + n2 * 0.4 + n3 * 0.3) * chop;
+                // three scrolling layers of a real ocean normal map (the same ripples the sheet on the sand carries); rougher
+                // over open water, glassy where it thins
+                float chop = lerp(0.22, 0.55, smoothstep(0.2, 1.0, depth)) * lerp(0.3, 1.0, smoothstep(0.0, 0.3, thin));
+                float2 sl = Ripples(p, _IsTime) * chop;
                 // the swell of the shared wave cycle rolls in and steepens as the water shoals; faint ripples further out
-                float sd = ShoreD(p); float4 wf = WaveFront(p, _IsTime); float rel = sd - wf.y + SwashJit(p, _IsTime) * smoothstep(0.6, 0.0, sd);
+                float sd = ShoreD(p); float4 wf = WaveFront(p, _IsTime); float jit = SwashJit(p, _IsTime) * (1.0 - smoothstep(0.0, 0.8, sd));
+                float rel = sd - wf.y + jit;                 // the incoming swell's crest
+                float relE = sd - SwashEdge(wf) + jit;       // the sea's moving edge: no water landward of it (relE < 0)
+                float cover = smoothstep(-0.01, 0.05, relE);
                 float2 ge = float2(0.25, 0.0);
                 float2 gd = float2(ShoreD(p + ge.xy) - ShoreD(p - ge.xy), ShoreD(p + ge.yx) - ShoreD(p - ge.yx)); gd /= max(length(gd), 1e-3);
                 float crest = wf.y > 0.0 ? exp(-rel * rel / 0.05) * (1.0 - smoothstep(1.4, 2.4, wf.y)) : 0.0;
@@ -88,7 +89,7 @@ Shader "IslandSim/Water"
                 sl += gd * sin(6.2832 * ph) * smoothstep(1.2, 2.2, sd) * (1.0 - smoothstep(3.0, 5.0, sd)) * 0.12;
                 float3 n = normalize(float3(sl.x, 1.0, -sl.y));                 // tile-space slope, as a Unity normal
                 float3 V = normalize(GetCameraPositionWS() - vW); float NV = max(dot(n, V), 0.0);
-                float F = (0.02 + 0.98 * pow(1.0 - NV, 5.0)) * lerp(0.55, 1.0, smoothstep(0.0, 0.12, thin));   // a film of water mirrors the sky no more than the wet sheet on the sand does
+                float F = (0.02 + 0.98 * pow(1.0 - NV, 5.0)) * (1.0 - SheetFade(thin));   // at the very edge the sheet on the sand takes over the reflection
                 float3 R = reflect(-V, n); R.y = abs(R.y);
                 float3 refl = SAMPLE_TEXTURECUBE_LOD(_IsEnvCube, sampler_IsEnvCube, R, 0).rgb;
                 // light absorbed by the water column (red first), plus in-scattered turquoise
@@ -96,6 +97,7 @@ Shader "IslandSim/Water"
                 float3 absorb = exp(-ma * float3(1.55, 0.36, 0.24));
                 float3 scatter = float3(0.02, 0.20, 0.26) * (1.0 - absorb.g) + float3(0.03, 0.12, 0.16) * smoothstep(1.5, 5.0, meters);
                 float3 under; float alpha = 1.0;
+                float3 floorC = _UseRefr > 0.5 ? SampleSceneColor(suv0) : 0;
                 if (_UseRefr > 0.5) under = SampleSceneColor(suv0 + sl * 0.012 * min(meters, 1.5)) * absorb + scatter;
                 else
                 {
@@ -109,22 +111,21 @@ Shader "IslandSim/Water"
                 float3 col = lerp(under, refl, F * (_UseRefr > 0.5 ? 1.0 : 0.7));
                 float3 H = normalize(_IsSunDir + V); float nh = max(dot(n, H), 0.0);
                 float spec = pow(nh, 420.0) * 1.6 + pow(nh, 60.0) * 0.06;
-                col += _IsSunCol * spec * cs;
+                col += _IsSunCol * spec * cs * (1.0 - SheetFade(thin));
                 // shoreline and reef-crest surf
                 float g = length(float2(DAt(p + float2(0.7, 0)) - DAt(p - float2(0.7, 0)), DAt(p + float2(0, 0.7)) - DAt(p - float2(0, 0.7))));
                 float fn = vn(p * 2.6 + _IsTime * 0.5) * 0.6 + vn(p * 6.3 - _IsTime * 0.35) * 0.4;
-                // where the water meets the sand: true water depth from the depth texture when refraction is on
-                // (only a faint one between waves: the foam edge belongs to the wave as it runs up the sand)
-                float edgeI = wf.x > 0.45 ? 1.0 - smoothstep(0.55, 0.95, wf.x) * 0.85 : 0.1 + 0.9 * smoothstep(0.3, 0.45, wf.x); // waterline foam surges as each wave lands
-                float edgeW = 0.02 + 0.05 * edgeI;
-                float edge = 1.0 - smoothstep(0.0, edgeW, thin);
+                // the foam fringe on the sea's moving edge (the beach draws the same fringe once the edge is up the sand)
+                float edge = EdgeFoam(p, _IsTime, relE, wf) * smoothstep(0.0, 0.03, thin);
                 float lace = smoothstep(0.38, 0.78, fn);
-                float band = smoothstep(-0.03, 0.0, rel) * (1.0 - smoothstep(0.0, 0.1 + 0.35 * wf.z, rel)) * wf.z * lace;   // the swell tips over into foam as it reaches the beach
+                float band = wf.x < 0.45 ? smoothstep(-0.03, 0.0, rel) * (1.0 - smoothstep(0.0, 0.1 + 0.35 * wf.z, rel)) * wf.z * lace : 0.0;   // the swell tips over into foam as it reaches the beach
                 float remnant = 0.0;   // spent foam: a lacy net drifting over the shallows, the same net the beach sheet carries
-                [branch] if (sd < 1.8) remnant = (1.0 - smoothstep(0.4, 1.8, sd)) * FoamNet(p, _IsTime) * FoamFresh(wf) * 0.6;
+                [branch] if (sd < 1.8) remnant = cover * (1.0 - SheetFade(thin)) * (1.0 - smoothstep(0.4, 1.8, sd)) * FoamNet(p, _IsTime) * FoamFresh(wf) * 0.6;
                 float reefC = smoothstep(0.12, 0.35, g) * (1.0 - smoothstep(0.35, 0.7, depth)) * smoothstep(0.5, 0.85, fn * 0.6 + (0.5 + 0.5 * sin(depth * 40.0 - _IsTime * 1.6)) * 0.5);
-                float foam = saturate(edge * lace * edgeI + band * 0.9 + remnant + reefC * 0.8);
                 col += float3(0.05, 0.07, 0.07) * crest * (1.0 - band) * (0.5 + 0.5 * cs);   // glassy sheen on the swell face
+                // landward of the moving edge the sea has drawn back: just the wet sand shows
+                if (_UseRefr > 0.5) col = lerp(floorC, col, cover); else alpha *= cover;
+                float foam = saturate(edge + band * 0.9 + remnant + reefC * 0.8);
                 col = lerp(col, float3(0.92, 0.95, 0.97) * (0.75 + 0.35 * cs), foam * 0.9);
                 if (_UseRefr < 0.5) alpha = max(alpha, foam * 0.9);
                 float fog = smoothstep(_IsFogRange.x, _IsFogRange.y, length(GetCameraPositionWS() - vW));

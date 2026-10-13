@@ -20,7 +20,7 @@ namespace IslandSim.View
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
             Renderer = go.AddComponent<MeshRenderer>(); Renderer.sharedMaterial = Mat;
             Renderer.shadowCastingMode = ShadowCastingMode.Off; Renderer.receiveShadows = false;
-            if (Mat != null) { var n = Mats.T("water_normal"); Mat.SetTexture("_WaterNormal", n); }
+            { var n = Mats.T("water_normal"); if (Mat != null) Mat.SetTexture("_WaterNormal", n); Shader.SetGlobalTexture("_IsWaterNormal", n); }   // global: the beach draws the same ripples on the sheet of each wave
         }
 
         /// <summary>Refraction reads the scene behind the water (High and Ultra); without it the sea is blended over the floor.</summary>

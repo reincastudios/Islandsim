@@ -15,6 +15,7 @@ Shader "IslandSim/Terrain"
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
         #include "IslandCommon.hlsl"
+        #include "IslandShore.hlsl"
         TEXTURE2D_ARRAY(_Alb); SAMPLER(sampler_Alb);
         TEXTURE2D_ARRAY(_Nor); SAMPLER(sampler_Nor);
         CBUFFER_START(UnityPerMaterial)
@@ -104,20 +105,24 @@ Shader "IslandSim/Terrain"
                     gAlb += LayAlb(l, u, tb).rgb * w;
                     half3 tn = LayNor(l, u, tb); tn.y = -tn.y; gTN += tn * w; gRough += RGH[l] * w;
                 }
-                // swash: after each wave a thin sheet of water slides up the beach, led by a lacy foam edge, then drains back
-                float sd = ShoreD(xz); float4 wf = WaveFront(xz, _IsTime); float jit = SwashJit(xz, _IsTime);
-                float rel = sd - wf.y + jit;   // rel > 0: seaward of the wave front
-                float onBeach = step(0.025, wp.y) * (1.0 - smoothstep(0.35, 0.6, wp.y)) * (1.0 - smoothstep(1.0, 1.6, -sd));
-                float film = onBeach * smoothstep(-0.02, 0.06, rel) * wf.w;
-                float lace = smoothstep(0.35, 0.75, vn(xz * 7.0 + float2(_IsTime * 0.3, 0)) * 0.6 + vn(xz * 16.0) * 0.4);
-                float edge = onBeach * smoothstep(-0.03, 0.0, rel) * (1.0 - smoothstep(0.0, 0.1 + 0.25 * wf.z, rel)) * lace * wf.z;
+                // swash: the sea ends at one moving edge, shared with the water. As each wave arrives the edge runs up the
+                // sand as a sheet of the same water (same ripples, reflection and glint, same foam fringe), then drains
+                // back down; between waves it draws back a little below the still waterline
+                float sd = ShoreD(xz); float4 wf = WaveFront(xz, _IsTime); float jit = SwashJit(xz, _IsTime) * (1.0 - smoothstep(0.0, 0.8, sd));
+                float rel = sd - SwashEdge(wf) + jit;   // rel > 0: under the sea
+                float near = (1.0 - smoothstep(0.35, 0.6, wp.y)) * (1.0 - smoothstep(1.0, 1.6, -sd)) * (1.0 - smoothstep(1.5, 2.5, sd));
+                float dpt = IS_WATER_Y - wp.y;                                                   // depth under the still sea
+                float onBeach = near * smoothstep(0.005, -0.005, dpt);                           // above it: the beach's own
+                float cov = near * smoothstep(-0.01, 0.05, rel);
+                float sheet = cov * SheetFade(dpt);                                              // the water takes over as it deepens
+                float edge = near * (1.0 - smoothstep(0.0, 0.03, dpt)) * EdgeFoam(xz, _IsTime, rel, wf);
                 // as the sheet drains it leaves a bubbly line where it stopped, foam streaks pulled back toward the sea,
                 // and a band of glistening sand between the line and the retreating water
                 float R = WaveReach(xz), top = sd + R + jit;                                    // 0 at the highest reach
                 float drain = smoothstep(0.55, 0.64, wf.x) * (1.0 - smoothstep(0.78, 1.0, wf.x));
                 float bub = smoothstep(0.3, 0.7, vn(xz * 22.0) * 0.7 + vn(xz * 9.0) * 0.3);
                 float mark = onBeach * drain * exp(-top * top / 0.0012) * bub;
-                float streak = film * smoothstep(0.62, 0.7, wf.x) * (1.0 - smoothstep(0.85, 1.0, wf.x));
+                float streak = sheet * smoothstep(0.62, 0.7, wf.x) * (1.0 - smoothstep(0.85, 1.0, wf.x));
                 [branch] if (streak > 0.001)   // only the draining sheet pays for the extra shore samples
                 {
                     float2 ge = float2(0.2, 0.0);
@@ -125,15 +130,15 @@ Shader "IslandSim/Terrain"
                     streak *= smoothstep(0.62, 0.85, vn(float2(dot(xz, float2(-gd.y, gd.x)) * 11.0, dot(xz, gd) * 1.6 + wf.x * 5.0)));
                 }
                 float drained = onBeach * step(rel, 0.0) * smoothstep(-0.03, 0.02, top) * drain;
-                float wet = max(film, onBeach * (1.0 - smoothstep(0.0, 0.95, -sd)) * 0.55);   // sand stays damp where the sea last reached
+                float wet = max(cov, onBeach * (1.0 - smoothstep(0.0, 0.95, -sd)) * 0.55);   // sand stays damp where the sea last reached
                 wet = max(wet, drained * 0.85);
-                gAlb *= lerp(1.0, half3(0.80, 0.75, 0.66), wet); gAlb = lerp(gAlb, gAlb * half3(0.86, 0.96, 0.98), film);
+                gAlb *= lerp(1.0, half3(0.80, 0.75, 0.66), wet);
                 float net = 0.0;
-                [branch] if (film > 0.001) net = film * FoamNet(xz, _IsTime) * FoamFresh(wf) * 0.6;   // the shallows' foam lace rides up with the sheet
-                float froth = saturate(edge * 0.7 + mark * 0.55 + streak * 0.35 + net);
+                [branch] if (sheet > 0.001) net = sheet * FoamNet(xz, _IsTime) * FoamFresh(wf) * 0.6;   // the shallows' foam lace rides up with the sheet
+                float froth = saturate(edge + mark * 0.55 + streak * 0.35 + net);
                 gAlb = lerp(gAlb, half3(0.95, 0.97, 0.98), froth); if (wp.y < -0.05) gAlb *= 0.92;
                 half3 albedo = gAlb * i.tint;
-                float rough = lerp(lerp(lerp(gRough, 0.5, wet), 0.26, drained), 0.18, film * (1.0 - froth));
+                float rough = lerp(lerp(gRough, 0.5, wet), 0.26, drained);
                 // the layers' normal maps on a tangent frame along +x
                 float3 Tg = normalize(float3(1, 0, 0) - gWN * gWN.x); float3 Bg = -cross(Tg, gWN);
                 float3 tn = normalize(float3(gTN.xy * 1.15, max(gTN.z, 0.2)));
@@ -142,6 +147,13 @@ Shader "IslandSim/Terrain"
                 half boost = 1;
                 if (wp.y < 0.02) { float dpt = 0.02 - wp.y; float c = Caustic(xz * 0.9, _IsTime * 0.55); boost = 1.0 + c * 2.2 * exp(-dpt * 0.9) * smoothstep(0.0, 0.15, dpt); }
                 half3 col = IslandShade(wp, n, albedo, 0, 1.0 - rough, GetNormalizedScreenSpaceUV(i.positionCS), boost);
+                // the sheet on the sand is the sea's own surface: its reflection hands over to the water's as it deepens
+                [branch] if (sheet * (1.0 - froth) > 0.001)
+                {
+                    float3 V = normalize(GetCameraPositionWS() - wp);
+                    half3 w = WaterSurface(col * half3(0.91, 0.98, 0.99), Ripples(xz, _IsTime) * 0.066, V, 1.0, CloudShadow(xz, _IsTime));
+                    col = lerp(col, w, sheet * (1.0 - froth));
+                }
                 return half4(MixFog(col, i.fog), 1);
             }
             ENDHLSL
