@@ -68,12 +68,13 @@ Button { margin: 0; padding: 0; border-width: 0; background-color: rgba(0, 0, 0,
 .mi:hover { background-color: var(--coral-2); }
 .mi .kbd { margin-left: auto; }
 .segc { flex-direction: row; background-color: var(--coral-2); border-radius: 12px; padding: 2px; border-width: 1px; border-color: var(--line); }
-.segc > Button { border-radius: 10px; padding: 3px 9px; font-size: 13px; }
+.segc > Button { border-radius: 10px; padding: 3px 9px; font-size: 13px; white-space: nowrap; flex-shrink: 0; }
 .segc > Button:hover { background-color: var(--cream); }
 .segc > Button.on { background-color: var(--teak); color: var(--coral); }
 .kbd { font-size: 11px; -unity-font: resource("IslandSim/Fonts/FamiljenGrotesk-Bold"); -unity-font-definition: initial; color: var(--ink-2); border-width: 1px; border-bottom-width: 2px; border-color: var(--line); border-radius: 4px; padding: 0 4px; background-color: var(--paper); }
 #menu { left: 8px; width: 290px; }
-#settings { right: 8px; }
+#settings { right: 8px; width: 370px; }
+.pop .prow > Label { flex-shrink: 0; margin-right: 10px; }
 #log { right: 48px; width: 320px; max-height: 60%; }
 .saves { border-top-width: 1px; border-color: var(--coral-2); margin-top: 6px; padding: 8px 12px 0 12px; font-size: 13px; }
 .slot { flex-direction: row; align-items: center; margin-bottom: 6px; }

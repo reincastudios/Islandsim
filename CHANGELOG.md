@@ -8,7 +8,7 @@ Newest first. Each entry says what changed for the player and where the code liv
 - **Brush ring:** the terraform and planting ring never drew. Its mesh had fewer vertices than its triangles referenced, and Unity logged an error every frame. It now uses its own indexed grid, so the ring and its red refused tiles show again.
 - **Missing text:** the names on cards (Raise, Lower, Timber cutter and so on) and the advisor notes were invisible because buttons got no text colour. Buttons now default to the dark ink colour.
 - **Stuck stroke:** if a mouse release was missed, the brush stroke stayed open. It kept raising land and blocked every later click. An open stroke now closes as soon as no button is held.
-- **Popovers:** the menu, settings and log opened behind the advisor notes and the charter card. They now come to the front. Warning notes use a softer tint.
+- **Popovers:** the menu, settings and log opened behind the advisor notes and the charter card. They now come to the front. Warning notes use a softer tint. The Settings box is wider, so the UI size buttons no longer wrap into a column of digits.
 - **Where:** `RingGrid` in `Scripts/View/CursorView.cs`, `Pointer` in `IslandGame.cs`, `TogglePop` in `Hud.cs`, and `Button` and `.msg.bad` in `Hud.uss`.
 
 ## 2026-10-12
