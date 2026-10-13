@@ -168,7 +168,7 @@ Shader "IslandSim/Terrain"
                 float wet = max(cov, onBeach * (1.0 - smoothstep(0.0, 0.95, -sd)) * 0.55);   // sand stays damp where the sea last reached
                 wet = max(wet, drained * 0.85);
                 // a sandbank bared by the falling tide out in the lagoon is soaked and glistening
-                float bankWet = smoothstep(0.3, 0.8, sd) * smoothstep(-0.62, -0.45, dpt) * (1.0 - smoothstep(-0.002, 0.0, dpt));   // the whole band the tide uncovers
+                float bankWet = smoothstep(0.3, 0.8, sd) * smoothstep(-0.85, -0.7, dpt) * (1.0 - smoothstep(-0.002, 0.0, dpt));   // the whole band the tide uncovers
                 wet = max(wet, bankWet * 0.9);
                 gAlb *= lerp(1.0, half3(0.80, 0.75, 0.66), wet);
                 float net = 0.0;
