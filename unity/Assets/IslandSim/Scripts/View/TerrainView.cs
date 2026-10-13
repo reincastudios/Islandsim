@@ -112,7 +112,7 @@ namespace IslandSim.View
         }
 
         // Sandbanks lie just under the still sea, so they dry when the tide falls below Tide.LOW and residents can wade
-        const float BANK_Y = WATER_Y - 0.055f;
+        const float BANK_Y = WATER_Y + (float)Tide.LOW + 0.005f;
         float TileY(int i) => S.Hgt[i] == -1 && S.Sandbank[i] != 0 ? BANK_Y : TopY(S.Hgt[i]);
         float CornerHeight(int x, int y)
         {
@@ -124,7 +124,7 @@ namespace IslandSim.View
                 }
             float yy = n > 0 ? sh / n : TopY(-3); if (landN >= 2) yy = Mathf.Max(yy, Mathf.Min(landSum / landN, 0.05f)); // the beach runs down to meet the water almost flush, with no lip
             if (landN == 0 && bankN == 0) yy = SeaFloor(x, y, yy);
-            else if (landN == 0 && bankN == n) yy += (Hash(x, y, 61) - .5f) * .045f;   // the bank's crest rises and dips, so it dries in bars and pools
+            else if (landN == 0 && bankN == n) yy += (Hash(x, y, 61) - .5f) * .06f;   // the bank's crest rises and dips, so it dries in bars and pools
             return Coast(x, y, yy);
         }
         // Under water the floor is averaged over a wider 4×4 patch of tiles, so a reef flat slopes down into the lagoon over

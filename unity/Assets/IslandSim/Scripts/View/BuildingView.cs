@@ -134,12 +134,12 @@ namespace IslandSim.View
             var tr = S.Trader;
             if (tr != null)
             {
-                var m = U(Matrix4x4.Translate(new Vector3((float)tr.X + .5f, WATER_Y + .05f + Mathf.Sin(t * 1.4f) * .04f, (float)tr.Y + .5f)) * RotX(Mathf.Sin(t * 1.1f) * .04f) * RotY(-(float)tr.Ang));
+                var m = U(Matrix4x4.Translate(new Vector3((float)tr.X + .5f, SeaY + .05f + Mathf.Sin(t * 1.4f) * .04f, (float)tr.Y + .5f)) * RotX(Mathf.Sin(t * 1.1f) * .04f) * RotY(-(float)tr.Ang));
                 foreach (var kv in shipMeshes) Draw(kv.Value, Mats.Get(kv.Key), m);
             }
             foreach (var bt in S.Boats)
             {
-                var m = U(Matrix4x4.Translate(new Vector3((float)bt.X + .5f, WATER_Y + .03f + Mathf.Sin(t * 2 + bt.Home) * .03f, (float)bt.Y + .5f)) * RotX(Mathf.Sin(t * 1.7f + bt.Home) * .05f) * RotY(-(float)bt.Ang));
+                var m = U(Matrix4x4.Translate(new Vector3((float)bt.X + .5f, SeaY + .03f + Mathf.Sin(t * 2 + bt.Home) * .03f, (float)bt.Y + .5f)) * RotX(Mathf.Sin(t * 1.7f + bt.Home) * .05f) * RotY(-(float)bt.Ang));
                 foreach (var kv in boatMeshes) Draw(kv.Value, kv.Key == "sail" ? (bt.State == "blocked" ? sailBlocked : sailMat) : Mats.Get(kv.Key), m);
             }
         }

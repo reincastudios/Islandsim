@@ -129,7 +129,7 @@ Shader "IslandSim/Water"
                 float lace = smoothstep(0.38, 0.78, fn);
                 float band = wf.x < 0.45 ? smoothstep(-0.03, 0.0, rel) * (1.0 - smoothstep(0.0, 0.1 + 0.35 * wf.z, rel)) * wf.z * lace * smoothstep(0.3, 0.6, vn(p * 0.8 + _IsTime * 0.05)) : 0.0;   // broken along the shore, never a ruled line   // the swell tips over into foam as it reaches the beach
                 float remnant = 0.0;   // spent foam: a lacy net drifting over the shallows, the same net the beach sheet carries
-                [branch] if (sd < 1.8) remnant = cover * (1.0 - SheetFade(thin)) * (1.0 - smoothstep(0.4, 1.8, sd)) * FoamNet(p, _IsTime) * FoamFresh(wf) * 0.6;
+                [branch] if (sd + _IsTideSd < 1.8) remnant = cover * (1.0 - SheetFade(thin)) * (1.0 - smoothstep(0.4, 1.8, sd + _IsTideSd)) * FoamNet(p, _IsTime) * FoamFresh(wf) * 0.6;
                 // surf on the reef crests, away from the beaches: patches that flare and fade as sets break (no rings)
                 float reefC = smoothstep(0.12, 0.35, g) * (1.0 - smoothstep(0.35, 0.7, depth)) * smoothstep(1.2, 2.5, sd)
                             * smoothstep(0.55, 0.85, fn) * (0.45 + 0.55 * sin(_IsTime * 0.9 + WaveNz(p) * 6.2832));

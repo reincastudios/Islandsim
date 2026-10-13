@@ -4,6 +4,10 @@ Newest first. Each entry says what changed for the player and where the code liv
 
 ## 2026-10-13
 
+### Unity: a much bigger tide range (PR #6)
+- Ahmed said the two tides looked too alike and low tide should reveal more. The tide now swings round a mean below the still sea: spring tides run from +0.10 down to -0.42 (was ±0.16), neaps from -0.04 to -0.28, so low water bares a wide band of wet sand off every beach and dries the sandbanks, while high water still only laps just above the old waterline and never drowns a beach (Tide.MEAN/LUNAR_AMP/SOLAR_AMP; HIGH/LOW bands follow the mean).
+- Everything that sat at the still sea now follows the tide: dhonis and the trading ship ride the surface (World.SeaY), caustics and the underwater darkening stop at the real sea level, the swash and the foam left on the shallows follow the edge out, and the whole band the tide uncovers is drawn wet (IslandTerrain/IslandWater shaders). Sandbanks sit just above the new wading line (TerrainView.BANK_Y from Tide.LOW).
+
 ### Unity: sandbanks that dry at low tide, a 4-minute tide (PR #6)
 - Ahmed chose to see the sandbanks: the reef flats on the short ways between two islands (up to 8 flats long, one tile either side) now lie just under the sea instead of 0.7 below it, so they surface as wet, glistening sand bars when the tide drops below the wading line and go under again as it rises (Sim.ComputeSandbanks, TerrainView.TileY/BANK_Y, IslandTerrain shader bankWet). Their crests rise and dip a little, so they dry in bars and pools.
 - Wading now follows those same banks: at low tide residents cross only where a sandbank joins the islands (Sim.Bank is land plus sandbanks). Raising or lowering a reef flat updates the banks.

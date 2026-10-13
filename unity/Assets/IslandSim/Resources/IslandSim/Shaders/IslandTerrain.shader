@@ -145,7 +145,7 @@ Shader "IslandSim/Terrain"
                 // back down; between waves it draws back a little below the still waterline
                 float sd = ShoreD(xz); float4 wf = WaveFront(xz, _IsTime); float jit = SwashJit(xz, _IsTime) * (1.0 - smoothstep(0.0, 0.8, sd));
                 float rel = sd - SwashEdge(wf) + jit;   // rel > 0: under the sea
-                float near = (1.0 - smoothstep(0.35, 0.6, wp.y)) * (1.0 - smoothstep(1.0, 1.6, -sd)) * (1.0 - smoothstep(1.5, 2.5, sd));
+                float near = (1.0 - smoothstep(0.35, 0.6, wp.y)) * (1.0 - smoothstep(1.0, 1.6, -sd)) * (1.0 - smoothstep(1.5, 2.5, sd + _IsTideSd));   // follows the tide out over the shelf
                 float dpt = IS_WATER_Y - wp.y;                                                   // depth under the still sea
                 float onBeach = near * smoothstep(0.005, -0.005, dpt);                           // above it: the beach's own
                 float cov = near * smoothstep(-0.01, 0.05, rel);
@@ -168,13 +168,13 @@ Shader "IslandSim/Terrain"
                 float wet = max(cov, onBeach * (1.0 - smoothstep(0.0, 0.95, -sd)) * 0.55);   // sand stays damp where the sea last reached
                 wet = max(wet, drained * 0.85);
                 // a sandbank bared by the falling tide out in the lagoon is soaked and glistening
-                float bankWet = smoothstep(0.3, 0.8, sd) * smoothstep(-0.16, -0.1, dpt) * (1.0 - smoothstep(-0.002, 0.0, dpt));
+                float bankWet = smoothstep(0.3, 0.8, sd) * smoothstep(-0.62, -0.45, dpt) * (1.0 - smoothstep(-0.002, 0.0, dpt));   // the whole band the tide uncovers
                 wet = max(wet, bankWet * 0.9);
                 gAlb *= lerp(1.0, half3(0.80, 0.75, 0.66), wet);
                 float net = 0.0;
                 [branch] if (sheet > 0.001) net = sheet * FoamNet(xz, _IsTime) * FoamFresh(wf) * 0.6;   // the shallows' foam lace rides up with the sheet
                 float froth = saturate(edge + mark * 0.55 + streak * 0.35 + net);
-                gAlb = lerp(gAlb, half3(0.95, 0.97, 0.98), froth); if (wp.y < -0.05) gAlb *= 0.92;
+                gAlb = lerp(gAlb, half3(0.95, 0.97, 0.98), froth); if (wp.y < IS_WATER_Y - 0.07) gAlb *= 0.92;
                 half3 albedo = gAlb * i.tint;
                 float rough = lerp(lerp(lerp(gRough, 0.5, wet), 0.26, drained), 0.3, bankWet * 0.8);
                 // the layers' normal maps on a tangent frame along +x
@@ -183,7 +183,7 @@ Shader "IslandSim/Terrain"
                 float3 n = normalize(Tg * tn.x + Bg * tn.y + gWN * tn.z);
                 // caustics play on the lagoon floor
                 half boost = 1;
-                if (wp.y < 0.02) { float dpt = 0.02 - wp.y; float c = Caustic(xz * 0.9, _IsTime * 0.55); boost = 1.0 + c * 2.2 * exp(-dpt * 0.9) * smoothstep(0.0, 0.15, dpt); }
+                if (wp.y < IS_WATER_Y) { float dpt = IS_WATER_Y - wp.y; float c = Caustic(xz * 0.9, _IsTime * 0.55); boost = 1.0 + c * 2.2 * exp(-dpt * 0.9) * smoothstep(0.0, 0.15, dpt); }
                 half3 col = IslandShade(wp, n, albedo, 0, 1.0 - rough, GetNormalizedScreenSpaceUV(i.positionCS), boost);
                 // the sheet on the sand is the sea's own surface: its reflection hands over to the water's as it deepens
                 [branch] if (sheet * (1.0 - froth) > 0.001)

@@ -12,13 +12,15 @@ namespace IslandSim.Core
         // One full tide (high to high) every CYCLE_SECONDS: 12.42 h in 4 minutes at 1×, eight game days (Ahmed chose 4 min).
         public const double CYCLE_SECONDS = 240;
         const double HOURS_PER_SEC = 12.4206 / CYCLE_SECONDS;
-        // In world units (1 tile = 1 m across; a beach stands 0.26 above the still sea, so a real metre-high tide would
-        // drown every beach): spring range 0.32, neap range 0.16.
-        public const double LUNAR_AMP = 0.12, SOLAR_AMP = 0.04;
+        // In world units (1 tile = 1 m across; a beach stands 0.26 above the still sea). The tide swings round a mean below
+        // the still sea, so low water bares a wide band of sand and the sandbanks while high water only just laps above
+        // the old waterline: springs run from +0.10 down to -0.42, neaps from -0.04 to -0.28. Ahmed asked for low tide to
+        // reveal more.
+        public const double MEAN = -0.16, LUNAR_AMP = 0.19, SOLAR_AMP = 0.07;
 
-        // Gameplay bands: above HIGH a laden dhoni clears the reef flats; below LOW the sandbanks (height -1) dry enough to
-        // wade. Even a neap tide (range 0.16) passes both, so every tide gives a crossing window either way.
-        public const double HIGH = 0.06, LOW = -0.06;
+        // Gameplay bands: above HIGH a laden dhoni clears the reef flats; below LOW the sandbanks dry enough to wade
+        // (TerrainView.BANK_Y sits just above LOW, so they are seen to dry). Even a neap tide (range 0.24) passes both.
+        public const double HIGH = MEAN + 0.08, LOW = MEAN - 0.08;
         public static bool IsHigh(double simSeconds) => Level(simSeconds) > HIGH;
         public static bool IsLow(double simSeconds) => Level(simSeconds) < LOW;
 
@@ -28,7 +30,7 @@ namespace IslandSim.Core
         public static double Level(double simSeconds, double phase = 0)
         {
             double h = Hours(simSeconds);
-            return LUNAR_AMP * Math.Cos(2 * Math.PI * h / 12.4206 + phase) + SOLAR_AMP * Math.Cos(2 * Math.PI * h / 12.0 + phase);
+            return MEAN + LUNAR_AMP * Math.Cos(2 * Math.PI * h / 12.4206 + phase) + SOLAR_AMP * Math.Cos(2 * Math.PI * h / 12.0 + phase);
         }
 
         /// <summary>Rising or falling right now, and the sim seconds until the next turn of the tide (high or low water).</summary>

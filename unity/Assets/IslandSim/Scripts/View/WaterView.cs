@@ -29,7 +29,7 @@ namespace IslandSim.View
         public void SetTide(float h)
         {
             Renderer.transform.localPosition = new Vector3(0, h, 0);
-            Shader.SetGlobalFloat(IdSeaY, WATER_Y + h);
+            SeaY = WATER_Y + h; Shader.SetGlobalFloat(IdSeaY, SeaY);
             float d = -h;   // out: the shelf drops 0.38 per tile for its first quarter tile, then 0.04 + 0.22 per tile (TerrainView.Coast)
             Shader.SetGlobalFloat(IdTideSd, h >= 0 ? h / 0.8f : -(d <= 0.095f ? d / 0.38f : (d - 0.04f) / 0.22f));
         }

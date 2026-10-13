@@ -13,6 +13,8 @@ namespace IslandSim.View
     {
         public const float LVL = 0.4f, DEPTH = 0.62f;   // world units per height level on land / under water
         public const float WATER_Y = 0.02f;
+        /// <summary>The sea surface right now: WATER_Y plus the tide (set by WaterView.SetTide). Boats ride on it.</summary>
+        public static float SeaY = WATER_Y;
         public const int CH = 64;                        // terrain, plant and building chunks are 64×64 tiles
         public static readonly int CXN = (Defs.W + CH - 1) / CH, CYN = (Defs.H + CH - 1) / CH;
 
