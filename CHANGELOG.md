@@ -4,6 +4,14 @@ Newest first. Each entry says what changed for the player and where the code liv
 
 ## 2026-10-13
 
+### Unity: one gentle beach slope, and a shore that works in real heights (PR #6)
+- Ahmed's low-tide screenshot showed a steep step in the beach with a gap at the water. He chose "one gentle slope" and "terrain-true waves".
+- Beach: one gentle run of sand from the palm line out under the lagoon (0.30 per tile on the sand easing to 0.22 under water, no lip at the old waterline), its top rounded into the land behind (TerrainView.Coast). Dug ground still drops away, now at 0.9 per tile instead of 1.5 so a deep lagoon beside a beach is a bank rather than a cliff.
+- Trees, bushes and buildings stand on the drawn ground (TerrainView.SurfaceY, the mesh's own triangles; World.StandY), so nothing floats over the lowered sand.
+- The shore now works in heights instead of distances from the coastline (IslandShore.hlsl): the water meets the ground wherever the ground really is, at any tide and on any slope, so a falling tide can no longer leave a dry gap. Each wave runs up the sand to a height above the sea (RunUpH), so it runs far up a gentle beach and only a little way up a steep one, then drains.
+- Incoming swells follow the real water depth under them (from the scene depth): they slow and bunch up as the water shoals, grow taller (Green's law), and break into foam in the last few hands of water (CrestDepth; IslandWater). Spent foam lies over the shallows by depth, and the bared intertidal sand is drawn wet up to the high-water line.
+- No sheet of water is painted on steep banks any more (it showed as a standing wall of water at low tide).
+
 ### Unity: every low tide bares the shallows round the beaches (PR #6)
 - Ahmed still saw too little at low tide, but did not want the reef flats drained. Every low tide now drops the sea to between -0.56 (neaps) and -0.66 (springs), baring two to three tiles of wet sand round each beach and islet edge while the reef flats (-0.74) stay under water; high water still only laps just above the old waterline (Tide.MEAN -0.28, LUNAR_AMP 0.33, SOLAR_AMP 0.05; the wading and crossing bands are MEAN ± 0.15). The uncovered band is drawn wet up to its full height (IslandTerrain bankWet).
 

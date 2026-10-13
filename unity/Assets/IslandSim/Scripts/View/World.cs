@@ -15,6 +15,11 @@ namespace IslandSim.View
         public const float WATER_Y = 0.02f;
         /// <summary>The sea surface right now: WATER_Y plus the tide (set by WaterView.SetTide). Boats ride on it.</summary>
         public static float SeaY = WATER_Y;
+        /// <summary>Height of the drawn ground at a point in tile space (TerrainView.SurfaceY), once the terrain is built.</summary>
+        public static System.Func<float, float, float> Surface;
+        /// <summary>Where an object standing at this spot sits: never above the drawn ground, so nothing floats over the
+        /// gently sloping beach.</summary>
+        public static float StandY(float x, float z, float y) => Surface != null ? Mathf.Min(y, Surface(x, z)) : y;
         public const int CH = 64;                        // terrain, plant and building chunks are 64×64 tiles
         public static readonly int CXN = (Defs.W + CH - 1) / CH, CYN = (Defs.H + CH - 1) / CH;
 

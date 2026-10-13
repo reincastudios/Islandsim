@@ -143,17 +143,18 @@ Shader "IslandSim/Terrain"
                 // swash: the sea ends at one moving edge, shared with the water. As each wave arrives the edge runs up the
                 // sand as a sheet of the same water (same ripples, reflection and glint, same foam fringe), then drains
                 // back down; between waves it draws back a little below the still waterline
-                float sd = ShoreD(xz); float4 wf = WaveFront(xz, _IsTime); float jit = SwashJit(xz, _IsTime) * (1.0 - smoothstep(0.0, 0.8, sd));
-                float rel = sd - SwashEdge(wf) + jit;   // rel > 0: under the sea
-                float near = (1.0 - smoothstep(0.35, 0.6, wp.y)) * (1.0 - smoothstep(1.0, 1.6, -sd)) * (1.0 - smoothstep(1.5, 2.5, sd + _IsTideSd));   // follows the tide out over the shelf
-                float dpt = IS_WATER_Y - wp.y;                                                   // depth under the still sea
+                float sd = ShoreD(xz); float4 wf = WaveFront(xz, _IsTime); float jit = JitH(xz, _IsTime);
+                float rel = (IS_WATER_Y + RunUpH(xz, wf) + jit - wp.y) / 0.25;                 // > 0: under the sea or the running wave
+                float near = (1.0 - smoothstep(0.35, 0.6, wp.y)) * (1.0 - smoothstep(1.0, 1.6, -sd)) * (1.0 - smoothstep(3.5, 4.5, sd));   // the beach and the shelf the tide uncovers
+                float dpt = IS_WATER_Y - wp.y;                                                   // depth under the sea right now
                 float onBeach = near * smoothstep(0.005, -0.005, dpt);                           // above it: the beach's own
-                float cov = near * smoothstep(-0.01, 0.05, rel);
+                // a wave only spreads into a sheet on sloping sand: on a steep bank it is just a line, and the sea itself draws the rest
+                float cov = near * smoothstep(-0.01, 0.05, rel) * smoothstep(0.72, 0.9, gWN.y);
                 float sheet = cov * SheetFade(dpt);                                              // the water takes over as it deepens
                 float edge = near * (1.0 - smoothstep(0.0, 0.03, dpt)) * EdgeFoam(xz, _IsTime, rel, wf);
                 // as the sheet drains it leaves a bubbly line where it stopped, foam streaks pulled back toward the sea,
                 // and a band of glistening sand between the line and the retreating water
-                float R = WaveReach(xz), top = sd + R + jit;                                    // 0 at the highest reach
+                float top = (wp.y - IS_WATER_Y - RunMax(xz) - jit) / 0.25;                      // 0 at the highest reach, + above it
                 float drain = smoothstep(0.55, 0.64, wf.x) * (1.0 - smoothstep(0.78, 1.0, wf.x));
                 float bub = smoothstep(0.3, 0.7, vn(xz * 22.0) * 0.7 + vn(xz * 9.0) * 0.3);
                 float mark = onBeach * drain * exp(-top * top / 0.0012) * bub;
@@ -164,11 +165,11 @@ Shader "IslandSim/Terrain"
                     float2 gd = float2(ShoreD(xz + ge.xy) - ShoreD(xz - ge.xy), ShoreD(xz + ge.yx) - ShoreD(xz - ge.yx)); gd /= max(length(gd), 1e-3);
                     streak *= smoothstep(0.62, 0.85, vn(float2(dot(xz, float2(-gd.y, gd.x)) * 11.0, dot(xz, gd) * 1.6 + wf.x * 5.0)));
                 }
-                float drained = onBeach * step(rel, 0.0) * smoothstep(-0.03, 0.02, top) * drain;
-                float wet = max(cov, onBeach * (1.0 - smoothstep(0.0, 0.95, -sd)) * 0.55);   // sand stays damp where the sea last reached
+                float drained = onBeach * step(rel, 0.0) * smoothstep(-0.03, 0.02, -top) * drain;
+                float wet = max(cov, onBeach * (1.0 - smoothstep(0.0, 0.95, top)) * 0.55);   // sand stays damp a little above where the waves reach
                 wet = max(wet, drained * 0.85);
-                // a sandbank bared by the falling tide out in the lagoon is soaked and glistening
-                float bankWet = smoothstep(0.3, 0.8, sd) * smoothstep(-0.85, -0.7, dpt) * (1.0 - smoothstep(-0.002, 0.0, dpt));   // the whole band the tide uncovers
+                // the intertidal: ground below the high-water line that the falling tide has bared is soaked and glistening
+                float bankWet = step(dpt, 0.0) * (1.0 - smoothstep(IS_STILL_Y + 0.07, IS_STILL_Y + 0.13, wp.y)) * smoothstep(-0.6, 0.2, sd);   // the whole band the tide uncovers
                 wet = max(wet, bankWet * 0.9);
                 gAlb *= lerp(1.0, half3(0.80, 0.75, 0.66), wet);
                 float net = 0.0;

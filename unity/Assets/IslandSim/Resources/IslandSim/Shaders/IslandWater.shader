@@ -82,15 +82,19 @@ Shader "IslandSim/Water"
                 // over open water, glassy where it thins
                 float chop = lerp(0.22, 0.55, smoothstep(0.2, 1.0, depth)) * lerp(0.3, 1.0, smoothstep(0.0, 0.3, thin));
                 float2 sl = Ripples(p, _IsTime) * chop;
-                // the swell of the shared wave cycle rolls in and steepens as the water shoals; faint ripples further out
-                float sd = ShoreD(p); float4 wf = WaveFront(p, _IsTime); float jit = SwashJit(p, _IsTime) * (1.0 - smoothstep(0.0, 0.8, sd));
-                float rel = sd - wf.y + jit;                 // the incoming swell's crest
-                float relE = sd - SwashEdge(wf) + jit;       // the sea's moving edge: no water landward of it (relE < 0)
+                // the swell of the shared wave cycle, in the real water depth under this pixel (so it follows the ground and
+                // the tide): it slows and bunches up as the water shoals, grows taller (Green's law, height ~ depth^-1/4) and
+                // breaks in the last few hands of water; faint ripples further out
+                float sd = ShoreD(p); float4 wf = WaveFront(p, _IsTime); float jit = JitH(p, _IsTime);
+                float relE = (thin + RunUpH(p, wf) + jit) / 0.25;   // the sea's moving edge: no water where the wave has drawn back (relE < 0)
                 float cover = smoothstep(-0.01, 0.05, relE);
                 float2 ge = float2(0.25, 0.0);
                 float2 gd = float2(ShoreD(p + ge.xy) - ShoreD(p - ge.xy), ShoreD(p + ge.yx) - ShoreD(p - ge.yx)); gd /= max(length(gd), 1e-3);
-                float crest = wf.y > 0.0 ? exp(-rel * rel / 0.05) * (1.0 - smoothstep(1.4, 2.4, wf.y)) : 0.0;
-                sl += gd * (-2.0 * rel / 0.05) * crest * 0.05;
+                float cD = CrestDepth(wf), cW = 0.03 + 0.35 * cD;   // the crest's depth and its width (in depth), narrower as it slows
+                float rel = (thin - cD) / cW;                        // the incoming swell's crest: 0 on it, + seaward
+                float crest = wf.x < 0.45 ? exp(-rel * rel) * smoothstep(0.0, 0.08, thin) : 0.0;
+                float grow = clamp(pow(max(cD, 0.04) / 0.6, -0.25), 1.0, 2.0);
+                sl += gd * (-2.0 * rel) * crest * 0.03 * grow;
                 float ph = sd / 1.3 + _IsTime * 0.19 + WaveNz(p) * 0.9;
                 sl += gd * sin(6.2832 * ph) * smoothstep(1.2, 2.2, sd) * (1.0 - smoothstep(3.0, 5.0, sd)) * 0.05 * vn(p * 0.4 + 3.0);   // faint, and only here and there
                 float3 n = normalize(float3(sl.x, 1.0, -sl.y));                 // tile-space slope, as a Unity normal
@@ -127,9 +131,10 @@ Shader "IslandSim/Water"
                 // the foam fringe on the sea's moving edge (the beach draws the same fringe once the edge is up the sand)
                 float edge = EdgeFoam(p, _IsTime, relE, wf) * smoothstep(0.0, 0.03, thin);
                 float lace = smoothstep(0.38, 0.78, fn);
-                float band = wf.x < 0.45 ? smoothstep(-0.03, 0.0, rel) * (1.0 - smoothstep(0.0, 0.1 + 0.35 * wf.z, rel)) * wf.z * lace * smoothstep(0.3, 0.6, vn(p * 0.8 + _IsTime * 0.05)) : 0.0;   // broken along the shore, never a ruled line   // the swell tips over into foam as it reaches the beach
+                // the swell tips over into foam once it is taller than the water is deep, broken along the shore, never a ruled line
+                float band = wf.x < 0.45 ? smoothstep(0.16, 0.05, cD) * smoothstep(-1.2, 0.0, rel) * (1.0 - smoothstep(0.0, 1.0 + 1.5 * wf.z, rel)) * lace * smoothstep(0.3, 0.6, vn(p * 0.8 + _IsTime * 0.05)) * smoothstep(0.0, 0.05, thin) : 0.0;
                 float remnant = 0.0;   // spent foam: a lacy net drifting over the shallows, the same net the beach sheet carries
-                [branch] if (sd + _IsTideSd < 1.8) remnant = cover * (1.0 - SheetFade(thin)) * (1.0 - smoothstep(0.4, 1.8, sd + _IsTideSd)) * FoamNet(p, _IsTime) * FoamFresh(wf) * 0.6;
+                [branch] if (thin < 0.45) remnant = cover * (1.0 - SheetFade(thin)) * (1.0 - smoothstep(0.08, 0.45, thin)) * FoamNet(p, _IsTime) * FoamFresh(wf) * 0.6;   // in the shallows the waves have broken over
                 // surf on the reef crests, away from the beaches: patches that flare and fade as sets break (no rings)
                 float reefC = smoothstep(0.12, 0.35, g) * (1.0 - smoothstep(0.35, 0.7, depth)) * smoothstep(1.2, 2.5, sd)
                             * smoothstep(0.55, 0.85, fn) * (0.45 + 0.55 * sin(_IsTime * 0.9 + WaveNz(p) * 6.2832));

@@ -33,7 +33,8 @@ float ShoreD(float2 p)
 float WaveNz(float2 p) { return vn(p * 0.35) * 0.6 + vn(p * 0.9 + 3.1) * 0.4; }
 // One wave, start to finish, shared by the water and the beach so they move as one: every ~5 s (offset along the shore)
 // a swell rolls in from 2.4 tiles out, breaks at the waterline, runs up the sand as a thin sheet, then drains back.
-// x = phase in the cycle, y = where the wave's front is (tiles from the shoreline, + = out to sea),
+// x = phase in the cycle, y = where the wave's front would be on the old distance field (no longer read: the shore now
+// works in heights, see IslandShore.hlsl),
 // z = how much foam rides on the front, w = how much water covers the sand behind it.
 // how far up the sand this stretch of beach's waves run (tiles)
 float WaveReach(float2 p) { return 0.8 * (0.7 + 0.6 * vn(p * 0.6 + 7.0)); }

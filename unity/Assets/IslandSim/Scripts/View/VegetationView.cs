@@ -92,6 +92,7 @@ namespace IslandSim.View
         Matrix4x4 cur; float curH;
         void Set(float px, float py, float pz, float rx, float ry, float sx, float sy, float sz)
         {
+            py = StandY(px, pz, py);
             cur = U(TRS(new Vector3(px, py, pz), rx, ry, 0, new Vector3(sx, sy, sz))); curH = Hash(Mathf.FloorToInt(px * 4), Mathf.FloorToInt(pz * 4), 31);
         }
         void Push(string k, Color? col = null)

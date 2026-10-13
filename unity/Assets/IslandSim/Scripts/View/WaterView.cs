@@ -23,15 +23,13 @@ namespace IslandSim.View
             { var n = Mats.T("water_normal"); if (Mat != null) Mat.SetTexture("_WaterNormal", n); Shader.SetGlobalTexture("_IsWaterNormal", n); }   // global: the beach draws the same ripples on the sheet of each wave
         }
 
-        static readonly int IdSeaY = Shader.PropertyToID("_IsSeaY"), IdTideSd = Shader.PropertyToID("_IsTideSd");
-        /// <summary>Lifts the sea by the tide (world units above WATER_Y) and tells the water and beach shaders where the
-        /// water's edge has moved to: up the beach at 0.8 per tile when the tide is in, out over the shelf when it's out.</summary>
+        static readonly int IdSeaY = Shader.PropertyToID("_IsSeaY");
+        /// <summary>Lifts the sea by the tide (world units above WATER_Y). The water and the beach find their edge from the
+        /// ground's height against this level, so nothing else needs to move.</summary>
         public void SetTide(float h)
         {
             Renderer.transform.localPosition = new Vector3(0, h, 0);
             SeaY = WATER_Y + h; Shader.SetGlobalFloat(IdSeaY, SeaY);
-            float d = -h;   // out: the shelf drops 0.38 per tile for its first quarter tile, then 0.04 + 0.22 per tile (TerrainView.Coast)
-            Shader.SetGlobalFloat(IdTideSd, h >= 0 ? h / 0.8f : -(d <= 0.095f ? d / 0.38f : (d - 0.04f) / 0.22f));
         }
 
         /// <summary>Refraction reads the scene behind the water (High and Ultra); without it the sea is blended over the floor.</summary>

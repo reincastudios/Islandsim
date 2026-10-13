@@ -144,25 +144,28 @@ namespace IslandSim.View
             return f + (Hash(x, y, 57) - .5f) * Mathf.Clamp01((WATER_Y - f) * .3f) * .28f;
         }
 
-        // The coast follows the smooth shoreline field (the one the waves use), not the tile grid: near the waterline every
-        // vertex takes its height from its distance to that line, so the water's edge curves round the island instead of
-        // stepping tile by tile. The beach rises quickly to the tile height inland, and seaward the sand shelves gently for
-        // three to four tiles, so the water thins to clear over it (look only; the sim's tiles are unchanged).
-        const float SHELF_TOP = WATER_Y - 0.04f, SHELF_SLOPE = 0.22f, SHELF_REACH = 3.6f, BEACH_SLOPE = 0.8f, DUG_SLOPE = 1.5f;
+        // The coast follows the smooth shoreline field (the one the waves use), not the tile grid, so the water's edge curves
+        // round the island instead of stepping tile by tile. Like a Maldivian lagoon beach it is one gentle slope from the
+        // palm line out under the lagoon: 0.30 per tile on the sand easing to 0.22 under water, with no steep face, so the
+        // tide uncovers it evenly (Ahmed chose the gentle slope). The top of the beach rounds into the land behind it.
+        // Look only: the sim's tiles are unchanged.
+        const float SHELF_TOP = WATER_Y - 0.04f, SHELF_SLOPE = 0.22f, SHELF_REACH = 3.6f, BEACH_SLOPE = 0.30f, DUG_SLOPE = 0.9f;
         float Coast(float fx, float fy, float y)
         {
             float sd = ShoreAt(fx, fy);
+            if (sd >= SHELF_REACH) return y;
+            float g = Mathf.Lerp(BEACH_SLOPE, SHELF_SLOPE, Mathf.SmoothStep(0, 1, sd + .5f));
             if (sd >= 0)
             {
-                if (sd >= SHELF_REACH) return y;
                 // ground dug deeper than a reef flat (a dredged canal, a harbour basin, a lagoon drop-off) keeps its depth:
                 // the shelf drops steeply there instead of filling the hole back up with sand
-                float slope = Mathf.Lerp(SHELF_SLOPE, DUG_SLOPE, Mathf.Clamp01((TopY(-1) - y) / (TopY(-1) - TopY(-2))));
-                float shelf = WATER_Y - slope * sd - 0.04f * Mathf.Min(sd / 0.25f, 1);
+                float slope = Mathf.Lerp(g, DUG_SLOPE, Mathf.Clamp01((TopY(-1) - y) / (TopY(-1) - TopY(-2))));
+                float shelf = WATER_Y - slope * sd;
                 return y > WATER_Y ? shelf : Mathf.Max(y, shelf);
             }
-            float beach = WATER_Y + BEACH_SLOPE * -sd;
-            return Mathf.Min(y > WATER_Y ? y : TopY(0), beach);
+            float beach = WATER_Y - g * sd, land = y > WATER_Y ? y : TopY(0);
+            const float k = .08f; float hk = Mathf.Max(k - Mathf.Abs(land - beach), 0) / k;   // soft min: the beach's top rounds into the land
+            return Mathf.Min(land, beach) - hk * hk * k * .25f;
         }
         // signed distance to the coastline in tiles at a point in tile space, bilinear like the shaders' ShoreD
         float ShoreAt(float fx, float fy)
@@ -174,12 +177,32 @@ namespace IslandSim.View
         }
         public float CAt(int x, int y) => CornerY[Mathf.Clamp(y, 0, H) * (W + 1) + Mathf.Clamp(x, 0, W)];
 
-        /// <summary>Height of the ground (or the sea surface) at any point, from the corner heights.</summary>
-        public float GroundY(float fx, float fy)
+        /// <summary>Height of the ground (or the sea surface) at any point.</summary>
+        public float GroundY(float fx, float fy) => Mathf.Max(SeaY, SurfaceY(fx, fy));
+
+        /// <summary>Height of the drawn ground at any point: the same four triangles round each tile's centre as the mesh,
+        /// so trees and buildings stand on the sand exactly where it is drawn.</summary>
+        public float SurfaceY(float fx, float fy)
         {
-            int x0 = Mathf.FloorToInt(fx), y0 = Mathf.FloorToInt(fy); float tx = fx - x0, ty = fy - y0;
-            float a = CAt(x0, y0), b = CAt(x0 + 1, y0), c = CAt(x0, y0 + 1), d = CAt(x0 + 1, y0 + 1);
-            return Mathf.Max(WATER_Y, a + (b - a) * tx + (c - a) * ty + (a - b - c + d) * tx * ty);
+            int X = Mathf.FloorToInt(fx), Y = Mathf.FloorToInt(fy); float u = fx - X, v = fy - Y;
+            float a = CAt(X, Y), b = CAt(X + 1, Y), c = CAt(X, Y + 1), d = CAt(X + 1, Y + 1), m = CentreY(X, Y);
+            float p0, p1, s, t;   // the triangle's two corners, then how far along its outer edge and in toward the centre
+            if (v <= u && v <= 1 - u) { p0 = a; p1 = b; s = u; t = v; }
+            else if (u >= v && u >= 1 - v) { p0 = b; p1 = d; s = v; t = 1 - u; }
+            else if (v >= u && v >= 1 - u) { p0 = c; p1 = d; s = u; t = 1 - v; }
+            else { p0 = a; p1 = c; s = v; t = u; }
+            return p0 * (1 - s - t) + p1 * (s - t) + m * 2 * t;
+        }
+        float CentreY(int X, int Y)
+        {
+            if (!Sim.Inb(X, Y)) return TopY(-3);
+            int i = Sim.Idx(X, Y); float ty = TileY(i);
+            if (S.Hgt[i] < 0)
+            {
+                float c0 = CAt(X, Y), c1 = CAt(X + 1, Y), c2 = CAt(X, Y + 1), c3 = CAt(X + 1, Y + 1);
+                if (Mathf.Max(Mathf.Max(c0, c1), Mathf.Max(c2, c3)) < WATER_Y - .1f) ty = Mathf.Lerp(ty, (c0 + c1 + c2 + c3) * .25f, .6f);
+            }
+            return Coast(X + .5f, Y + .5f, ty);
         }
 
         readonly float[] spl = new float[7], acc = new float[7];
@@ -205,15 +228,9 @@ namespace IslandSim.View
                 for (int x = 0; x < w; x++)
                 {
                     int X = x0 + x, Y = y0 + y, v = nc + y * w + x;
-                    int hh = S.Hgt[Sim.Idx(X, Y)]; float ty = TileY(Sim.Idx(X, Y));
-                    if (hh < 0)
-                    {
-                        // out in open water the floor rolls in mounds and hollows instead of tile-sized steps; a tile dug into
-                        // the land (its corners on the beach) keeps its own depth so the hole shows
-                        float c0 = CAt(X, Y), c1 = CAt(X + 1, Y), c2 = CAt(X, Y + 1), c3 = CAt(X + 1, Y + 1);
-                        if (Mathf.Max(Mathf.Max(c0, c1), Mathf.Max(c2, c3)) < WATER_Y - .1f) ty = Mathf.Lerp(ty, (c0 + c1 + c2 + c3) * .25f, .6f);
-                    }
-                    c.Pos[v].y = Coast(X + .5f, Y + .5f, ty); c.Col[v] = TileTint(X, Y);
+                    // out in open water the floor rolls in mounds and hollows instead of tile-sized steps; a tile dug into the
+                    // land (its corners on the beach) keeps its own depth so the hole shows (CentreY)
+                    c.Pos[v].y = CentreY(X, Y); c.Col[v] = TileTint(X, Y);
                     TileSplat(X, Y, spl); c.S0[v] = new Vector4(spl[0], spl[1], spl[2], spl[3]); c.S1[v] = new Vector4(spl[4], spl[5], spl[6], 0);
                     float nx = -(CAt(X + 1, Y) + CAt(X + 1, Y + 1) - CAt(X, Y) - CAt(X, Y + 1)) / 2, nz = -(CAt(X, Y + 1) + CAt(X + 1, Y + 1) - CAt(X, Y) - CAt(X + 1, Y)) / 2;
                     c.Nrm[v] = U(new Vector3(nx, 1, nz).normalized);

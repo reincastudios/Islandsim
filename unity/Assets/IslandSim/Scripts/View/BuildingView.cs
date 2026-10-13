@@ -61,7 +61,7 @@ namespace IslandSim.View
             {
                 ids.Add(b.Id); if (live.ContainsKey(b.Id)) continue;
                 var c = Sim.PlotCentre(b); float scale = b.Type == BType.House || b.Def.Unit ? 1 : 1.25f;
-                var at = new Vector3((float)c.x, TopY(S.Hgt[Sim.Idx(b.X, b.Y)]), (float)c.y);
+                var at = new Vector3((float)c.x, StandY((float)c.x, (float)c.y, TopY(S.Hgt[Sim.Idx(b.X, b.Y)])), (float)c.y);
                 var bk = new Baked { Key = ChunkKey(b), Type = b.Type, X = b.X, Y = b.Y, Scale = scale, Pip = at + new Vector3(0, 1.05f * scale, 0) };
                 if (b.Type != BType.Harbor)
                 {

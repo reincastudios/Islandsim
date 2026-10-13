@@ -41,7 +41,7 @@ namespace IslandSim.View
             try { var a = Read(Auto); if (a != null) { S.LoadJson(a); Rig.Load(S); auto = true; } } catch (Exception e) { Debug.Log("[Island Sim] Autosave not loaded: " + e.Message); }
             if (!auto) { S.NewGame(); Rig.Home(S); }
 
-            terrain = new TerrainView(S, world);
+            terrain = new TerrainView(S, world); terrain.Sync(); World.Surface = terrain.SurfaceY;
             groundY = terrain.GroundY;
             Shader.SetGlobalTexture("_IsShore", terrain.ShoreTex); Shader.SetGlobalTexture("_IsDepth", terrain.DepthTex);
             water = new WaterView(world);
