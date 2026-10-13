@@ -4,6 +4,10 @@ Newest first. Each entry says what changed for the player and where the code liv
 
 ## 2026-10-13
 
+### Unity: Maldivian sea colours, no more parallel surf lines (PR #6)
+- The parallel white lines along the shore are gone. They were the reef-crest surf, drawn as rings by depth (sin(depth * 40)) right along the beaches; reef surf now only shows on reef crests away from the beaches, as patches that flare and fade. The incoming swell's foam crest is broken up along the shore, and the faint swell ripples near the coast only appear here and there.
+- New palette: clear over white sand at the edge, bright aquamarine over the shelf and reef flats, turquoise in the lagoon, and a deep royal blue in the open ocean past the reef (IslandWater: absorption 1.25/0.20/0.12, OCEAN colour blended in with depth). Lagoon floors are white coral sand (TerrainView tints for heights -2 and -3), so the lagoon glows. The low-quality water and the minimap use the same palette.
+
 ### Unity: the water's edge is the wave (PR #6)
 - Before, the sea's edge stood still while a separate pale film slid up the sand. Now the sea ends at one moving edge that the water and the beach share (SwashEdge in the new IslandShore.hlsl): as a swell rolls in the water draws back a little, then the wave pushes the edge up the sand and drains back down. Landward of the edge the water shows only wet sand.
 - The sheet of water on the sand is drawn as the sea's own surface: the same ripples from the ocean normal map (now a global texture), the same sky reflection and sun glint, and the same foam fringe (EdgeFoam) riding the edge. The beach draws the surface where the water is thin and the sea fades in over it as it deepens (SheetFade), so it is drawn exactly once across the waterline.

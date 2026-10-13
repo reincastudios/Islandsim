@@ -839,7 +839,8 @@ namespace IslandSim.View
         // ------------------------------------------------------------ minimap
         Color32[] miniBase, miniFrame; bool miniBaseOk;
         static Color32 RGB(int r, int g, int b) => new Color32((byte)r, (byte)g, (byte)b, 255);
-        static readonly Color32[] MCOL = { RGB(19, 74, 94), RGB(31, 125, 140), RGB(79, 196, 192), RGB(241, 227, 191), RGB(156, 196, 106), RGB(201, 180, 138), RGB(179, 154, 112) };
+        static readonly Color32[] MCOL = { RGB(16, 56, 124), RGB(38, 168, 190), RGB(118, 222, 210),   // Maldivian: royal-blue deep, turquoise lagoon, aquamarine shallows
+            RGB(241, 227, 191), RGB(156, 196, 106), RGB(201, 180, 138), RGB(179, 154, 112) };
         static readonly Color32 MC_POND = RGB(92, 120, 96), MC_KULHI = RGB(84, 118, 72), MC_TARO = RGB(176, 206, 110), MC_GRASS = RGB(70, 160, 150), MC_ROAD = RGB(216, 195, 154),
             MC_TREE = RGB(95, 148, 69), MC_HOUSE = RGB(250, 246, 236), MC_HARBOR = RGB(163, 54, 42), MC_WORK = RGB(217, 164, 65);
         // the ground layer is painted only when the map changes; each tick copies it and adds boats and the view outline

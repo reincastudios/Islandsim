@@ -73,7 +73,8 @@ namespace IslandSim.View
         // ------------------------------------------------------------ per-tile look
         static readonly Dictionary<int, Color> Tint = new Dictionary<int, Color>
         {
-            [-3] = Lin("#8a9a9a"), [-2] = Lin("#b8b8a8"), [-1] = Lin("#f2ead6"), [0] = Lin("#ffffff"), [1] = Lin("#ffffff"), [2] = Lin("#f2f4e8"), [3] = Lin("#f0eadc"),
+            [-3] = Lin("#d4d6c8"), [-2] = Lin("#ece6d2"),   // lagoon floors are white coral sand, so the water over them glows turquoise
+            [-1] = Lin("#f2ead6"), [0] = Lin("#ffffff"), [1] = Lin("#ffffff"), [2] = Lin("#f2f4e8"), [3] = Lin("#f0eadc"),
         };
         static readonly Dictionary<int, Color> GtTint = new Dictionary<int, Color>
         { [GT.Kulhi] = Lin("#b9b48a"), [GT.Pond] = Lin("#8c9a74"), [GT.Taro] = Lin("#e6f0c4"), [GT.Seagrass] = Lin("#a9b88e") };
